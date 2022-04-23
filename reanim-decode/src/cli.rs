@@ -35,11 +35,29 @@ use crate::xml::Xml;
 #[clap(author, version, about)]
 pub struct Cli {
     /// Verbosity, for filtering diagnostics messages.
-    #[clap(long, default_value_t = LevelFilter::Info)]
-    pub verbose: LevelFilter,
+    #[clap(long, arg_enum, global = true)]
+    pub verbose: Option<Option<Verbosity>>,
     /// All available subcommands.
     #[clap(subcommand)]
     pub commands: Commands,
+}
+
+/// Output format: JSON and YAML supported, guarded by crate features.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ArgEnum)]
+#[allow(missing_docs)]
+pub enum Verbosity { Off, Error, Warn, Info, Debug, Trace }
+
+impl From<Verbosity> for LevelFilter {
+    fn from(verb: Verbosity) -> Self {
+        match verb {
+            Verbosity::Off => LevelFilter::Off,
+            Verbosity::Error => LevelFilter::Error,
+            Verbosity::Warn => LevelFilter::Warn,
+            Verbosity::Info => LevelFilter::Info,
+            Verbosity::Debug => LevelFilter::Debug,
+            Verbosity::Trace => LevelFilter::Trace,
+        }
+    }
 }
 
 /// Output format: JSON and YAML supported, guarded by crate features.
@@ -104,7 +122,11 @@ impl Cli {
     /// Start command line interface.
     pub fn run() -> Result<()> {
         let args = Cli::parse();
-        setup_logger(args.verbose);
+        setup_logger(match args.verbose {
+            None => LevelFilter::Error, // no '--verbose', only errors
+            Some(None) => LevelFilter::Info, // default '--verbose'
+            Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
+        });
         match args.commands {
             Commands::Decode { file, mut format, output } => {
                 // open input & decode
