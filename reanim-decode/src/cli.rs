@@ -28,7 +28,6 @@ use fern::colors::Color::*;
 use fern::colors::ColoredLevelConfig;
 use log::LevelFilter;
 use crate::reanim::Animation;
-use crate::stream::Decode;
 use crate::xml::Xml;
 
 /// Entry of the command line interface.
@@ -112,7 +111,7 @@ impl Cli {
                 let file = File::open(&file)
                     .with_context(|| format!("failed to read file {file:?}"))?;
                 let mut file = BufReader::new(file);
-                let anim = Animation::decode(&mut file)?;
+                let anim = Animation::decompress_and_decode(&mut file)?;
 
                 // output file (or stdout)
                 let mut file_output;

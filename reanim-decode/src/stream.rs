@@ -19,7 +19,7 @@
 //! Binary streams for decoding `.reanim.compiled` files.
 
 use std::fmt::{Display, Formatter};
-use std::io::{Read, Seek};
+use std::io::Read;
 use std::string::FromUtf8Error;
 use itertools::Itertools;
 use thiserror::Error;
@@ -139,7 +139,7 @@ impl PlainData for Magic {
 }
 
 /// Stream decoding API on top of [`Read`].
-pub trait Stream: Read + Seek {
+pub trait Stream: Read {
     /// Decode a [`PlainData`] at the start of this stream.
     fn read_data<T: PlainData>(&mut self) -> Result<T> {
         log::trace!("reading plain data '{}'", T::TYPE_NAME);
@@ -194,16 +194,8 @@ pub trait Stream: Read + Seek {
         let mut buffer = vec![0_u8; n];
         self.read_exact(&mut buffer).map_err(|err| IncompleteData("padding", err))?;
         if !buffer.iter().all(|x| *x == 0) {
-            let offset_buffer;
-            let offset_str;
-            if let Ok(offset) = self.stream_position() {
-                offset_buffer = format!("{offset:X}");
-                offset_str = offset_buffer.as_str();
-            } else {
-                offset_str = "unknown position";
-            }
             let buffer = buffer.iter().format(" ");
-            log::warn!("dropped {n} bytes of padding [{hint}] at {offset_str}: {buffer:02X}");
+            log::warn!("dropped {n} bytes of padding [{hint}]: {buffer:02X}");
         } else {
             log::trace!("dropped {n} bytes of zero padding [{hint}]");
         }
@@ -211,7 +203,7 @@ pub trait Stream: Read + Seek {
     }
 }
 
-impl<S: Read + Seek> Stream for S {}
+impl<S: Read> Stream for S {}
 
 /// Common entry for decoding binary data.
 pub trait Decode: Sized {

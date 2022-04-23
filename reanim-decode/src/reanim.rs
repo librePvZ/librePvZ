@@ -18,6 +18,8 @@
 
 //! Definition and decoding logic for `.reanim.compiled` files.
 
+use std::io::BufRead;
+use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 use crate::stream::{Decode, Stream, Result};
 
@@ -28,6 +30,19 @@ pub struct Animation {
     pub fps: f32,
     /// All tracks in this animation.
     pub tracks: Box<[Track]>,
+}
+
+impl Animation {
+    /// Decode a `.reanim` or `.reanim.compiled` file.
+    /// Performs decompression before decoding if necessary.
+    pub fn decompress_and_decode<R: Stream + BufRead + ?Sized>(s: &mut R) -> Result<Animation> {
+        if let Ok([0xD4, 0xFE, 0xAD, 0xDE, ..]) = s.fill_buf() {
+            s.consume(8);
+            Animation::decode(&mut ZlibDecoder::new(s))
+        } else {
+            Animation::decode(s)
+        }
+    }
 }
 
 impl Decode for Animation {
