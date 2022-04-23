@@ -1,0 +1,6 @@
+# ignore for development environment
+.idea/
+target/
+
+# files used for local references
+/references/
