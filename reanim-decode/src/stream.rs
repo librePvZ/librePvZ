@@ -19,8 +19,9 @@
 //! Binary streams for decoding `.reanim.compiled` files.
 
 use std::fmt::{Display, Formatter};
-use std::io::Read;
+use std::io::{Read, Seek};
 use std::string::FromUtf8Error;
+use itertools::Itertools;
 use thiserror::Error;
 
 /// Decoding errors.
@@ -138,10 +139,10 @@ impl PlainData for Magic {
 }
 
 /// Stream decoding API on top of [`Read`].
-pub trait Stream: Read {
+pub trait Stream: Read + Seek {
     /// Decode a [`PlainData`] at the start of this stream.
     fn read_data<T: PlainData>(&mut self) -> Result<T> {
-        log::trace!("reading plain data '{}' ...", T::TYPE_NAME);
+        log::trace!("reading plain data '{}'", T::TYPE_NAME);
         // to work around current limitations around min_const_generics
         let mut buffer = vec![0_u8; T::SIZE_IN_BYTES];
         self.read_exact(&mut buffer).map_err(|err| IncompleteData(T::TYPE_NAME, err))?;
@@ -156,7 +157,7 @@ pub trait Stream: Read {
 
     /// Decode a series of `N` [`Decode`] at the start of this stream.
     fn read_n<T: Decode>(&mut self, n: usize) -> Result<Vec<T>> {
-        log::trace!("reading {n} consecutive elements ...");
+        log::trace!("reading {n} consecutive elements");
         std::iter::repeat_with(|| T::decode(self)).take(n).collect()
     }
 
@@ -189,19 +190,28 @@ pub trait Stream: Read {
     }
 
     /// Drop some information we possibly do not understand yet.
-    fn drop_padding(&mut self, n: usize) -> Result<()> {
+    fn drop_padding(&mut self, hint: &str, n: usize) -> Result<()> {
         let mut buffer = vec![0_u8; n];
         self.read_exact(&mut buffer).map_err(|err| IncompleteData("padding", err))?;
         if !buffer.iter().all(|x| *x == 0) {
-            log::warn!("dropped {n} bytes of padding: {buffer:02X?}");
+            let offset_buffer;
+            let offset_str;
+            if let Ok(offset) = self.stream_position() {
+                offset_buffer = format!("{offset:X}");
+                offset_str = offset_buffer.as_str();
+            } else {
+                offset_str = "unknown position";
+            }
+            let buffer = buffer.iter().format(" ");
+            log::warn!("dropped {n} bytes of padding [{hint}] at {offset_str}: {buffer:02X}");
         } else {
-            log::trace!("dropped {n} bytes of zero padding");
+            log::trace!("dropped {n} bytes of zero padding [{hint}]");
         }
         Ok(())
     }
 }
 
-impl<S: Read> Stream for S {}
+impl<S: Read + Seek> Stream for S {}
 
 /// Common entry for decoding binary data.
 pub trait Decode: Sized {

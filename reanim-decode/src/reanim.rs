@@ -32,16 +32,16 @@ pub struct Animation {
 
 impl Decode for Animation {
     fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Animation> {
-        log::debug!("decoding Animation (XML root node) ...");
+        log::debug!("decoding Animation (XML root node)");
         s.check_magic(0xB3_93_B4_C0)?;
-        s.drop_padding(4)?;
+        s.drop_padding("after-magic", 4)?;
         let track_count = s.read_data::<u32>()? as usize;
         let fps = s.read_data::<f32>()?;
-        s.drop_padding(4)?;
+        s.drop_padding("prop", 4)?;
         s.check_magic(0x0C)?;
         let mut tracks = Vec::with_capacity(track_count);
         let frame_counts = std::iter::repeat_with(|| {
-            s.drop_padding(8)?;
+            s.drop_padding("frame", 8)?;
             s.read_data::<u32>()
         }).take(track_count).collect::<Result<Vec<_>>>()?;
         for frame_count in frame_counts {
@@ -63,7 +63,7 @@ pub struct Track {
 impl Track {
     fn decode_with_frame_count<S: Stream + ?Sized>(s: &mut S, n: usize) -> Result<Self> {
         let name = s.read_string()?;
-        log::debug!("decoding Track '{name}' of length {n} (XML tag <track>) ...");
+        log::debug!("decoding Track '{name}' of length {n} (XML tag <track>)");
         s.check_magic(0x2C)?;
         let transforms = s.read_n::<Transform>(n)?;
         let elements = s.read_n::<Elements>(n)?;
@@ -99,7 +99,7 @@ pub struct Transform {
 
 impl Decode for Transform {
     fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Transform> {
-        log::debug!("decoding Transform (XML tag <t>) ...");
+        log::debug!("decoding Transform (XML tag <t>)");
         let x = s.read_optional::<f32>()?;
         let y = s.read_optional::<f32>()?;
         let kx = s.read_optional::<f32>()?;
@@ -108,7 +108,7 @@ impl Decode for Transform {
         let sy = s.read_optional::<f32>()?;
         let f = s.read_optional::<f32>()?;
         let a = s.read_optional::<f32>()?;
-        s.drop_padding(12)?;
+        s.drop_padding("transform", 12)?;
         Ok(Transform { x, y, kx, ky, sx, sy, f, a })
     }
 }
