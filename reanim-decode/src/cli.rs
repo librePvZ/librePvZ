@@ -18,6 +18,7 @@
 
 //! Command line interface for `reanim-decode`.
 
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::PathBuf;
@@ -65,8 +66,8 @@ pub enum Commands {
         /// File name to open.
         file: PathBuf,
         /// Output format.
-        #[clap(short, long, arg_enum, default_value_t = Format::Xml)]
-        format: Format,
+        #[clap(short, long, arg_enum)]
+        format: Option<Format>,
         /// Output file path.
         #[clap(short, long)]
         output: Option<PathBuf>,
@@ -106,7 +107,7 @@ impl Cli {
         let args = Cli::parse();
         setup_logger(args.verbose);
         match args.commands {
-            Commands::Decode { file, format, output } => {
+            Commands::Decode { file, mut format, output } => {
                 // open input & decode
                 let file = File::open(&file)
                     .with_context(|| format!("failed to read file {file:?}"))?;
@@ -122,6 +123,18 @@ impl Cli {
                     file_output = File::create(&output)
                         .with_context(|| format!("failed to open output file {output:?}"))?;
                     out = &mut file_output;
+                    // infer output format
+                    if format.is_none() {
+                        match output.extension().and_then(OsStr::to_str) {
+                            Some("txt") => format = Some(Format::Internal),
+                            Some("xml") => format = Some(Format::Xml),
+                            #[cfg(feature = "json")]
+                            Some("json") => format = Some(Format::Json),
+                            #[cfg(feature = "yaml")]
+                            Some("yaml") => format = Some(Format::Yaml),
+                            _ => {}
+                        }
+                    };
                 } else {
                     stdout = std::io::stdout();
                     stdout_lock = stdout.lock();
@@ -129,11 +142,11 @@ impl Cli {
                 }
 
                 // write output
-                match format {
+                match format.unwrap_or(Format::Xml) {
                     Format::Internal => writeln!(out, "{anim:#?}"),
                     Format::Xml => write!(out, "{}", Xml(anim)),
                     #[cfg(feature = "json")]
-                    Format::Json => writeln!(out, "{}", serde_json::to_string(&anim)?),
+                    Format::Json => writeln!(out, "{}", serde_json::to_string_pretty(&anim)?),
                     #[cfg(feature = "yaml")]
                     Format::Yaml => writeln!(out, "{}", serde_yaml::to_string(&anim)?),
                 }?
