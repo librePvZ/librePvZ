@@ -24,9 +24,10 @@ use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{ArgEnum, Parser, Subcommand};
-use fern::colors::Color::*;
-use fern::colors::ColoredLevelConfig;
+use fern::colors::{Color::*, ColoredLevelConfig};
 use log::LevelFilter;
+#[cfg(feature = "packed")]
+use libre_pvz_resources::sprite as packed;
 use crate::reanim::Animation;
 use crate::xml::Xml;
 
@@ -65,6 +66,9 @@ impl From<Verbosity> for LevelFilter {
 pub enum Format {
     /// Internal encoding (Rust `{:#?}` debug pretty printing).
     Internal,
+    /// Packed animation format, for use in librePvZ.
+    #[cfg(feature = "packed")]
+    Packed,
     /// XML format as is used in original PvZ game.
     Xml,
     /// JSON format. Guarded by crate feature `json` (enabled by default).
@@ -128,51 +132,59 @@ impl Cli {
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });
         match args.commands {
-            Commands::Decode { file, mut format, output } => {
+            Commands::Decode { file, format, output } => {
                 // open input & decode
                 let file = File::open(&file)
                     .with_context(|| format!("failed to read file {file:?}"))?;
                 let mut file = BufReader::new(file);
                 let anim = Animation::decompress_and_decode(&mut file)?;
 
-                // output file (or stdout)
-                let mut file_output;
-                let stdout;
-                let mut stdout_lock;
-                let out: &mut dyn Write;
-                if let Some(output) = output {
-                    file_output = File::create(&output)
-                        .with_context(|| format!("failed to open output file {output:?}"))?;
-                    out = &mut file_output;
-                    // infer output format
-                    if format.is_none() {
-                        match output.extension().and_then(OsStr::to_str) {
-                            Some("txt") => format = Some(Format::Internal),
-                            Some("xml") => format = Some(Format::Xml),
-                            #[cfg(feature = "json")]
-                            Some("json") => format = Some(Format::Json),
-                            #[cfg(feature = "yaml")]
-                            Some("yaml") => format = Some(Format::Yaml),
-                            _ => {}
-                        }
-                    };
-                } else {
-                    stdout = std::io::stdout();
-                    stdout_lock = stdout.lock();
-                    out = &mut stdout_lock;
-                }
+                // infer output format
+                let format = match format {
+                    Some(format) => format,
+                    None => match output.as_ref()
+                        .and_then(|p| p.extension())
+                        .and_then(OsStr::to_str) {
+                        Some("txt") => Format::Internal,
+                        #[cfg(feature = "packed")]
+                        Some("anim") => Format::Packed,
+                        Some("xml") | Some("reanim") => Format::Xml,
+                        #[cfg(feature = "json")]
+                        Some("json") => Format::Json,
+                        #[cfg(feature = "yaml")]
+                        Some("yaml") => Format::Yaml,
+                        _ => Format::Xml,
+                    }
+                };
 
-                // write output
-                match format.unwrap_or(Format::Xml) {
-                    Format::Internal => writeln!(out, "{anim:#?}"),
-                    Format::Xml => write!(out, "{}", Xml(anim)),
-                    #[cfg(feature = "json")]
-                    Format::Json => writeln!(out, "{}", serde_json::to_string_pretty(&anim)?),
-                    #[cfg(feature = "yaml")]
-                    Format::Yaml => writeln!(out, "{}", serde_yaml::to_string(&anim)?),
-                }?
+                // output file (or stdout)
+                if let Some(output) = output {
+                    let context = || format!("failed to open output file {output:?}");
+                    let file = File::create(&output).with_context(context)?;
+                    encode(anim, format, file)?;
+                } else {
+                    encode(anim, format, std::io::stdout().lock())?;
+                }
             }
         }
         Ok(())
     }
+}
+
+/// Encode the animation into required format.
+pub fn encode(anim: Animation, format: Format, mut output: impl Write) -> anyhow::Result<()> {
+    match format {
+        Format::Internal => writeln!(output, "{anim:#?}")?,
+        #[cfg(feature = "packed")]
+        Format::Packed => {
+            let anim = packed::Animation::from(anim);
+            bincode::encode_into_std_write(anim, &mut output, bincode::config::standard())?;
+        }
+        Format::Xml => write!(output, "{}", Xml(anim))?,
+        #[cfg(feature = "json")]
+        Format::Json => serde_json::to_writer_pretty(output, &anim)?,
+        #[cfg(feature = "yaml")]
+        Format::Yaml => serde_yaml::to_writer(output, &anim)?,
+    }
+    Ok(())
 }

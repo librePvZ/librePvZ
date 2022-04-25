@@ -1,2 +1,6 @@
 [workspace]
-members = ["reanim-decode"]
+members = [
+    "libre_pvz_resources",
+    "reanim-decode",
+]
+resolver = "2"

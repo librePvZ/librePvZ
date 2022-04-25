@@ -21,6 +21,9 @@
 use std::io::BufRead;
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
+#[cfg(feature = "packed")]
+use libre_pvz_resources::sprite as packed;
+use libre_pvz_resources::sprite::Element;
 use crate::stream::{Decode, Stream, Result};
 
 /// Animation in a `.reanim` file.
@@ -66,6 +69,16 @@ impl Decode for Animation {
     }
 }
 
+#[cfg(feature = "packed")]
+impl From<Animation> for packed::Animation {
+    fn from(anim: Animation) -> packed::Animation {
+        packed::Animation {
+            fps: anim.fps,
+            tracks: anim.tracks.into_vec().into_iter().map(From::from).collect(),
+        }
+    }
+}
+
 /// A single track in an [`Animation`].
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Track {
@@ -87,6 +100,55 @@ impl Track {
             .map(|(transform, elements)| Frame { transform, elements })
             .collect();
         Ok(Track { name, frames })
+    }
+}
+
+#[cfg(feature = "packed")]
+impl From<Track> for packed::Track {
+    fn from(track: Track) -> packed::Track {
+        let mut frames = Vec::with_capacity(track.frames.len());
+        let mut last_frame = [[0_f32; 3]; 2];
+        for frame in track.frames.into_vec() {
+            let mut packed = Vec::new();
+            // transformations: matrix and/or alpha
+            let Transform { x, y, kx, ky, sx, sy, f, a } = frame.transform;
+            if [x, y, kx, ky, sx, sy].iter().any(Option::is_some) {
+                let [[last_sx, last_kx, last_x], [last_ky, last_sy, last_y]] = last_frame;
+                let x = x.unwrap_or(last_x);
+                let y = y.unwrap_or(last_y);
+                let sx = sx.unwrap_or(last_sx);
+                let sy = sy.unwrap_or(last_sy);
+                let kx = kx.unwrap_or(last_kx);
+                let ky = ky.unwrap_or(last_ky);
+                last_frame = [[sx, kx, x], [ky, sy, y]];
+                packed.push(packed::Transform::Transform(last_frame));
+            }
+            if let Some(a) = a {
+                packed.push(packed::Transform::Alpha(a));
+            }
+            if let Some(f) = f {
+                log::warn!(target: "pack", "dropped node <f>{f}</f>");
+            }
+            // elements: text OR image
+            let Elements { text, font, image } = frame.elements;
+            let mut has_image = false;
+            if let Some(image) = image {
+                packed.push(packed::Transform::LoadElement(Element::Image { image }));
+                has_image = true;
+            }
+            match (text, font) {
+                (Some(text), Some(font)) => if has_image {
+                    log::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
+                } else {
+                    packed.push(packed::Transform::LoadElement(Element::Text { text, font }));
+                },
+                (Some(text), None) => log::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),
+                (None, Some(font)) => log::warn!(target: "pack", "dropped <font>{font}</font> without <text>"),
+                _ => {}
+            }
+            frames.push(packed::Frame(packed.into_boxed_slice()))
+        }
+        packed::Track { name: track.name, frames: frames.into_boxed_slice() }
     }
 }
 
