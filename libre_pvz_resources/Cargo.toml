@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 bincode = { version = "2.0.0-rc.1", features = ["derive"] }
+serde = { version = "1.0.136", features = ["derive"], optional = true }
+bevy = { version = "0.7", optional = true }
+# below are dependencies already pulled in by bevy
+anyhow = "1.0.55"

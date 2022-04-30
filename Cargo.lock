@@ -1933,7 +1933,10 @@ dependencies = [
 name = "libre_pvz_resources"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "bevy",
  "bincode",
+ "serde",
 ]
 
 [[package]]

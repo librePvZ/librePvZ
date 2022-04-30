@@ -19,9 +19,16 @@
 //! Sprite and animation API.
 
 use bincode::{Encode, Decode};
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "bevy")]
+use bevy::reflect::TypeUuid;
 
 /// Animations, originally in `.reanim` format.
 #[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy", derive(TypeUuid))]
+#[cfg_attr(feature = "bevy", uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b")]
 pub struct Animation {
     /// Frames per second.
     pub fps: f32,
@@ -29,8 +36,22 @@ pub struct Animation {
     pub tracks: Box<[Track]>,
 }
 
+impl Animation {
+    /// Get an iterator of all the image file names in this animation.
+    pub fn image_files(&self) -> impl Iterator<Item=&str> {
+        self.tracks.iter()
+            .flat_map(|track| track.frames.iter())
+            .flat_map(|frame| frame.0.iter())
+            .filter_map(|trans| match trans {
+                Transform::LoadElement(Element::Image { image }) => Some(image.as_str()),
+                _ => None,
+            })
+    }
+}
+
 /// A series of frames to play consecutively.
 #[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Track {
     /// Track name for internal recognition.
     pub name: String,
@@ -41,21 +62,29 @@ pub struct Track {
 /// Key frame: show and transform elements.
 /// Transformations are applied sequentially in one frame.
 #[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Frame(pub Box<[Transform]>);
+
+/// Affine transformation in 3D.
+#[derive(Debug, Copy, Clone, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AffineMatrix3d(pub [[f32; 3]; 2]);
 
 /// Key frame action.
 #[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Transform {
     /// Load an element to replace the current one on the stage.
     LoadElement(Element),
     /// Change alpha (transparency).
     Alpha(f32),
     /// Change transformation matrix in `[[sx, kx, tx], [ky, sy, ty]]` format.
-    Transform([[f32; 3]; 2]),
+    Transform(AffineMatrix3d),
 }
 
 /// Element on the stage. Only one element is allowed on a single frame.
 #[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Element {
     /// Text element.
     Text {
