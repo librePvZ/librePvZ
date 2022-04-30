@@ -148,17 +148,24 @@ impl Cli {
                 // infer output format
                 let format = match format {
                     Some(format) => format,
-                    None => match output.as_ref()
-                        .and_then(|p| p.extension())
-                        .and_then(OsStr::to_str) {
-                        Some("txt") => Format::Internal,
+                    None => match output.as_ref().and_then(|p| Some((
+                        p.extension()?.to_str()?,
+                        p.file_stem().and_then(OsStr::to_str),
+                    ))) {
+                        Some(("txt", _)) => Format::Internal,
                         #[cfg(feature = "packed")]
-                        Some("anim") => Format::Packed,
-                        Some("xml") | Some("reanim") => Format::Xml,
+                        Some(("anim", _)) => Format::Packed,
+                        Some(("reanim", _)) | Some(("xml", _)) => Format::Xml,
+                        #[cfg(all(feature = "packed", feature = "json"))]
+                        Some(("json", Some(stem)))
+                        if stem.ends_with("packed") => Format::PackedJson,
                         #[cfg(feature = "json")]
-                        Some("json") => Format::Json,
+                        Some(("json", _)) => Format::Json,
+                        #[cfg(all(feature = "packed", feature = "yaml"))]
+                        Some(("yaml", Some(stem)))
+                        if stem.ends_with("packed") => Format::PackedYaml,
                         #[cfg(feature = "yaml")]
-                        Some("yaml") => Format::Yaml,
+                        Some(("yaml", _)) => Format::Yaml,
                         _ => Format::Xml,
                     }
                 };
