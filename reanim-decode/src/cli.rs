@@ -21,7 +21,7 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::{ArgEnum, Parser, Subcommand};
 use fern::colors::{Color::*, ColoredLevelConfig};
@@ -85,6 +85,34 @@ pub enum Format {
     Yaml,
 }
 
+impl Format {
+    /// Infer a format from given file name.
+    pub fn try_from_file_name<P: AsRef<Path> + ?Sized>(file: &P) -> Option<Format> {
+        let file = file.as_ref();
+        let ext = file.extension()?.to_str()?;
+        let stem = file.file_stem().and_then(OsStr::to_str);
+        let is_packed = stem.map_or(false, |s| s.ends_with(".packed"));
+        match ext {
+            "txt" => Some(Format::Internal),
+            // "packed" format: our structural representation
+            #[cfg(feature = "packed")]
+            "anim" => Some(Format::Packed),
+            #[cfg(all(feature = "packed", feature = "json"))]
+            "json" if is_packed => Some(Format::PackedJson),
+            #[cfg(all(feature = "packed", feature = "yaml"))]
+            "yaml" if is_packed => Some(Format::PackedYaml),
+            // "raw" format: original XML-based representation
+            "reanim" | "xml" => Some(Format::Xml),
+            #[cfg(feature = "json")]
+            "json" => Some(Format::Json),
+            #[cfg(feature = "yaml")]
+            "yaml" => Some(Format::Yaml),
+            // unknown extension
+            _ => None,
+        }
+    }
+}
+
 /// Subcommands.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
@@ -146,29 +174,9 @@ impl Cli {
                 let anim = Animation::decompress_and_decode(&mut file)?;
 
                 // infer output format
-                let format = match format {
-                    Some(format) => format,
-                    None => match output.as_ref().and_then(|p| Some((
-                        p.extension()?.to_str()?,
-                        p.file_stem().and_then(OsStr::to_str),
-                    ))) {
-                        Some(("txt", _)) => Format::Internal,
-                        #[cfg(feature = "packed")]
-                        Some(("anim", _)) => Format::Packed,
-                        Some(("reanim", _)) | Some(("xml", _)) => Format::Xml,
-                        #[cfg(all(feature = "packed", feature = "json"))]
-                        Some(("json", Some(stem)))
-                        if stem.ends_with("packed") => Format::PackedJson,
-                        #[cfg(feature = "json")]
-                        Some(("json", _)) => Format::Json,
-                        #[cfg(all(feature = "packed", feature = "yaml"))]
-                        Some(("yaml", Some(stem)))
-                        if stem.ends_with("packed") => Format::PackedYaml,
-                        #[cfg(feature = "yaml")]
-                        Some(("yaml", _)) => Format::Yaml,
-                        _ => Format::Xml,
-                    }
-                };
+                let format = format
+                    .or_else(|| Format::try_from_file_name(output.as_ref()?))
+                    .unwrap_or(Format::Xml);
 
                 // output file (or stdout)
                 if let Some(output) = output {
@@ -210,4 +218,51 @@ pub fn encode(anim: Animation, format: Format, mut output: impl Write) -> anyhow
         Format::Yaml => serde_yaml::to_writer(output, &anim)?,
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Format::{self, *};
+
+    macro_rules! fallback_chain {
+        ($($name:ident ( $val:expr ) $(if $feat:literal else $fallback:expr)?),+ $(,)?) => {
+            $(fallback_chain!(once $name ( $val ) $(if $feat else $fallback)?);)+
+        };
+        (once $name:ident ( $val:expr ) if $feat:literal else $fallback:expr) => {
+            pub const fn $name() -> Option<Format> {
+                #[cfg(feature = $feat)] { Some($val) }
+                #[cfg(not(feature = $feat))] { $fallback }
+            }
+        };
+        (once $name:ident ( $val:expr )) => {
+            pub const fn $name() -> Option<Format> { Some($val) }
+        }
+    }
+
+    fallback_chain! {
+        internal(Internal),
+        xml(Xml),
+        json(Json) if "json" else None,
+        yaml(Yaml) if "yaml" else None,
+        packed(Packed) if "packed" else None,
+        packed_json(PackedJson) if "packed" else json(),
+        packed_yaml(PackedYaml) if "packed" else yaml(),
+    }
+
+    #[test]
+    fn test_infer_format() {
+        const INFERENCE: &[(&str, Option<Format>)] = &[
+            ("test.txt", internal()),
+            ("test.reanim", xml()),
+            ("test.xml", xml()),
+            ("test.json", json()),
+            ("test.yaml", yaml()),
+            ("test.anim", packed()),
+            ("test.packed.json", packed_json()),
+            ("test.packed.yaml", packed_yaml()),
+        ];
+        for &(name, format) in INFERENCE {
+            assert_eq!(Format::try_from_file_name(name), format)
+        }
+    }
 }
