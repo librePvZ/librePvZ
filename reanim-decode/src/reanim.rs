@@ -21,7 +21,6 @@
 use std::io::BufRead;
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "packed")]
 use libre_pvz_resources::sprite as packed;
 use libre_pvz_resources::sprite::{AffineMatrix3d, Element};
 use crate::stream::{Decode, Stream, Result};
@@ -69,7 +68,6 @@ impl Decode for Animation {
     }
 }
 
-#[cfg(feature = "packed")]
 impl From<Animation> for packed::Animation {
     fn from(anim: Animation) -> packed::Animation {
         packed::Animation {
@@ -103,7 +101,6 @@ impl Track {
     }
 }
 
-#[cfg(feature = "packed")]
 impl From<Track> for packed::Track {
     fn from(track: Track) -> packed::Track {
         let mut frames = Vec::with_capacity(track.frames.len());

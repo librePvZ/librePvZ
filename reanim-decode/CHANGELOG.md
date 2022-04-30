@@ -2,14 +2,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## Unreleased
 
-- added support for the following formats:
+- added support for the following formats (⚠️ means supported but not via the CLI):
 
 | Format               | Extension          | R   | W   |
 |----------------------|--------------------|-----|-----|
 | compressed?, binary  | `.reanim.compiled` | ✅   |     |
 | reanim XML           | `.reanim`          |     | ✅   |
-| reanim JSON          | `.json`            | ✅   | ✅   |
-| reanim YAML          | `.yaml`            | ✅   | ✅   |
-| structural `bincode` | `.anim`            | ✅   | ✅   |
-| structural JSON      | `.packed.json`     | ✅   | ✅   |
-| structural YAML      | `.packed.yaml`     | ✅   | ✅   |
+| reanim JSON          | `.json`            | ⚠️  | ✅   |
+| reanim YAML          | `.yaml`            | ⚠️  | ✅   |
+| structural `bincode` | `.anim`            | ⚠️  | ✅   |
+| structural JSON      | `.packed.json`     | ⚠️  | ✅   |
+| structural YAML      | `.packed.yaml`     | ⚠️  | ✅   |
