@@ -23,7 +23,7 @@ use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "packed")]
 use libre_pvz_resources::sprite as packed;
-use libre_pvz_resources::sprite::Element;
+use libre_pvz_resources::sprite::{AffineMatrix3d, Element};
 use crate::stream::{Decode, Stream, Result};
 
 /// Animation in a `.reanim` file.
@@ -107,21 +107,38 @@ impl Track {
 impl From<Track> for packed::Track {
     fn from(track: Track) -> packed::Track {
         let mut frames = Vec::with_capacity(track.frames.len());
-        let mut last_frame = [[0_f32; 3]; 2];
+        #[derive(Copy, Clone)]
+        struct RawTrans {
+            x: f32,
+            y: f32,
+            kx: f32,
+            ky: f32,
+            sx: f32,
+            sy: f32,
+        }
+        let mut last_frame = RawTrans { x: 0.0, y: 0.0, kx: 0.0, ky: 0.0, sx: 1.0, sy: 1.0 };
         for frame in track.frames.into_vec() {
             let mut packed = Vec::new();
             // transformations: matrix and/or alpha
             let Transform { x, y, kx, ky, sx, sy, f, a } = frame.transform;
             if [x, y, kx, ky, sx, sy].iter().any(Option::is_some) {
-                let [[last_sx, last_kx, last_x], [last_ky, last_sy, last_y]] = last_frame;
-                let x = x.unwrap_or(last_x);
-                let y = y.unwrap_or(last_y);
-                let sx = sx.unwrap_or(last_sx);
-                let sy = sy.unwrap_or(last_sy);
-                let kx = kx.unwrap_or(last_kx);
-                let ky = ky.unwrap_or(last_ky);
-                last_frame = [[sx, kx, x], [ky, sy, y]];
-                packed.push(packed::Transform::Transform(last_frame));
+                let x = x.unwrap_or(last_frame.x);
+                let y = y.unwrap_or(last_frame.y);
+                let sx = sx.unwrap_or(last_frame.sx);
+                let sy = sy.unwrap_or(last_frame.sy);
+                let kx = kx.unwrap_or(last_frame.kx);
+                let ky = ky.unwrap_or(last_frame.ky);
+                last_frame = RawTrans { x, y, kx, ky, sx, sy };
+                // it is 'ky' that was negated in 'FlashReanimExport.jsfl'
+                // but our y-axis is in the opposite direction
+                // so anti-diagonal elements should be negated
+                // the overall effect is to negate 'kx' instead of 'ky'
+                let kx = -kx;
+                let mat = [
+                    [sx * kx.to_radians().cos(), sy * ky.to_radians().sin(), x],
+                    [sx * kx.to_radians().sin(), sy * ky.to_radians().cos(), -y],
+                ];
+                packed.push(packed::Transform::Transform(AffineMatrix3d(mat)));
             }
             if let Some(a) = a {
                 packed.push(packed::Transform::Alpha(a));
@@ -132,7 +149,19 @@ impl From<Track> for packed::Track {
             // elements: text OR image
             let Elements { text, font, image } = frame.elements;
             let mut has_image = false;
-            if let Some(image) = image {
+            if let Some(mut image) = image {
+                let mut image_name_valid = false;
+                if let Some(s) = image.strip_prefix("IMAGE_REANIM_") {
+                    image = s.to_string();
+                    if let Some(tail) = image.get_mut(1..) {
+                        tail.make_ascii_lowercase();
+                        image.push_str(".png");
+                        image_name_valid = true;
+                    }
+                }
+                if !image_name_valid {
+                    log::error!(target: "pack", "exotic file name: {image}");
+                }
                 packed.push(packed::Transform::LoadElement(Element::Image { image }));
                 has_image = true;
             }
