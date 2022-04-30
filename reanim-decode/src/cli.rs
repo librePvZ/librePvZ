@@ -69,6 +69,12 @@ pub enum Format {
     /// Packed animation format, for use in librePvZ.
     #[cfg(feature = "packed")]
     Packed,
+    /// Packed animation format, dump as YAML file.
+    #[cfg(all(feature = "packed", feature = "json"))]
+    PackedJson,
+    /// Packed animation format, dump as JSON file.
+    #[cfg(all(feature = "packed", feature = "yaml"))]
+    PackedYaml,
     /// XML format as is used in original PvZ game.
     Xml,
     /// JSON format. Guarded by crate feature `json` (enabled by default).
@@ -179,6 +185,16 @@ pub fn encode(anim: Animation, format: Format, mut output: impl Write) -> anyhow
         Format::Packed => {
             let anim = packed::Animation::from(anim);
             bincode::encode_into_std_write(anim, &mut output, bincode::config::standard())?;
+        }
+        #[cfg(all(feature = "packed", feature = "json"))]
+        Format::PackedJson => {
+            let anim = packed::Animation::from(anim);
+            serde_json::to_writer_pretty(output, &anim)?;
+        }
+        #[cfg(all(feature = "packed", feature = "yaml"))]
+        Format::PackedYaml => {
+            let anim = packed::Animation::from(anim);
+            serde_yaml::to_writer(output, &anim)?;
         }
         Format::Xml => write!(output, "{}", Xml(anim))?,
         #[cfg(feature = "json")]
