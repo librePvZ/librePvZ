@@ -32,6 +32,8 @@ use bevy::reflect::TypeUuid;
 pub struct Animation {
     /// Frames per second.
     pub fps: f32,
+    /// Meta data for this animation.
+    pub meta: Box<[Meta]>,
     /// Animation tracks.
     pub tracks: Box<[Track]>,
 }
@@ -47,6 +49,18 @@ impl Animation {
                 _ => None,
             })
     }
+}
+
+/// Meta data for animations.
+#[derive(Debug, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Meta {
+    /// Name of this meta data.
+    pub name: String,
+    /// (inclusive) Start of the frame range this meta data covers.
+    pub start_frame: u16,
+    /// (exclusive) End of the frame range this meta data covers.
+    pub end_frame: u16,
 }
 
 /// A series of frames to play consecutively.
@@ -78,6 +92,8 @@ pub enum Transform {
     LoadElement(Element),
     /// Change alpha (transparency).
     Alpha(f32),
+    /// Show or hide the element.
+    Show(bool),
     /// Change transformation matrix in `[[sx, kx, tx], [ky, sy, ty]]` format.
     Transform(AffineMatrix3d),
 }

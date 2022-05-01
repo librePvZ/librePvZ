@@ -30,7 +30,7 @@ pub struct AnimationLoader;
 
 impl AssetLoader for AnimationLoader {
     fn load<'a>(&'a self, bytes: &'a [u8], load_context: &'a mut LoadContext)
-                -> BoxedFuture<'a, anyhow::Result<(), anyhow::Error>> {
+                -> BoxedFuture<'a, anyhow::Result<()>> {
         Box::pin(async move {
             const CONFIG: Configuration = bincode::config::standard();
             let (anim, n) = decode_from_slice::<Animation, _>(bytes, CONFIG)?;

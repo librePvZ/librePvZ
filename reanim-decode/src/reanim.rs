@@ -68,11 +68,68 @@ impl Decode for Animation {
     }
 }
 
+macro_rules! narrow {
+    ($n:expr, $on_err:expr, $or_else:expr) => {
+        match $n.try_into() {
+            Ok(n) => n,
+            Err(_) => {
+                $on_err($n);
+                return Err($or_else)
+            }
+        }
+    }
+}
+
+fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
+    let mut ranges = Vec::new();
+    // visible by default from the start
+    let mut current_visible = true;
+    let mut last_key_frame = 0;
+    for (k, frame) in track.frames
+        .iter().enumerate()
+        .filter(|(_, frame)| !frame.0.is_empty()) {
+        if let [packed::Transform::Show(visible)] = frame.0[..] {
+            if current_visible && !visible && last_key_frame != k {
+                ranges.push((last_key_frame, k));
+            }
+            if current_visible != visible {
+                last_key_frame = k;
+                current_visible = visible;
+            } else {
+                log::warn!(target: "pack", "redundant 'show' detected");
+            }
+        } else { return Err(track); }
+    }
+    // still visible up until finished
+    if current_visible {
+        ranges.push((last_key_frame, track.frames.len()));
+    }
+    // only one range is allowed
+    if let [(start_frame, end_frame)] = ranges[..] {
+        let on_err = |n: usize| log::error!(target: "pack", "frame index ({n}) overflow in a meta track");
+        let start_frame = narrow!(start_frame, on_err, track);
+        let end_frame = narrow!(end_frame, on_err, track);
+        Ok(packed::Meta { name: track.name, start_frame, end_frame })
+    } else {
+        log::warn!(target: "pack", "discontinuous meta track: found ranges {ranges:?}");
+        Err(track)
+    }
+}
+
 impl From<Animation> for packed::Animation {
     fn from(anim: Animation) -> packed::Animation {
+        let mut metas = Vec::new();
+        let mut tracks = Vec::new();
+        for track in anim.tracks.into_vec().into_iter().map(packed::Track::from) {
+            match track_to_meta(track) {
+                Ok(meta) => metas.push(meta),
+                Err(track) => tracks.push(track),
+            }
+        }
         packed::Animation {
             fps: anim.fps,
-            tracks: anim.tracks.into_vec().into_iter().map(From::from).collect(),
+            meta: metas.into_boxed_slice(),
+            tracks: tracks.into_boxed_slice(),
         }
     }
 }
@@ -141,7 +198,10 @@ impl From<Track> for packed::Track {
                 packed.push(packed::Transform::Alpha(a));
             }
             if let Some(f) = f {
-                log::warn!(target: "pack", "dropped node <f>{f}</f>");
+                packed.push(packed::Transform::Show(f >= 0.0));
+                if ![0.0, -1.0].contains(&f) {
+                    log::warn!(target: "pack", "non-standard <f> node with value {f}");
+                }
             }
             // elements: text OR image
             let Elements { text, font, image } = frame.elements;
