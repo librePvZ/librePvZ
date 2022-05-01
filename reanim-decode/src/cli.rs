@@ -189,7 +189,7 @@ impl Cli {
     pub fn run() -> anyhow::Result<()> {
         let args = Cli::parse();
         setup_logger(match args.verbose {
-            None => LevelFilter::Error, // no '--verbose', only errors
+            None => LevelFilter::Warn, // no '--verbose', only errors
             Some(None) => LevelFilter::Info, // default '--verbose'
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });

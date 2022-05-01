@@ -70,7 +70,8 @@ impl From<FromUtf8Error> for DecodeError {
 }
 
 /// [Result](std::result::Result) type specialised for [`DecodeError`].
-pub type Result<T> = std::result::Result<T, DecodeError>;
+/// Can also be used as a substitute for [`std::result::Result`].
+pub type Result<T, E = DecodeError> = std::result::Result<T, E>;
 
 /// Plain old data, with a constant size known in advance.
 pub trait PlainData: Sized {
@@ -195,7 +196,7 @@ pub trait Stream: Read {
         self.read_exact(&mut buffer).map_err(|err| IncompleteData("padding", err))?;
         if !buffer.iter().all(|x| *x == 0) {
             let buffer = buffer.iter().format(" ");
-            log::warn!("dropped {n} bytes of padding [{hint}]: {buffer:02X}");
+            log::info!("dropped {n} bytes of padding [{hint}]: {buffer:02X}");
         } else {
             log::trace!("dropped {n} bytes of zero padding [{hint}]");
         }
