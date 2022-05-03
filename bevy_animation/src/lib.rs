@@ -18,6 +18,9 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, HierarchySystem};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::texture::Image;
+use bevy_render::view::Visibility;
+use bevy_sprite::Sprite;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
@@ -38,6 +41,12 @@ pub enum Keyframes {
     Translation(Vec<Vec3>),
     /// Keyframes for scale.
     Scale(Vec<Vec3>),
+    /// Keyframes for visibility.
+    Visibility(Vec<bool>),
+    /// Keyframes for alpha.
+    Alpha(Vec<f32>),
+    /// Keyframes for sprite texture.
+    Texture(Vec<Handle<Image>>),
 }
 
 /// Describes how an attribute of a [`Transform`] should be animated.
@@ -49,6 +58,18 @@ pub struct VariableCurve {
     pub keyframe_timestamps: Vec<f32>,
     /// List of the keyframes.
     pub keyframes: Keyframes,
+}
+
+impl VariableCurve {
+    fn get_step_start(&self, elapsed: f32) -> Option<usize> {
+        let cmp = move |probe: &f32| probe.partial_cmp(&elapsed).unwrap();
+        match self.keyframe_timestamps.binary_search_by(cmp) {
+            Ok(i) => Some(i),
+            Err(0) => None, // this curve isn't started yet
+            Err(n) if n > self.keyframe_timestamps.len() - 1 => None, // this curve is finished
+            Err(i) => Some(i - 1),
+        }
+    }
 }
 
 /// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
@@ -71,6 +92,15 @@ impl AnimationClip {
     /// Hashmap of the [`VariableCurve`]s per [`EntityPath`].
     pub fn curves(&self) -> &HashMap<EntityPath, Vec<VariableCurve>> {
         &self.curves
+    }
+
+    /// Set a group of [`VariableCurve`] for some [`EntityPath`].
+    pub fn set_curves_for_path(&mut self, path: EntityPath, curves: Vec<VariableCurve>) {
+        assert!(!self.curves.contains_key(&path), "replace not allowed");
+        self.duration = curves.iter()
+            .flat_map(|curve| curve.keyframe_timestamps.last().copied())
+            .fold(0.0, f32::max);
+        self.curves.insert(path, curves);
     }
 
     /// Add a [`VariableCurve`] to an [`EntityPath`].
@@ -168,12 +198,16 @@ impl AnimationPlayer {
 
 /// System that will play all animations, using any entity with a [`AnimationPlayer`]
 /// and a [`Handle<AnimationClip>`] as an animation root
+#[allow(clippy::too_many_arguments)]
 pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
     mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
     names: Query<&Name>,
     mut transforms: Query<&mut Transform>,
+    mut textures: Query<&mut Handle<Image>>,
+    mut sprites: Query<&mut Sprite>,
+    mut visibilities: Query<&mut Visibility>,
     children: Query<&Children>,
 ) {
     for (entity, mut player) in animation_players.iter_mut() {
@@ -216,30 +250,26 @@ pub fn animation_player(
                         continue 'entity;
                     }
                 }
+                use Keyframes::*;
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     for curve in curves {
+                        if !matches!(&curve.keyframes, Rotation(_) | Translation(_) | Scale(_)) { continue; }
                         // Some curves have only one keyframe used to set a transform
                         if curve.keyframe_timestamps.len() == 1 {
                             match &curve.keyframes {
-                                Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
-                                Keyframes::Translation(keyframes) => {
-                                    transform.translation = keyframes[0]
-                                }
-                                Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
+                                Rotation(keyframes) => transform.rotation = keyframes[0],
+                                Translation(keyframes) => transform.translation = keyframes[0],
+                                Scale(keyframes) => transform.scale = keyframes[0],
+                                _ => unreachable!(),
                             }
                             continue;
                         }
 
                         // Find the current keyframe
                         // PERF: finding the current keyframe can be optimised
-                        let step_start = match curve
-                            .keyframe_timestamps
-                            .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
-                        {
-                            Ok(i) => i,
-                            Err(0) => continue, // this curve isn't started yet
-                            Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                            Err(i) => i - 1,
+                        let step_start = match curve.get_step_start(elapsed) {
+                            Some(step_start) => step_start,
+                            None => continue,
                         };
                         let ts_start = curve.keyframe_timestamps[step_start];
                         let ts_end = curve.keyframe_timestamps[step_start + 1];
@@ -247,7 +277,7 @@ pub fn animation_player(
 
                         // Apply the keyframe
                         match &curve.keyframes {
-                            Keyframes::Rotation(keyframes) => {
+                            Rotation(keyframes) => {
                                 let rot_start = keyframes[step_start];
                                 let mut rot_end = keyframes[step_start + 1];
                                 // Choose the smallest angle for the rotation
@@ -258,18 +288,58 @@ pub fn animation_player(
                                 transform.rotation = Quat::from_array(rot_start.normalize().into())
                                     .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
                             }
-                            Keyframes::Translation(keyframes) => {
+                            Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];
                                 let translation_end = keyframes[step_start + 1];
                                 let result = translation_start.lerp(translation_end, lerp);
                                 transform.translation = result;
                             }
-                            Keyframes::Scale(keyframes) => {
+                            Scale(keyframes) => {
                                 let scale_start = keyframes[step_start];
                                 let scale_end = keyframes[step_start + 1];
                                 let result = scale_start.lerp(scale_end, lerp);
                                 transform.scale = result;
                             }
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+                if let Ok(mut image) = textures.get_mut(current_entity) {
+                    for curve in curves {
+                        if let Texture(textures) = &curve.keyframes {
+                            // Find the current keyframe
+                            // PERF: finding the current keyframe can be optimised
+                            let step_start = match curve.get_step_start(elapsed) {
+                                Some(step_start) => step_start,
+                                None => continue,
+                            };
+                            *image = textures[step_start].clone();
+                        }
+                    }
+                }
+                if let Ok(mut sprite) = sprites.get_mut(current_entity) {
+                    for curve in curves {
+                        if let Alpha(alpha) = &curve.keyframes {
+                            // Find the current keyframe
+                            // PERF: finding the current keyframe can be optimised
+                            let step_start = match curve.get_step_start(elapsed) {
+                                Some(step_start) => step_start,
+                                None => continue,
+                            };
+                            sprite.color.set_a(alpha[step_start]);
+                        }
+                    }
+                }
+                if let Ok(mut visibility) = visibilities.get_mut(current_entity) {
+                    for curve in curves {
+                        if let Visibility(visible) = &curve.keyframes {
+                            // Find the current keyframe
+                            // PERF: finding the current keyframe can be optimised
+                            let step_start = match curve.get_step_start(elapsed) {
+                                Some(step_start) => step_start,
+                                None => continue,
+                            };
+                            visibility.is_visible = visible[step_start];
                         }
                     }
                 }

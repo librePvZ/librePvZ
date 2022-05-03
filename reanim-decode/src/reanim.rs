@@ -91,9 +91,9 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
         .filter(|(_, frame)| !frame.0.is_empty()) {
         for trans in frame.0.iter() {
             let visible = match trans {
-                &packed::Transform::Show(visible) => visible,
-                packed::Transform::LoadElement(_) => return Err(track),
-                packed::Transform::Alpha(_) | packed::Transform::Transform(_) => {
+                &packed::Action::Show(visible) => visible,
+                packed::Action::LoadElement(_) => return Err(track),
+                packed::Action::Alpha(_) | packed::Action::Transform(_) => {
                     ignored_count += 1;
                     continue;
                 }
@@ -205,13 +205,13 @@ impl From<Track> for packed::Track {
                     [sx * kx.to_radians().cos(), sy * ky.to_radians().sin(), x],
                     [sx * kx.to_radians().sin(), sy * ky.to_radians().cos(), -y],
                 ];
-                packed.push(packed::Transform::Transform(AffineMatrix3d(mat)));
+                packed.push(packed::Action::Transform(AffineMatrix3d(mat)));
             }
             if let Some(a) = a {
-                packed.push(packed::Transform::Alpha(a));
+                packed.push(packed::Action::Alpha(a));
             }
             if let Some(f) = f {
-                packed.push(packed::Transform::Show(f >= 0.0));
+                packed.push(packed::Action::Show(f >= 0.0));
                 if ![0.0, -1.0].contains(&f) {
                     log::warn!(target: "pack", "non-standard <f> node with value {f}");
                 }
@@ -232,14 +232,14 @@ impl From<Track> for packed::Track {
                 if !image_name_valid {
                     log::error!(target: "pack", "exotic file name: {image}");
                 }
-                packed.push(packed::Transform::LoadElement(Element::Image { image }));
+                packed.push(packed::Action::LoadElement(Element::Image { image }));
                 has_image = true;
             }
             match (text, font) {
                 (Some(text), Some(font)) => if has_image {
                     log::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
                 } else {
-                    packed.push(packed::Transform::LoadElement(Element::Text { text, font }));
+                    packed.push(packed::Action::LoadElement(Element::Text { text, font }));
                 },
                 (Some(text), None) => log::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),
                 (None, Some(font)) => log::warn!(target: "pack", "dropped <font>{font}</font> without <text>"),

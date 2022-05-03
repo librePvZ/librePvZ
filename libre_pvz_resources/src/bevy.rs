@@ -18,13 +18,15 @@
 
 //! Bevy related utilities.
 
+use std::ops::Bound;
 use bevy::prelude::*;
 use bevy::asset::{AssetLoader, AssetPath, BoxedFuture, LoadContext, LoadedAsset};
 use bevy::utils::HashMap;
 use bevy::reflect::TypeUuid;
+use bevy::sprite::Anchor;
 use bincode::config::Configuration;
 use bincode::decode_from_slice;
-use crate::sprite::{AffineMatrix3d, AnimDesc};
+use crate::sprite::{AffineMatrix3d, AnimDesc, Action, Element, Meta, Track, Frame};
 
 /// Animation and all its dependency images.
 #[derive(Debug)]
@@ -35,6 +37,134 @@ pub struct Animation {
     pub description: AnimDesc,
     /// all the dependency images.
     pub images: HashMap<String, Handle<Image>>,
+}
+
+impl Animation {
+    /// Spawn an animation.
+    pub fn spawn_on(&self, meta: &Meta, commands: &mut Commands, anims: &mut ResMut<Assets<AnimationClip>>) -> Entity {
+        let root = Name::new("root");
+        let parent = commands.spawn_bundle(TransformBundle {
+            local: bevy::prelude::Transform {
+                scale: Vec3::new(3.0, 3.0, 3.0),
+                translation: Vec3::new(-120.0, 120.0, 0.0),
+                ..Default::default()
+            },
+            ..TransformBundle::default()
+        }).insert(root.clone()).id();
+        let mut anim = AnimationClip::default();
+        for (z, track) in self.description.tracks.iter().enumerate() {
+            let this = Name::new(track.name.to_string());
+            let path = EntityPath { parts: vec![root.clone(), this.clone()] };
+            anim.set_curves_for_path(path, self.curves_for(track, meta, z as f32));
+            let mut bundle = SpriteBundle::default();
+            bundle.sprite.anchor = Anchor::TopLeft;
+            let this = commands.spawn_bundle(bundle).insert(this).id();
+            commands.entity(parent).add_child(this);
+        }
+        let mut player = AnimationPlayer::default();
+        player.play(anims.add(anim)).repeat();
+        commands.entity(parent).insert(player);
+        parent
+    }
+
+    /// Get key frames in this track.
+    pub fn curves_for(&self, track: &Track, meta: &Meta, z_order: f32) -> Vec<VariableCurve> {
+        let frame_len = 1.0 / self.description.fps;
+
+        let mut transform_timestamps = Vec::new();
+        let mut rotations = Vec::new();
+        let mut translations = Vec::new();
+        let mut scales = Vec::new();
+
+        let mut texture_timestamps = Vec::new();
+        let mut textures = Vec::new();
+
+        let mut visibility_timestamps = Vec::new();
+        let mut visibilities = Vec::new();
+
+        let mut alpha_timestamps = Vec::new();
+        let mut alphas = Vec::new();
+
+        let frames_until_0 = || track
+            .frames[..=meta.start_frame as usize].iter()
+            .flat_map(|frame| frame.0.iter());
+        let frame0 = Frame([
+            frames_until_0().filter(|act| matches!(act, Action::LoadElement(_))).last(),
+            frames_until_0().filter(|act| matches!(act, Action::Transform(_))).last(),
+            frames_until_0().filter(|act| matches!(act, Action::Alpha(_))).last(),
+            frames_until_0().filter(|act| matches!(act, Action::Show(_))).last(),
+        ].into_iter().flatten().cloned().collect());
+        for (k, frame) in std::iter::once(&frame0)
+            .chain(track.frames[(
+                Bound::Excluded(meta.start_frame as usize),
+                Bound::Excluded(meta.end_frame as usize)
+            )].iter())
+            .chain(std::iter::once(&frame0))
+            .enumerate() {
+            let t = frame_len * k as f32;
+            for trans in frame.0.iter() {
+                match trans {
+                    Action::LoadElement(Element::Text { .. }) => todo!(),
+                    Action::LoadElement(Element::Image { image }) => {
+                        texture_timestamps.push(t);
+                        textures.push(self.images[image].clone());
+                    }
+                    Action::Alpha(alpha) => {
+                        alpha_timestamps.push(t);
+                        alphas.push(*alpha);
+                    }
+                    Action::Show(visible) => {
+                        visibility_timestamps.push(t);
+                        visibilities.push(*visible);
+                    }
+                    Action::Transform(mat) => {
+                        transform_timestamps.push(t);
+                        let transform = mat.as_transform_with_z(z_order);
+                        rotations.push(transform.rotation);
+                        translations.push(transform.translation);
+                        scales.push(transform.scale);
+                    }
+                }
+            }
+        }
+
+        let mut curves = Vec::new();
+        if !transform_timestamps.is_empty() {
+            curves.extend([
+                VariableCurve {
+                    keyframe_timestamps: transform_timestamps.clone(),
+                    keyframes: Keyframes::Rotation(rotations),
+                },
+                VariableCurve {
+                    keyframe_timestamps: transform_timestamps.clone(),
+                    keyframes: Keyframes::Translation(translations),
+                },
+                VariableCurve {
+                    keyframe_timestamps: transform_timestamps,
+                    keyframes: Keyframes::Scale(scales),
+                }
+            ]);
+        }
+        if !texture_timestamps.is_empty() {
+            curves.push(VariableCurve {
+                keyframe_timestamps: texture_timestamps,
+                keyframes: Keyframes::Texture(textures),
+            });
+        }
+        if !visibility_timestamps.is_empty() {
+            curves.push(VariableCurve {
+                keyframe_timestamps: visibility_timestamps,
+                keyframes: Keyframes::Visibility(visibilities),
+            });
+        }
+        if !alpha_timestamps.is_empty() {
+            curves.push(VariableCurve {
+                keyframe_timestamps: alpha_timestamps,
+                keyframes: Keyframes::Alpha(alphas),
+            });
+        }
+        curves
+    }
 }
 
 /// Asset loader for `.anim` files.

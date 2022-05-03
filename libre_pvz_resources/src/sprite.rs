@@ -41,7 +41,7 @@ impl AnimDesc {
             .flat_map(|track| track.frames.iter())
             .flat_map(|frame| frame.0.iter())
             .filter_map(|trans| match trans {
-                Transform::LoadElement(Element::Image { image }) => Some(image.as_str()),
+                Action::LoadElement(Element::Image { image }) => Some(image.as_str()),
                 _ => None,
             })
     }
@@ -79,7 +79,7 @@ pub struct Track {
 /// Transformations are applied sequentially in one frame.
 #[derive(Debug, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Frame(pub Box<[Transform]>);
+pub struct Frame(pub Box<[Action]>);
 
 /// Affine transformation in 3D.
 #[derive(Debug, Copy, Clone, Encode, Decode)]
@@ -87,9 +87,9 @@ pub struct Frame(pub Box<[Transform]>);
 pub struct AffineMatrix3d(pub [[f32; 3]; 2]);
 
 /// Key frame action.
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Clone, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum Transform {
+pub enum Action {
     /// Load an element to replace the current one on the stage.
     LoadElement(Element),
     /// Change alpha (transparency).
@@ -101,7 +101,7 @@ pub enum Transform {
 }
 
 /// Element on the stage. Only one element is allowed on a single frame.
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Element {
     /// Text element.

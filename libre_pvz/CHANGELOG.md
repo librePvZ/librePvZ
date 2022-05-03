@@ -2,4 +2,4 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## Unreleased
 
-- support preview of `Cabbagepult.anim` (static frame 0 in `anim_idle`)
+- support previewing animation `Cabbagepult.anim` (meta track `anim_idle`)

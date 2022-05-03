@@ -12,6 +12,8 @@ keywords = ["bevy"]
 # bevy
 bevy_app = "0.7.0"
 bevy_asset = "0.7.0"
+bevy_render = "0.7.0"
+bevy_sprite = "0.7.0"
 bevy_core = "0.7.0"
 bevy_math = "0.7.0"
 bevy_reflect = { version = "0.7.0", features = ["bevy"] }
