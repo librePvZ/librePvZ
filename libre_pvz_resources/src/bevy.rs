@@ -19,10 +19,23 @@
 //! Bevy related utilities.
 
 use bevy::prelude::*;
-use bevy::asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
+use bevy::asset::{AssetLoader, AssetPath, BoxedFuture, LoadContext, LoadedAsset};
+use bevy::utils::HashMap;
+use bevy::reflect::TypeUuid;
 use bincode::config::Configuration;
 use bincode::decode_from_slice;
-use crate::sprite::{AffineMatrix3d, Animation};
+use crate::sprite::{AffineMatrix3d, AnimDesc};
+
+/// Animation and all its dependency images.
+#[derive(Debug)]
+#[derive(TypeUuid)]
+#[uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b"]
+pub struct Animation {
+    /// the animation description.
+    pub description: AnimDesc,
+    /// all the dependency images.
+    pub images: HashMap<String, Handle<Image>>,
+}
 
 /// Asset loader for `.anim` files.
 #[derive(Debug, Default)]
@@ -33,12 +46,21 @@ impl AssetLoader for AnimationLoader {
                 -> BoxedFuture<'a, anyhow::Result<()>> {
         Box::pin(async move {
             const CONFIG: Configuration = bincode::config::standard();
-            let (anim, n) = decode_from_slice::<Animation, _>(bytes, CONFIG)?;
+            let (anim, n) = decode_from_slice::<AnimDesc, _>(bytes, CONFIG)?;
             if n < bytes.len() {
                 let k = bytes.len() - n;
                 warn!("{k} trailing bytes ignored when loading an 'Animation' asset")
             }
-            load_context.set_default_asset(LoadedAsset::new(anim));
+            let dep_names = anim.image_files().map(str::to_string).collect::<Vec<_>>();
+            let mut deps = Vec::with_capacity(dep_names.len());
+            let mut images = HashMap::with_capacity(dep_names.len());
+            for name in dep_names {
+                let asset_path = AssetPath::from(&name).to_owned();
+                images.insert(name, load_context.get_handle(asset_path.get_id()));
+                deps.push(asset_path);
+            }
+            let anim = Animation { description: anim, images };
+            load_context.set_default_asset(LoadedAsset::new(anim).with_dependencies(deps));
             Ok(())
         })
     }

@@ -82,13 +82,22 @@ macro_rules! narrow {
 
 fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
     let mut ranges = Vec::new();
+    let mut ignored_count = 0_usize;
     // visible by default from the start
     let mut current_visible = true;
     let mut last_key_frame = 0;
     for (k, frame) in track.frames
         .iter().enumerate()
         .filter(|(_, frame)| !frame.0.is_empty()) {
-        if let [packed::Transform::Show(visible)] = frame.0[..] {
+        for trans in frame.0.iter() {
+            let visible = match trans {
+                &packed::Transform::Show(visible) => visible,
+                packed::Transform::LoadElement(_) => return Err(track),
+                packed::Transform::Alpha(_) | packed::Transform::Transform(_) => {
+                    ignored_count += 1;
+                    continue;
+                }
+            };
             if current_visible && !visible && last_key_frame != k {
                 ranges.push((last_key_frame, k));
             }
@@ -96,9 +105,9 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
                 last_key_frame = k;
                 current_visible = visible;
             } else {
-                log::warn!(target: "pack", "redundant 'show' detected");
+                log::warn!(target: "pack", "redundant 'show' in track '{}' frame {k}", track.name);
             }
-        } else { return Err(track); }
+        }
     }
     // still visible up until finished
     if current_visible {
@@ -109,6 +118,9 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
         let on_err = |n: usize| log::error!(target: "pack", "frame index ({n}) overflow in a meta track");
         let start_frame = narrow!(start_frame, on_err, track);
         let end_frame = narrow!(end_frame, on_err, track);
+        if ignored_count > 0 {
+            log::warn!(target: "pack", "ignored {ignored_count} transform/alpha in meta track {}", track.name);
+        }
         Ok(packed::Meta { name: track.name, start_frame, end_frame })
     } else {
         log::warn!(target: "pack", "discontinuous meta track: found ranges {ranges:?}");
@@ -116,8 +128,8 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
     }
 }
 
-impl From<Animation> for packed::Animation {
-    fn from(anim: Animation) -> packed::Animation {
+impl From<Animation> for packed::AnimDesc {
+    fn from(anim: Animation) -> packed::AnimDesc {
         let mut metas = Vec::new();
         let mut tracks = Vec::new();
         for track in anim.tracks.into_vec().into_iter().map(packed::Track::from) {
@@ -126,7 +138,8 @@ impl From<Animation> for packed::Animation {
                 Err(track) => tracks.push(track),
             }
         }
-        packed::Animation {
+        metas.sort_unstable_by(|x, y| x.name.cmp(&y.name));
+        packed::AnimDesc {
             fps: anim.fps,
             meta: metas.into_boxed_slice(),
             tracks: tracks.into_boxed_slice(),

@@ -37,7 +37,7 @@ pub enum MaybePacked {
     /// Plain format, structurally equivalent to reanim XML.
     Plain(Animation),
     /// Packed format, compact and structural.
-    Packed(packed::Animation),
+    Packed(packed::AnimDesc),
 }
 
 impl Debug for MaybePacked {
@@ -205,7 +205,7 @@ impl Cli {
                 let format = format.or(inferred_format).unwrap_or(Format::Xml);
                 let inferred_packed = output.as_ref().map_or(false, Format::infer_packed);
                 let anim = if packed || inferred_packed {
-                    MaybePacked::Packed(packed::Animation::from(anim))
+                    MaybePacked::Packed(packed::AnimDesc::from(anim))
                 } else {
                     MaybePacked::Plain(anim)
                 };

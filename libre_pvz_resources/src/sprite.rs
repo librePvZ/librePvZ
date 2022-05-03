@@ -21,15 +21,11 @@
 use bincode::{Encode, Decode};
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "bevy")]
-use bevy::reflect::TypeUuid;
 
 /// Animations, originally in `.reanim` format.
 #[derive(Debug, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "bevy", derive(TypeUuid))]
-#[cfg_attr(feature = "bevy", uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b")]
-pub struct Animation {
+pub struct AnimDesc {
     /// Frames per second.
     pub fps: f32,
     /// Meta data for this animation.
@@ -38,7 +34,7 @@ pub struct Animation {
     pub tracks: Box<[Track]>,
 }
 
-impl Animation {
+impl AnimDesc {
     /// Get an iterator of all the image file names in this animation.
     pub fn image_files(&self) -> impl Iterator<Item=&str> {
         self.tracks.iter()
@@ -48,6 +44,12 @@ impl Animation {
                 Transform::LoadElement(Element::Image { image }) => Some(image.as_str()),
                 _ => None,
             })
+    }
+
+    /// Get a meta track by name.
+    pub fn get_meta(&self, name: &str) -> Option<&Meta> {
+        let k = self.meta.binary_search_by_key(&name, |meta| meta.name.as_str()).ok()?;
+        Some(&self.meta[k])
     }
 }
 
