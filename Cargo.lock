@@ -213,8 +213,6 @@ dependencies = [
 [[package]]
 name = "bevy_animation"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c087569c34b168dd988e8b3409ce273661b4a58c3c534d0e381950589f59f68e"
 dependencies = [
  "bevy_app",
  "bevy_asset",
