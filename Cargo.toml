@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "libre_pvz",
     "libre_pvz_resources",
     "reanim-decode",
 ]

@@ -2,5 +2,6 @@
 .idea/
 target/
 
-# files used for local references
-/references/
+# files used for local use
+assets/
+references/

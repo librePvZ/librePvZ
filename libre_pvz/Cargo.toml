@@ -1,0 +1,16 @@
+[package]
+name = "libre_pvz"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ruifeng Xie <ruifengx@outlook.com>"]
+repository = "https://github.com/ruifengx/librePvZ.git"
+homepage = "https://github.com/ruifengx/librePvZ/tree/main/librePvZ"
+license = "AGPL-3.0-or-later"
+readme = "README.md"
+description = "librePvZ game logic"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.7.0"
+libre_pvz_resources = { path = "../libre_pvz_resources", features = ["bevy"] }
