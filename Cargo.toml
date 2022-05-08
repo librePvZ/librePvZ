@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "optics",
     "bevy_animation",
     "libre_pvz",
     "libre_pvz_resources",

@@ -1,0 +1,129 @@
+/*
+ * optics: yet another Haskell optics in Rust.
+ * Copyright (c) 2022  Ruifeng Xie
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+//! Traits for polymorphic lens hierarchy.
+//!
+#![doc = include_str!("../optics.svg")]
+
+/// Any optics: a view type associated.
+pub trait Optics<T> {
+    /// View type for this optics.
+    type View;
+}
+
+/// AffineFold: getter, but may fail.
+pub trait AffineFold<T>: Optics<T> {
+    /// Retrieve the value targeted by an AffineFold.
+    fn preview(&self, s: T) -> Option<Self::View>;
+}
+
+/// AffineFold, with (shared, mutable) references.
+pub trait AffineFoldRef<T>: AffineFold<T> {
+    /// Retrieve a shared reference the value targeted by an AffineFold.
+    fn preview_ref<'a>(&self, s: &'a T) -> Option<&'a Self::View>;
+    /// Retrieve a mutable reference the value targeted by an AffineFold.
+    fn preview_mut<'a>(&self, s: &'a mut T) -> Option<&'a mut Self::View>;
+}
+
+/// Getter.
+pub trait Getter<T>: Optics<T> {
+    /// View the value pointed to by a getter.
+    fn view(&self, s: T) -> Self::View;
+}
+
+/// Getter, with (shared, mutable) references.
+pub trait GetterRef<T>: Getter<T> {
+    /// Get a shared reference to the value pointed to by a getter.
+    fn view_ref<'a>(&self, s: &'a T) -> &'a Self::View;
+    /// Get a mutable reference to the value pointed to by a getter.
+    fn view_mut<'a>(&self, s: &'a mut T) -> &'a mut Self::View;
+}
+
+/// Review: dual of getter.
+pub trait Review<T>: Optics<T> {
+    /// Retrieve the value targeted by a review.
+    fn review(&self, a: Self::View) -> T;
+}
+
+/// Isomorphisms: getter and review.
+pub trait Iso<T>: Getter<T> + Review<T> {}
+
+/// Setter.
+pub trait Setter<T>: Optics<T> {
+    /// Apply a setter as a modifier.
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View));
+    /// Apply a setter.
+    ///
+    /// # Note
+    /// The value to be set is cloned, because we don't know the exact number of holes to be filled
+    /// in. If the optics has a stricter interface (i.e., it also implements [`AffineTraversal`]),
+    /// use [`AffineTraversal::set`] instead.
+    fn set_cloned(&self, a: &Self::View, s: &mut T) where Self::View: Clone {
+        self.over(s, &mut |p| *p = a.clone())
+    }
+}
+
+/// Traversal (and also Fold).
+pub trait Traversal<T>: Setter<T> {
+    /// Evaluate the action from left to right on each element targeted by a Traversal.
+    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View));
+    /// Fold every element targeted by this Traversal into a single result.
+    fn fold<C>(&self, s: T, mut init: C, mut f: impl FnMut(&mut C, Self::View)) -> C {
+        self.traverse(s, &mut |x| f(&mut init, x));
+        init
+    }
+    /// Flatten the elements targeted by this Traversal into a [`Vec`].
+    fn flatten(&self, s: T) -> Vec<Self::View> {
+        self.fold(s, Vec::new(), |res, x| res.push(x))
+    }
+}
+
+/// AffineTraversal: usually composition of [`Lens`]es and [`Prism`]s.
+pub trait AffineTraversal<T>: Traversal<T> + AffineFold<T> {
+    /// Restricted version for [`Setter::over`]. Custom implementation recommended.
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) {
+        let mut f = Some(f);
+        self.over(s, &mut move |p| std::mem::take(&mut f)
+            .expect("this optics should be affine")(p))
+    }
+    /// Apply a setter. No [`Clone`] is needed, because this optics is _affine_.
+    fn set(&self, s: &mut T, a: Self::View) {
+        self.map(s, |p| *p = a)
+    }
+}
+
+/// AffineTraversal, with (shared, mutable) references.
+pub trait AffineTraversalRef<T>: AffineTraversal<T> + AffineFoldRef<T> {}
+
+impl<T, L: AffineTraversal<T> + AffineFoldRef<T>> AffineTraversalRef<T> for L {}
+
+/// Lens: getter and setter.
+pub trait Lens<T>: Getter<T> + AffineTraversal<T> {}
+
+/// Lens, with (shared, mutable) references.
+pub trait LensRef<T>: Lens<T> + AffineFoldRef<T> + GetterRef<T> {}
+
+impl<T, L: Lens<T> + AffineFoldRef<T> + GetterRef<T>> LensRef<T> for L {}
+
+/// Prism: review and setter.
+pub trait Prism<T>: Review<T> + AffineTraversal<T> {}
+
+/// Prism, with (shared, mutable) references.
+pub trait PrismRef<T>: Prism<T> + AffineFoldRef<T> {}
+
+impl<T, L: Prism<T> + AffineFoldRef<T>> PrismRef<T> for L {}

@@ -5,3 +5,4 @@ target/
 # files used for local use
 assets/
 references/
+*.drawio
