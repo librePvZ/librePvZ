@@ -41,13 +41,13 @@ pub trait AffineFoldRef<T>: AffineFold<T> {
 }
 
 /// Getter.
-pub trait Getter<T>: Optics<T> {
+pub trait Getter<T>: AffineFold<T> {
     /// View the value pointed to by a getter.
     fn view(&self, s: T) -> Self::View;
 }
 
 /// Getter, with (shared, mutable) references.
-pub trait GetterRef<T>: Getter<T> {
+pub trait GetterRef<T>: Getter<T> + AffineFoldRef<T> {
     /// Get a shared reference to the value pointed to by a getter.
     fn view_ref<'a>(&self, s: &'a T) -> &'a Self::View;
     /// Get a mutable reference to the value pointed to by a getter.
