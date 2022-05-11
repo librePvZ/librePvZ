@@ -36,51 +36,83 @@ impl<K: Display, L: Display> Display for Compose<K, L> {
     }
 }
 
-impl<K: Optics<T>, L: Optics<K::View>, T> Optics<T> for Compose<K, L> {
+impl<K: Optics<T>, L: Optics<K::View>, T: ?Sized> Optics<T> for Compose<K, L> {
     type View = L::View;
 }
 
-impl<K: AffineFold<T>, L: AffineFold<K::View>, T> AffineFold<T> for Compose<K, L> {
-    fn preview(&self, s: T) -> Option<L::View> {
+impl<K: AffineFold<T>, L: AffineFold<K::ViewSized>, T> AffineFold<T> for Compose<K, L> {
+    fn preview(&self, s: T) -> Option<L::ViewSized> {
         self.1.preview(self.0.preview(s)?)
     }
 }
 
-impl<K: Getter<T>, L: Getter<K::View>, T> Getter<T> for Compose<K, L> {
-    fn view(&self, s: T) -> L::View {
+impl<'a, T: ?Sized, K, L> AffineFoldRef<'a, T> for Compose<K, L>
+    where K: AffineFoldRef<'a, T>,
+          L: AffineFoldRef<'a, K::ViewLifeBound> {
+    fn preview_ref(&self, s: &'a T) -> Option<&'a L::ViewLifeBound> {
+        self.1.preview_ref(self.0.preview_ref(s)?)
+    }
+}
+
+impl<'a, T: ?Sized, K, L> AffineFoldMut<'a, T> for Compose<K, L>
+    where K: AffineFoldMut<'a, T>,
+          L: AffineFoldMut<'a, K::ViewLifeBound> {
+    fn preview_mut(&self, s: &'a mut T) -> Option<&'a mut L::ViewLifeBound> {
+        self.1.preview_mut(self.0.preview_mut(s)?)
+    }
+}
+
+impl<K: Getter<T>, L: Getter<K::ViewSized>, T> Getter<T> for Compose<K, L> {
+    fn view(&self, s: T) -> L::ViewSized {
         self.1.view(self.0.view(s))
     }
 }
 
-impl<K: Review<T>, L: Review<K::View>, T> Review<T> for Compose<K, L> {
-    fn review(&self, a: L::View) -> T {
+impl<'a, T: ?Sized, K, L> GetterRef<'a, T> for Compose<K, L>
+    where K: GetterRef<'a, T>,
+          L: GetterRef<'a, K::ViewLifeBound> {
+    fn view_ref(&self, s: &'a T) -> &'a L::ViewLifeBound {
+        self.1.view_ref(self.0.view_ref(s))
+    }
+}
+
+impl<'a, T: ?Sized, K, L> GetterMut<'a, T> for Compose<K, L>
+    where K: GetterMut<'a, T>,
+          L: GetterMut<'a, K::ViewLifeBound> {
+    fn view_mut(&self, s: &'a mut T) -> &'a mut L::ViewLifeBound {
+        self.1.view_mut(self.0.view_mut(s))
+    }
+}
+
+impl<K: Review<T>, L: Review<K::ViewSized>, T> Review<T> for Compose<K, L> {
+    fn review(&self, a: L::ViewSized) -> T {
         self.0.review(self.1.review(a))
     }
 }
 
-impl<K: Iso<T>, L: Iso<K::View>, T> Iso<T> for Compose<K, L> {}
+impl<K: Iso<T>, L: Iso<K::ViewSized>, T> Iso<T> for Compose<K, L> {}
 
-impl<K: Setter<T>, L: Setter<K::View>, T> Setter<T> for Compose<K, L> {
-    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut L::View)) {
+impl<K: Setter<T>, L: Setter<K::ViewSized>, T> Setter<T> for Compose<K, L> {
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut L::ViewSized)) {
         self.0.over(s, &mut |c| self.1.over(c, f))
     }
 }
 
-impl<K: Traversal<T>, L: Traversal<K::View>, T> Traversal<T> for Compose<K, L> {
-    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View)) {
+impl<K: Traversal<T>, L: Traversal<K::ViewSized>, T> Traversal<T> for Compose<K, L> {
+    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::ViewSized)) {
         self.0.traverse(s, &mut |v| self.1.traverse(v, f))
     }
 }
 
-impl<K: AffineTraversal<T>, L: AffineTraversal<K::View>, T> AffineTraversal<T> for Compose<K, L> {
-    fn map(&self, s: &mut T, f: impl FnOnce(&mut L::View)) {
+impl<K: AffineTraversal<T>, L: AffineTraversal<K::ViewSized>, T> AffineTraversal<T> for Compose<K, L> {
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut L::ViewSized)) {
         self.0.map(s, |v| self.1.map(v, f))
     }
 }
 
-impl<K: Lens<T>, L: Lens<K::View>, T> Lens<T> for Compose<K, L> {}
+impl<K: Lens<T>, L: Lens<K::ViewSized>, T> Lens<T> for Compose<K, L> {}
 
-impl<K: Prism<T>, L: Prism<K::View>, T> Prism<T> for Compose<K, L> {}
+impl<K: Prism<T>, L: Prism<K::ViewSized>, T> Prism<T> for Compose<K, L> {}
 
 /// Easy composition for optics. See also [`Compose`].
 ///
@@ -110,12 +142,12 @@ macro_rules! optics {
 /// [`GetterRef`] gives us full capabilities of the [`Lens`] interface.
 ///
 /// Here is an example usage. The `match` expression below is reused 3 times in [`Getter::view`],
-/// [`GetterRef::view_ref`], and [`GetterRef::view_mut`]; this relies on the fact that (shared,
+/// [`GetterRef::view_ref`], and [`GetterMut::view_mut`]; this relies on the fact that (shared,
 /// mutable) borrow of fields is implicit in `match` expressions.
 ///
 /// ```
 /// # use optics::declare_lens;
-/// # use optics::traits::{Getter, GetterRef, Setter, AffineTraversal, AffineFold, AffineFoldRef};
+/// # use optics::traits::*;
 /// #[derive(Debug, Copy, Clone, PartialEq)]
 /// enum Color {
 ///     Rgba { red: f32, green: f32, blue: f32, alpha: f32 },
@@ -132,11 +164,11 @@ macro_rules! optics {
 /// }
 ///
 /// let mut color = Color::Rgba { red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0 };
-/// // Getter(Ref)
+/// // Getter(Ref,Mut)
 /// assert_eq!(_Alpha.view(color), 1.0);
 /// assert_eq!(_Alpha.view_ref(&color), &1.0);
 /// assert_eq!(_Alpha.view_mut(&mut color), &mut 1.0);
-/// // AffineFold(Ref)
+/// // AffineFold(Ref,Mut)
 /// assert_eq!(_Alpha.preview(color), Some(1.0));
 /// assert_eq!(_Alpha.preview_ref(&color), Some(&1.0));
 /// assert_eq!(_Alpha.preview_mut(&mut color), Some(&mut 1.0));
@@ -153,7 +185,7 @@ macro_rules! optics {
 ///
 /// ```
 /// # use optics::declare_lens;
-/// # use optics::traits::{Getter, GetterRef, Setter, AffineTraversal, AffineFold, AffineFoldRef};
+/// # use optics::traits::*;
 /// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 /// pub struct Foo { a: u32, b: bool, c: char }
 ///
@@ -166,11 +198,11 @@ macro_rules! optics {
 /// }
 ///
 /// let mut foo = Foo { a: 42, b: true, c: 'A' };
-/// // Getter(Ref)
+/// // Getter(Ref,Mut)
 /// assert_eq!(FooC.view(foo), 'A');
 /// assert_eq!(FooC.view_ref(&foo), &'A');
 /// assert_eq!(FooC.view_mut(&mut foo), &mut 'A');
-/// // AffineFold(Ref)
+/// // AffineFold(Ref,Mut)
 /// assert_eq!(FooC.preview(foo), Some('A'));
 /// assert_eq!(FooC.preview_ref(&foo), Some(&'A'));
 /// assert_eq!(FooC.preview_mut(&mut foo), Some(&mut 'A'));
@@ -241,12 +273,15 @@ macro_rules! impl_lens {
             fn view(&self, $s: $base) -> $target { $by_val }
         }
 
-        impl $(<$($p),+>)? $crate::traits::GetterRef<$base> for $name {
-            fn view_ref<'a>(&self, $s: &'a $base) -> &'a $target { $by_ref }
-            fn view_mut<'a>(&self, $s: &'a mut $base) -> &'a mut $target { $by_mut }
+        impl <'a $($(, $p)+)?> $crate::traits::GetterRef<'a, $base> for $name where $target: 'a {
+            fn view_ref(&self, $s: &'a $base) -> &'a $target { $by_ref }
         }
 
-        $crate::impl_up_from!([GetterRef] $name as $base => $target $(, for<$($p),+>)?);
+        impl <'a $($(, $p)+)?> $crate::traits::GetterMut<'a, $base> for $name where $target: 'a {
+            fn view_mut(&self, $s: &'a mut $base) -> &'a mut $target { $by_mut }
+        }
+
+        $crate::impl_up_from!([Getter(Ref,Mut)] $name as $base => $target $(, for<$($p),+>)?);
 
         impl $(<$($p),+>)? $crate::traits::Lens<$base> for $name {}
     };
@@ -266,7 +301,7 @@ macro_rules! impl_lens {
 ///
 /// ```
 /// # use optics::declare_lens_from_field;
-/// # use optics::traits::{Getter, GetterRef, Setter, AffineTraversal, AffineFold, AffineFoldRef};
+/// # use optics::traits::*;
 /// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 /// pub struct Foo { a: u32, b: bool, c: char }
 /// declare_lens_from_field! {
@@ -277,11 +312,11 @@ macro_rules! impl_lens {
 /// assert_eq!(format!("{}", FooC), "c".to_string());
 ///
 /// let mut foo = Foo { a: 42, b: true, c: 'A' };
-/// // Getter(Ref)
+/// // Getter(Ref,Mut)
 /// assert_eq!(FooC.view(foo), 'A');
 /// assert_eq!(FooC.view_ref(&foo), &'A');
 /// assert_eq!(FooC.view_mut(&mut foo), &mut 'A');
-/// // AffineFold(Ref)
+/// // AffineFold(Ref,Mut)
 /// assert_eq!(FooC.preview(foo), Some('A'));
 /// assert_eq!(FooC.preview_ref(&foo), Some(&'A'));
 /// assert_eq!(FooC.preview_mut(&mut foo), Some(&mut 'A'));
@@ -343,7 +378,7 @@ macro_rules! declare_lens_from_field {
 ///
 /// ```
 /// # use optics::declare_prism_from_variant;
-/// # use optics::traits::{Setter, AffineTraversal, AffineFold, AffineFoldRef, Review};
+/// # use optics::traits::*;
 /// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 /// pub enum Foo {
 ///     Int(u32),
@@ -358,7 +393,7 @@ macro_rules! declare_lens_from_field {
 ///
 /// let mut foo = Foo::Char('A');
 /// let mut bar = Foo::Int(42);
-/// // AffineFold(Ref)
+/// // AffineFold(Ref,Mut)
 /// assert_eq!(FooChar.preview(foo), Some('A'));
 /// assert_eq!(FooChar.preview_ref(&foo), Some(&'A'));
 /// assert_eq!(FooChar.preview_mut(&mut foo), Some(&mut 'A'));
@@ -419,10 +454,14 @@ macro_rules! declare_prism_from_variant {
 /// difficult to define prisms for enum variants with more than one field.
 ///
 /// Use this macro (as a workaround for the said problem) to directly define [`AffineTraversal`]s.
+/// Similar to the example for [`declare_lens`], the `match` expression below is reused 3 times in
+/// [`AffineFold::preview`], [`AffineFoldRef::preview_ref`], and [`AffineFoldMut::preview_mut`];
+/// this relies on the fact that (shared, mutable) borrow of fields is implicit in `match`
+/// expressions. Again, the `reused(wrap)` syntax is available for complicated use cases.
 ///
 /// ```
 /// # use optics::declare_affine_traversal;
-/// # use optics::traits::{Getter, GetterRef, Setter, AffineTraversal, AffineFold, AffineFoldRef};
+/// # use optics::traits::*;
 /// #[derive(Debug, Copy, Clone, PartialEq)]
 /// enum Color {
 ///     Rgba { red: f32, green: f32, blue: f32, alpha: f32 },
@@ -440,7 +479,7 @@ macro_rules! declare_prism_from_variant {
 ///
 /// let mut rgba = Color::Rgba { red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0 };
 /// let mut hsla = Color::Hsla { hue: 1.0, saturation: 1.0, lightness: 1.0, alpha: 1.0 };
-/// // AffineFold(Ref)
+/// // AffineFold(Ref,Mut)
 /// assert_eq!(_Green.preview(rgba), Some(1.0));
 /// assert_eq!(_Green.preview_ref(&rgba), Some(&1.0));
 /// assert_eq!(_Green.preview_mut(&mut rgba), Some(&mut 1.0));
@@ -505,12 +544,15 @@ macro_rules! impl_affine_traversal {
             fn preview(&self, $s: $base) -> Option<$target> { $by_val }
         }
 
-        impl $(<$($p),+>)? $crate::traits::AffineFoldRef<$base> for $name {
-            fn preview_ref<'a>(&self, $s: &'a $base) -> Option<&'a $target> { $by_ref }
-            fn preview_mut<'a>(&self, $s: &'a mut $base) -> Option<&'a mut $target> { $by_mut }
+        impl <'a $($(, $p)+)?> $crate::traits::AffineFoldRef<'a, $base> for $name where $target: 'a {
+            fn preview_ref(&self, $s: &'a $base) -> Option<&'a $target> { $by_ref }
         }
 
-        $crate::impl_up_from!([AffineFoldRef] $name as $base => $target $(, for<$($p),+>)?);
+        impl <'a $($(, $p)+)?> $crate::traits::AffineFoldMut<'a, $base> for $name where $target: 'a {
+            fn preview_mut(&self, $s: &'a mut $base) -> Option<&'a mut $target> { $by_mut }
+        }
+
+        $crate::impl_up_from!([AffineFold(Mut)] $name as $base => $target $(, for<$($p),+>)?);
     };
     (
         $name:ident as $base:ty => $target:ty $(, for<$($p:ident),+ $(,)?>)?,
@@ -527,11 +569,11 @@ macro_rules! impl_affine_traversal {
 
 /// Implement the lens hierarchy from some specific level.
 ///
-/// | Base Trait                                       | Free Implementation                |
-/// |--------------------------------------------------|------------------------------------|
-/// | [`AffineTraversal`]                              | [`Setter`]                         |
-/// | [`AffineFoldRef`] (and therefore [`AffineFold`]) | [`Traversal`], [`AffineTraversal`] |
-/// | [`GetterRef`] (and therefore [`Getter`])         | [`AffineFold`], [`AffineFoldRef`]  |
+/// | Base Trait                               | Free Implementation                                  |
+/// |------------------------------------------|------------------------------------------------------|
+/// | [`AffineTraversal`]                      | [`Setter`]                                           |
+/// | [`AffineFold`], [`AffineFoldMut`]        | [`Traversal`], [`AffineTraversal`]                   |
+/// | [`Getter`], [`GetterRef`], [`GetterMut`] | [`AffineFold`], [`AffineFoldRef`], [`AffineFoldMut`] |
 ///
 /// Call this in the following form:
 /// ```ignore
@@ -558,9 +600,9 @@ macro_rules! impl_up_from {
             }
         }
     )+};
-    // AffineFold(Ref) => Traversal, AffineTraversal
+    // AffineFold(Mut) => Traversal, AffineTraversal
     (
-        [AffineFoldRef]
+        [AffineFold(Mut)]
         $(
             $name:ident as $base:ty => $target:ty
             $(, for <$($p:ident),+ $(,)?>)?
@@ -574,15 +616,15 @@ macro_rules! impl_up_from {
 
         impl $(<$($p),+>)? $crate::traits::AffineTraversal<$base> for $name {
             fn map(&self, s: &mut $base, f: impl FnOnce(&mut $target)) {
-                $crate::traits::AffineFoldRef::preview_mut(self, s).map(f);
+                $crate::traits::AffineFoldMut::preview_mut(self, s).map(f);
             }
         }
 
         $crate::impl_up_from!([AffineTraversal] $name as $base => $target $(, for<$($p),+>)?);
     )+};
-    // GetterRef => AffineFold, AffineFoldRef
+    // Getter(Ref,Mut) => AffineFold, AffineFoldRef, AffineFoldMut
     (
-        [GetterRef]
+        [Getter(Ref,Mut)]
         $(
             $name:ident as $base:ty => $target:ty
             $(, for <$($p:ident),+ $(,)?>)?
@@ -594,15 +636,18 @@ macro_rules! impl_up_from {
             }
         }
 
-        impl $(<$($p),+>)? $crate::traits::AffineFoldRef<$base> for $name {
-            fn preview_ref<'a>(&self, s: &'a $base) -> Option<&'a $target> {
+        impl <'a $($(, $p)+)?> $crate::traits::AffineFoldRef<'a, $base> for $name where $target: 'a {
+            fn preview_ref(&self, s: &'a $base) -> Option<&'a $target> {
                 Some($crate::traits::GetterRef::view_ref(self, s))
-            }
-            fn preview_mut<'a>(&self, s: &'a mut $base) -> Option<&'a mut $target> {
-                Some($crate::traits::GetterRef::view_mut(self, s))
             }
         }
 
-        $crate::impl_up_from!([AffineFoldRef] $name as $base => $target $(, for<$($p),+>)?);
+        impl <'a $($(, $p)+)?> $crate::traits::AffineFoldMut<'a, $base> for $name where $target: 'a {
+            fn preview_mut(&self, s: &'a mut $base) -> Option<&'a mut $target> {
+                Some($crate::traits::GetterMut::view_mut(self, s))
+            }
+        }
+
+        $crate::impl_up_from!([AffineFold(Mut)] $name as $base => $target $(, for<$($p),+>)?);
     )+};
 }

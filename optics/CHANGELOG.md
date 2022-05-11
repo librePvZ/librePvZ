@@ -3,7 +3,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 ## Unreleased
 
 - added lens hierarchy: Iso, Lens, Prism, Getter, Review, AffineTraversal, AffineFold, Traversal, Fold, Setter
-- added Rust-specific optics with (shared, mutable) references: GetterRef, AffineFoldRef, AffineTraversalRef, LensRef, PrismRef
+- added Rust-specific optics with (shared, mutable) references: GetterRef, GetterMut, AffineFoldRef, AffineFoldMut
 - added helper macros:
   - declare_lens_from_field
   - declare_prism_from_variant

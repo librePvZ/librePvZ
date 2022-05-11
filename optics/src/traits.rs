@@ -18,26 +18,50 @@
 
 //! Traits for polymorphic lens hierarchy.
 //!
-#![doc = include_str!("../optics.svg")]
+#![doc = include_str ! ("../optics.svg")]
 
 /// Any optics: a view type associated.
-pub trait Optics<T> {
+pub trait Optics<T: ?Sized> {
     /// View type for this optics.
-    type View;
+    type View: ?Sized;
+}
+
+/// Optics, with source and view types [`Sized`].
+pub trait OpticsSized<T>: Optics<T, View=Self::ViewSized> {
+    /// [`Optics::View`], but explicitly [`Sized`].
+    type ViewSized;
+}
+
+impl<T, L: Optics<T>> OpticsSized<T> for L where L::View: Sized {
+    type ViewSized = L::View;
+}
+
+/// Optics, with view types guaranteed to live long enough.
+pub trait OpticsLifeBound<'a, T: ?Sized>: Optics<T, View=Self::ViewLifeBound> {
+    /// [`Optics::View`], but explicitly bound by a lifetime.
+    type ViewLifeBound: ?Sized + 'a;
+}
+
+impl<'a, T: ?Sized, L: Optics<T>> OpticsLifeBound<'a, T> for L where L::View: 'a {
+    type ViewLifeBound = L::View;
 }
 
 /// AffineFold: getter, but may fail.
-pub trait AffineFold<T>: Optics<T> {
+pub trait AffineFold<T>: OpticsSized<T> {
     /// Retrieve the value targeted by an AffineFold.
     fn preview(&self, s: T) -> Option<Self::View>;
 }
 
-/// AffineFold, with (shared, mutable) references.
-pub trait AffineFoldRef<T>: AffineFold<T> {
+/// AffineFold, with shared references.
+pub trait AffineFoldRef<'a, T: ?Sized>: OpticsLifeBound<'a, T> {
     /// Retrieve a shared reference the value targeted by an AffineFold.
-    fn preview_ref<'a>(&self, s: &'a T) -> Option<&'a Self::View>;
+    fn preview_ref(&self, s: &'a T) -> Option<&'a Self::View>;
+}
+
+/// AffineFold, with mutable references.
+pub trait AffineFoldMut<'a, T: ?Sized>: OpticsLifeBound<'a, T> {
     /// Retrieve a mutable reference the value targeted by an AffineFold.
-    fn preview_mut<'a>(&self, s: &'a mut T) -> Option<&'a mut Self::View>;
+    fn preview_mut(&self, s: &'a mut T) -> Option<&'a mut Self::View>;
 }
 
 /// Getter.
@@ -46,16 +70,20 @@ pub trait Getter<T>: AffineFold<T> {
     fn view(&self, s: T) -> Self::View;
 }
 
-/// Getter, with (shared, mutable) references.
-pub trait GetterRef<T>: Getter<T> + AffineFoldRef<T> {
+/// Getter, with shared references.
+pub trait GetterRef<'a, T: ?Sized>: AffineFoldRef<'a, T> {
     /// Get a shared reference to the value pointed to by a getter.
-    fn view_ref<'a>(&self, s: &'a T) -> &'a Self::View;
+    fn view_ref(&self, s: &'a T) -> &'a Self::View;
+}
+
+/// Getter, with mutable references.
+pub trait GetterMut<'a, T: ?Sized>: AffineFoldMut<'a, T> {
     /// Get a mutable reference to the value pointed to by a getter.
-    fn view_mut<'a>(&self, s: &'a mut T) -> &'a mut Self::View;
+    fn view_mut(&self, s: &'a mut T) -> &'a mut Self::View;
 }
 
 /// Review: dual of getter.
-pub trait Review<T>: Optics<T> {
+pub trait Review<T>: OpticsSized<T> {
     /// Retrieve the value targeted by a review.
     fn review(&self, a: Self::View) -> T;
 }
@@ -64,7 +92,7 @@ pub trait Review<T>: Optics<T> {
 pub trait Iso<T>: Getter<T> + Review<T> {}
 
 /// Setter.
-pub trait Setter<T>: Optics<T> {
+pub trait Setter<T>: OpticsSized<T> {
     /// Apply a setter as a modifier.
     fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View));
     /// Apply a setter.
@@ -107,23 +135,8 @@ pub trait AffineTraversal<T>: Traversal<T> + AffineFold<T> {
     }
 }
 
-/// AffineTraversal, with (shared, mutable) references.
-pub trait AffineTraversalRef<T>: AffineTraversal<T> + AffineFoldRef<T> {}
-
-impl<T, L: AffineTraversal<T> + AffineFoldRef<T>> AffineTraversalRef<T> for L {}
-
 /// Lens: getter and setter.
 pub trait Lens<T>: Getter<T> + AffineTraversal<T> {}
 
-/// Lens, with (shared, mutable) references.
-pub trait LensRef<T>: Lens<T> + AffineFoldRef<T> + GetterRef<T> {}
-
-impl<T, L: Lens<T> + AffineFoldRef<T> + GetterRef<T>> LensRef<T> for L {}
-
 /// Prism: review and setter.
 pub trait Prism<T>: Review<T> + AffineTraversal<T> {}
-
-/// Prism, with (shared, mutable) references.
-pub trait PrismRef<T>: Prism<T> + AffineFoldRef<T> {}
-
-impl<T, L: Prism<T> + AffineFoldRef<T>> PrismRef<T> for L {}
