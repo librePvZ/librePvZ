@@ -26,6 +26,16 @@ pub trait Optics<T: ?Sized> {
     type View: ?Sized;
 }
 
+/// Optics with a success type and an error type associated.
+pub trait OpticsFallible {
+    /// Success type for this optics.
+    type Success;
+    /// Error type for this optics.
+    type Error;
+    /// Get a lightweight witness for success.
+    fn success_witness(&self) -> Self::Success;
+}
+
 /// Optics, with source and view types [`Sized`].
 pub trait OpticsSized<T>: Optics<T, View=Self::ViewSized> {
     /// [`Optics::View`], but explicitly [`Sized`].
@@ -47,21 +57,21 @@ impl<'a, T: ?Sized, L: Optics<T>> OpticsLifeBound<'a, T> for L where L::View: 'a
 }
 
 /// AffineFold: getter, but may fail.
-pub trait AffineFold<T>: OpticsSized<T> {
+pub trait AffineFold<T>: OpticsSized<T> + OpticsFallible {
     /// Retrieve the value targeted by an AffineFold.
-    fn preview(&self, s: T) -> Option<Self::View>;
+    fn preview(&self, s: T) -> Result<Self::View, Self::Error>;
 }
 
 /// AffineFold, with shared references.
-pub trait AffineFoldRef<'a, T: ?Sized>: OpticsLifeBound<'a, T> {
+pub trait AffineFoldRef<'a, T: ?Sized>: OpticsLifeBound<'a, T> + OpticsFallible {
     /// Retrieve a shared reference the value targeted by an AffineFold.
-    fn preview_ref(&self, s: &'a T) -> Option<&'a Self::View>;
+    fn preview_ref(&self, s: &'a T) -> Result<&'a Self::View, Self::Error>;
 }
 
 /// AffineFold, with mutable references.
-pub trait AffineFoldMut<'a, T: ?Sized>: OpticsLifeBound<'a, T> {
+pub trait AffineFoldMut<'a, T: ?Sized>: OpticsLifeBound<'a, T> + OpticsFallible {
     /// Retrieve a mutable reference the value targeted by an AffineFold.
-    fn preview_mut(&self, s: &'a mut T) -> Option<&'a mut Self::View>;
+    fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut Self::View, Self::Error>;
 }
 
 /// Getter.

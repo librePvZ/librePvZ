@@ -41,8 +41,50 @@ impl Display for Identity {
     }
 }
 
+/// An empty type to indicate it is not possible to have an [`Err`] case.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Infallible {}
+
+impl Display for Infallible {
+    fn fmt(&self, _: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {}
+    }
+}
+
+/// Success type for [`Compose`]d optics.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct SuccessCompose<S, R>(S, R);
+
+impl<S: Display, R: Display> Display for SuccessCompose<S, R> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
+
+/// Error type for [`Compose`]d optics.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ErrorCompose<E, S, R> {
+    /// Error happened for the first optics in this composition.
+    Head(E),
+    /// Operation for the first optics succeeded in this composition.
+    Tail(S, R),
+}
+
+impl<E: Display, S: Display, R: Display> Display for ErrorCompose<E, S, R> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrorCompose::Head(x) => x.fmt(f),
+            ErrorCompose::Tail(x, r) => write!(f, "{x}.{r}"),
+        }
+    }
+}
+
+impl<E, S, R> From<E> for ErrorCompose<E, S, R> {
+    fn from(err: E) -> Self { ErrorCompose::Head(err) }
+}
+
 /// Composed optics of `K` and `L`; `K` is applied first.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Compose<K, L>(pub K, pub L);
 
 impl<K: Debug, L: Debug> Debug for Compose<K, L> {
@@ -62,25 +104,36 @@ impl<K: Optics<T>, L: Optics<K::View>, T: ?Sized> Optics<T> for Compose<K, L> {
     type View = L::View;
 }
 
+impl<K: OpticsFallible, L: OpticsFallible> OpticsFallible for Compose<K, L> {
+    type Success = SuccessCompose<K::Success, L::Success>;
+    type Error = ErrorCompose<K::Error, K::Success, L::Error>;
+    fn success_witness(&self) -> Self::Success {
+        SuccessCompose(self.0.success_witness(), self.1.success_witness())
+    }
+}
+
 impl<K: AffineFold<T>, L: AffineFold<K::ViewSized>, T> AffineFold<T> for Compose<K, L> {
-    fn preview(&self, s: T) -> Option<L::ViewSized> {
+    fn preview(&self, s: T) -> Result<L::ViewSized, Self::Error> {
         self.1.preview(self.0.preview(s)?)
+            .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
     }
 }
 
 impl<'a, T: ?Sized, K, L> AffineFoldRef<'a, T> for Compose<K, L>
     where K: AffineFoldRef<'a, T>,
           L: AffineFoldRef<'a, K::ViewLifeBound> {
-    fn preview_ref(&self, s: &'a T) -> Option<&'a L::ViewLifeBound> {
+    fn preview_ref(&self, s: &'a T) -> Result<&'a L::ViewLifeBound, Self::Error> {
         self.1.preview_ref(self.0.preview_ref(s)?)
+            .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
     }
 }
 
 impl<'a, T: ?Sized, K, L> AffineFoldMut<'a, T> for Compose<K, L>
     where K: AffineFoldMut<'a, T>,
           L: AffineFoldMut<'a, K::ViewLifeBound> {
-    fn preview_mut(&self, s: &'a mut T) -> Option<&'a mut L::ViewLifeBound> {
+    fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut L::ViewLifeBound, Self::Error> {
         self.1.preview_mut(self.0.preview_mut(s)?)
+            .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
     }
 }
 
@@ -143,12 +196,34 @@ impl<K: Prism<T>, L: Prism<K::ViewSized>, T> Prism<T> for Compose<K, L> {}
 /// # use optics::prelude::*;
 /// # use optics::traits::AffineFold;
 /// let val: Result<(bool, Option<u32>), &str> = Ok((true, Some(42)));
-/// assert_eq!(optics!(_Ok._1._Some).preview(val), Some(42));
+/// assert_eq!(optics!(_Ok._1._Some).preview(val), Ok(42));
+/// ```
+///
+/// [`Compose`] implement [`Debug`] and [`Display`] in human readable format:
+/// ```
+/// # use optics::optics;
+/// # use optics::prelude::*;
 /// assert_eq!(format!("{}", optics!(_Ok._1._Some)), "Ok.1.Some".to_string());
 /// assert_eq!(
 ///     format!("{:?}", optics!(_Ok._1._Some)),
-///     "Result::Ok.{(T0, T1),(T0, T1, T2),(T0, T1, T2, T3)}::1.Option::Some.Identity".to_string()
+///     "Result::Ok\
+///     .{(T0, T1),(T0, T1, T2),(T0, T1, T2, T3)}::1\
+///     .Option::Some\
+///     .Identity".to_string()
 /// );
+/// ```
+///
+/// [`Compose`] implements provides error types through the [`OpticsFallible`] interface. The error
+/// type implements [`Debug`] and [`Display`], indicating the shortest prefix of this [`Compose`]d
+/// optics responsible for this error.
+/// ```
+/// # use optics::optics;
+/// # use optics::prelude::*;
+/// # use optics::traits::AffineFold;
+/// let val: Result<(bool, Option<u32>), &str> = Err("top-level mismatch");
+/// assert_eq!(optics!(_Ok._1._Some).preview(val).unwrap_err().to_string(), "Ok");
+/// let val: Result<(bool, Option<u32>), &str> = Ok((true, None));
+/// assert_eq!(optics!(_Ok._1._Some).preview(val).unwrap_err().to_string(), "Ok.1.Some");
 /// ```
 #[macro_export]
 macro_rules! optics {
@@ -191,9 +266,9 @@ macro_rules! optics {
 /// assert_eq!(_Alpha.view_ref(&color), &1.0);
 /// assert_eq!(_Alpha.view_mut(&mut color), &mut 1.0);
 /// // AffineFold(Ref,Mut)
-/// assert_eq!(_Alpha.preview(color), Some(1.0));
-/// assert_eq!(_Alpha.preview_ref(&color), Some(&1.0));
-/// assert_eq!(_Alpha.preview_mut(&mut color), Some(&mut 1.0));
+/// assert_eq!(_Alpha.preview(color), Ok(1.0));
+/// assert_eq!(_Alpha.preview_ref(&color), Ok(&1.0));
+/// assert_eq!(_Alpha.preview_mut(&mut color), Ok(&mut 1.0));
 /// // Setter
 /// _Alpha.over(&mut color, &mut |alpha| *alpha *= 0.5);
 /// assert_eq!(color, Color::Rgba { red: 1.0, green: 1.0, blue: 1.0, alpha: 0.5 });
@@ -225,9 +300,9 @@ macro_rules! optics {
 /// assert_eq!(FooC.view_ref(&foo), &'A');
 /// assert_eq!(FooC.view_mut(&mut foo), &mut 'A');
 /// // AffineFold(Ref,Mut)
-/// assert_eq!(FooC.preview(foo), Some('A'));
-/// assert_eq!(FooC.preview_ref(&foo), Some(&'A'));
-/// assert_eq!(FooC.preview_mut(&mut foo), Some(&mut 'A'));
+/// assert_eq!(FooC.preview(foo), Ok('A'));
+/// assert_eq!(FooC.preview_ref(&foo), Ok(&'A'));
+/// assert_eq!(FooC.preview_mut(&mut foo), Ok(&mut 'A'));
 /// // Setter
 /// FooC.over(&mut foo, &mut |c| c.make_ascii_lowercase());
 /// assert_eq!(foo, Foo { a: 42, b: true, c: 'a' });
@@ -256,9 +331,10 @@ macro_rules! declare_lens {
         ($s:ident) => by_val: $by_val:expr, by_ref: $by_ref:expr, by_mut: $by_mut:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq)]
         $vis struct $name;
 
+        $crate::mark_infallible!($name);
         $crate::impl_lens! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) => by_val: $by_val, by_ref: $by_ref, by_mut: $by_mut
@@ -270,9 +346,10 @@ macro_rules! declare_lens {
         ($s:ident) $(reused($wrap:ident))? => $reused:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq)]
         $vis struct $name;
 
+        $crate::mark_infallible!($name);
         $crate::impl_lens! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) $(reused($wrap))? => $reused
@@ -280,7 +357,32 @@ macro_rules! declare_lens {
     };
 }
 
+/// Mark an optics as infallible by implementing [`OpticsFallible`].
+#[macro_export]
+macro_rules! mark_infallible {
+    ($name:ident) => {
+        impl $crate::traits::OpticsFallible for $name {
+            type Success = $name;
+            type Error = $crate::concrete::Infallible;
+            fn success_witness(&self) -> $name { *self }
+        }
+    }
+}
+
+/// Mark an optics as fallible by implementing [`OpticsFallible`].
+#[macro_export]
+macro_rules! mark_fallible {
+    ($name:ident) => {
+        impl $crate::traits::OpticsFallible for $name {
+            type Success = $name;
+            type Error = $name;
+            fn success_witness(&self) -> $name { *self }
+        }
+    }
+}
+
 /// Similar to [`declare_lens`], but does not define the lens type for you.
+/// Normally [`mark_infallible`] should be used together with this macro.
 #[macro_export]
 macro_rules! impl_lens {
     (
@@ -339,9 +441,9 @@ macro_rules! impl_lens {
 /// assert_eq!(FooC.view_ref(&foo), &'A');
 /// assert_eq!(FooC.view_mut(&mut foo), &mut 'A');
 /// // AffineFold(Ref,Mut)
-/// assert_eq!(FooC.preview(foo), Some('A'));
-/// assert_eq!(FooC.preview_ref(&foo), Some(&'A'));
-/// assert_eq!(FooC.preview_mut(&mut foo), Some(&mut 'A'));
+/// assert_eq!(FooC.preview(foo), Ok('A'));
+/// assert_eq!(FooC.preview_ref(&foo), Ok(&'A'));
+/// assert_eq!(FooC.preview_mut(&mut foo), Ok(&mut 'A'));
 /// // Setter
 /// FooC.over(&mut foo, &mut |c| c.make_ascii_lowercase());
 /// assert_eq!(foo, Foo { a: 42, b: true, c: 'a' });
@@ -356,7 +458,7 @@ macro_rules! declare_lens_from_field {
         $(as $base:ty => $target:ty $(, for<$($p:ident),+ $(,)?>)?)+
     );+ $(;)?) => {$(
         $(#[$m])*
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq)]
         $vis struct $name;
 
         impl std::fmt::Debug for $name {
@@ -381,6 +483,8 @@ macro_rules! declare_lens_from_field {
                 f.write_str(stringify!($field))
             }
         }
+
+        $crate::mark_infallible!($name);
 
         $(
             $crate::impl_lens! {
@@ -416,12 +520,12 @@ macro_rules! declare_lens_from_field {
 /// let mut foo = Foo::Char('A');
 /// let mut bar = Foo::Int(42);
 /// // AffineFold(Ref,Mut)
-/// assert_eq!(FooChar.preview(foo), Some('A'));
-/// assert_eq!(FooChar.preview_ref(&foo), Some(&'A'));
-/// assert_eq!(FooChar.preview_mut(&mut foo), Some(&mut 'A'));
-/// assert_eq!(FooChar.preview(bar), None);
-/// assert_eq!(FooChar.preview_ref(&bar), None);
-/// assert_eq!(FooChar.preview_mut(&mut bar), None);
+/// assert_eq!(FooChar.preview(foo), Ok('A'));
+/// assert_eq!(FooChar.preview_ref(&foo), Ok(&'A'));
+/// assert_eq!(FooChar.preview_mut(&mut foo), Ok(&mut 'A'));
+/// assert_eq!(FooChar.preview(bar), Err(FooChar));
+/// assert_eq!(FooChar.preview_ref(&bar), Err(FooChar));
+/// assert_eq!(FooChar.preview_mut(&mut bar), Err(FooChar));
 /// // Setter
 /// FooChar.over(&mut foo, &mut |c| c.make_ascii_lowercase());
 /// assert_eq!(foo, Foo::Char('a'));
@@ -440,9 +544,10 @@ macro_rules! declare_prism_from_variant {
         as $base:ident $(<$($p1:ident),+ $(,)?>)? => $target:ty
         $(, for <$($p:ident),+ $(,)?>)?
     );+ $(;)?) => {$(
-        $(#[$m])*
-        #[derive(Copy, Clone)]
-        $vis struct $name;
+        $crate::declare_affine_traversal! {
+            $(#[$m])* $vis $name as $base $(<$($p1),+>)? => $target $(, for<$($p),+>)?,
+            (s) => if let $base::$variant(x) = s { Ok(x) } else { Err($name) }
+        }
 
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -454,11 +559,6 @@ macro_rules! declare_prism_from_variant {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.write_str(stringify!($variant))
             }
-        }
-
-        $crate::impl_affine_traversal! {
-            $name as $base $(<$($p1),+>)? => $target $(, for<$($p),+>)?,
-            (s) => if let $base::$variant(x) = s { Some(x) } else { None }
         }
 
         impl $(<$($p),+>)? $crate::traits::Review<$base $(<$($p1),+>)?> for $name {
@@ -492,22 +592,23 @@ macro_rules! declare_prism_from_variant {
 ///
 /// declare_affine_traversal! {
 ///     /// Alpha component for colors.
+///     #[derive(Debug)]
 ///     _Green as Color => f32,
 ///     (c) => match c {
-///         Color::Rgba { green, .. } => Some(green),
-///         _ => None,
+///         Color::Rgba { green, .. } => Ok(green),
+///         _ => Err(_Green),
 ///     }
 /// }
 ///
 /// let mut rgba = Color::Rgba { red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0 };
 /// let mut hsla = Color::Hsla { hue: 1.0, saturation: 1.0, lightness: 1.0, alpha: 1.0 };
 /// // AffineFold(Ref,Mut)
-/// assert_eq!(_Green.preview(rgba), Some(1.0));
-/// assert_eq!(_Green.preview_ref(&rgba), Some(&1.0));
-/// assert_eq!(_Green.preview_mut(&mut rgba), Some(&mut 1.0));
-/// assert_eq!(_Green.preview(hsla), None);
-/// assert_eq!(_Green.preview_ref(&hsla), None);
-/// assert_eq!(_Green.preview_mut(&mut hsla), None);
+/// assert_eq!(_Green.preview(rgba), Ok(1.0));
+/// assert_eq!(_Green.preview_ref(&rgba), Ok(&1.0));
+/// assert_eq!(_Green.preview_mut(&mut rgba), Ok(&mut 1.0));
+/// assert_eq!(_Green.preview(hsla), Err(_Green));
+/// assert_eq!(_Green.preview_ref(&hsla), Err(_Green));
+/// assert_eq!(_Green.preview_mut(&mut hsla), Err(_Green));
 /// // Setter
 /// _Green.over(&mut rgba, &mut |green| *green *= 0.5);
 /// assert_eq!(rgba, Color::Rgba { red: 1.0, green: 0.5, blue: 1.0, alpha: 1.0 });
@@ -527,9 +628,10 @@ macro_rules! declare_affine_traversal {
         ($s:ident) => by_val: $by_val:expr, by_ref: $by_ref:expr, by_mut: $by_mut:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq)]
         $vis struct $name;
 
+        $crate::mark_fallible!($name);
         $crate::impl_affine_traversal! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) => by_val: $by_val, by_ref: $by_ref, by_mut: $by_mut
@@ -541,9 +643,10 @@ macro_rules! declare_affine_traversal {
         ($s:ident) $(reused($wrap:ident))? => $reused:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, PartialEq)]
         $vis struct $name;
 
+        $crate::mark_fallible!($name);
         $crate::impl_affine_traversal! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) $(reused($wrap))? => $reused
@@ -563,15 +666,15 @@ macro_rules! impl_affine_traversal {
         }
 
         impl $(<$($p),+>)? $crate::traits::AffineFold<$base> for $name {
-            fn preview(&self, $s: $base) -> Option<$target> { $by_val }
+            fn preview(&self, $s: $base) -> Result<$target, Self::Error> { $by_val }
         }
 
         impl <'a $($(, $p)+)?> $crate::traits::AffineFoldRef<'a, $base> for $name where $target: 'a {
-            fn preview_ref(&self, $s: &'a $base) -> Option<&'a $target> { $by_ref }
+            fn preview_ref(&self, $s: &'a $base) -> Result<&'a $target, Self::Error> { $by_ref }
         }
 
         impl <'a $($(, $p)+)?> $crate::traits::AffineFoldMut<'a, $base> for $name where $target: 'a {
-            fn preview_mut(&self, $s: &'a mut $base) -> Option<&'a mut $target> { $by_mut }
+            fn preview_mut(&self, $s: &'a mut $base) -> Result<&'a mut $target, Self::Error> { $by_mut }
         }
 
         $crate::impl_up_from!([AffineFold(Mut)] $name as $base => $target $(, for<$($p),+>)?);
@@ -632,13 +735,13 @@ macro_rules! impl_up_from {
     ) => {$(
         impl $(<$($p),+>)? $crate::traits::Traversal<$base> for $name {
             fn traverse(&self, s: $base, f: &mut dyn FnMut($target)) {
-                $crate::traits::AffineFold::preview(self, s).map(f);
+                let _ = $crate::traits::AffineFold::preview(self, s).map(f);
             }
         }
 
         impl $(<$($p),+>)? $crate::traits::AffineTraversal<$base> for $name {
             fn map(&self, s: &mut $base, f: impl FnOnce(&mut $target)) {
-                $crate::traits::AffineFoldMut::preview_mut(self, s).map(f);
+                let _ = $crate::traits::AffineFoldMut::preview_mut(self, s).map(f);
             }
         }
 
@@ -653,20 +756,20 @@ macro_rules! impl_up_from {
         );+ $(;)?
     ) => {$(
         impl $(<$($p),+>)? $crate::traits::AffineFold<$base> for $name {
-            fn preview(&self, s: $base) -> Option<$target> {
-                Some($crate::traits::Getter::view(self, s))
+            fn preview(&self, s: $base) -> Result<$target, Self::Error> {
+                Ok($crate::traits::Getter::view(self, s))
             }
         }
 
         impl <'a $($(, $p)+)?> $crate::traits::AffineFoldRef<'a, $base> for $name where $target: 'a {
-            fn preview_ref(&self, s: &'a $base) -> Option<&'a $target> {
-                Some($crate::traits::GetterRef::view_ref(self, s))
+            fn preview_ref(&self, s: &'a $base) -> Result<&'a $target, Self::Error> {
+                Ok($crate::traits::GetterRef::view_ref(self, s))
             }
         }
 
         impl <'a $($(, $p)+)?> $crate::traits::AffineFoldMut<'a, $base> for $name where $target: 'a {
-            fn preview_mut(&self, s: &'a mut $base) -> Option<&'a mut $target> {
-                Some($crate::traits::GetterMut::view_mut(self, s))
+            fn preview_mut(&self, s: &'a mut $base) -> Result<&'a mut $target, Self::Error> {
+                Ok($crate::traits::GetterMut::view_mut(self, s))
             }
         }
 
