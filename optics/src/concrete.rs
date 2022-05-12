@@ -17,8 +17,29 @@
  */
 
 //! Concrete implementations for optics.
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Write};
 use crate::traits::*;
+
+crate::declare_lens! {
+    /// Identity optics.
+    #[derive(Debug)]
+    pub Identity as T => T, for<T>, (x) => x
+}
+
+impl<T> Review<T> for Identity {
+    fn review(&self, a: T) -> T { a }
+}
+
+impl<T> Prism<T> for Identity {}
+
+impl<T> Iso<T> for Identity {}
+
+impl Display for Identity {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if !f.alternate() { f.write_str("Identity")?; }
+        Ok(())
+    }
+}
 
 /// Composed optics of `K` and `L`; `K` is applied first.
 #[derive(Copy, Clone)]
@@ -32,7 +53,8 @@ impl<K: Debug, L: Debug> Debug for Compose<K, L> {
 
 impl<K: Display, L: Display> Display for Compose<K, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.0, self.1)
+        if f.alternate() { f.write_char('.')?; }
+        write!(f, "{}{:#}", self.0, self.1)
     }
 }
 
@@ -125,14 +147,14 @@ impl<K: Prism<T>, L: Prism<K::ViewSized>, T> Prism<T> for Compose<K, L> {}
 /// assert_eq!(format!("{}", optics!(_Ok._1._Some)), "Ok.1.Some".to_string());
 /// assert_eq!(
 ///     format!("{:?}", optics!(_Ok._1._Some)),
-///     "Result::Ok.{(T0, T1),(T0, T1, T2),(T0, T1, T2, T3)}::1.Option::Some".to_string()
+///     "Result::Ok.{(T0, T1),(T0, T1, T2),(T0, T1, T2, T3)}::1.Option::Some.Identity".to_string()
 /// );
 /// ```
 #[macro_export]
 macro_rules! optics {
-    ($single:ident) => { $single };
-    ($head:ident . $($tail:ident).+) => {
-        $crate::concrete::Compose($head, $crate::optics!($($tail).+))
+    () => { $crate::concrete::Identity };
+    ($head:ident $(. $tail:ident)*) => {
+        $crate::concrete::Compose($head, $crate::optics!($($tail).*))
     }
 }
 
