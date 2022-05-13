@@ -41,16 +41,6 @@ impl Display for Identity {
     }
 }
 
-/// An empty type to indicate it is not possible to have an [`Err`] case.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Infallible {}
-
-impl Display for Infallible {
-    fn fmt(&self, _: &mut Formatter<'_>) -> std::fmt::Result {
-        match *self {}
-    }
-}
-
 /// Success type for [`Compose`]d optics.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct SuccessCompose<S, R>(S, R);
@@ -188,6 +178,99 @@ impl<K: AffineTraversal<T>, L: AffineTraversal<K::ViewSized>, T> AffineTraversal
 impl<K: Lens<T>, L: Lens<K::ViewSized>, T> Lens<T> for Compose<K, L> {}
 
 impl<K: Prism<T>, L: Prism<K::ViewSized>, T> Prism<T> for Compose<K, L> {}
+
+/// Optics wrapper for mapping the [`Success`] and [`Error`] value.
+///
+/// [`Success`]: OpticsFallible::Success
+/// [`Error`]: OpticsFallible::Error
+pub struct MapFallible<L, F, G>(pub(crate) L, pub(crate) F, pub(crate) G);
+
+/// Optics wrapper for mapping the [`Success`] value.
+///
+/// [`Success`]: OpticsFallible::Success
+pub type MapSuccess<L, F> = MapFallible<L, F, fn(<L as OpticsFallible>::Error) -> <L as OpticsFallible>::Error>;
+
+/// Optics wrapper for mapping the [`Error`] value.
+///
+/// [`Error`]: OpticsFallible::Error
+pub type MapError<L, G> = MapFallible<L, fn(<L as OpticsFallible>::Success) -> <L as OpticsFallible>::Success, G>;
+
+/// Optics wrapper for mapping the [`Success`] and [`Error`] value to some specific type.
+///
+/// [`Success`]: OpticsFallible::Success
+/// [`Error`]: OpticsFallible::Error
+pub type MapFallibleTo<L, S, E> = MapFallible<L,
+    fn(<L as OpticsFallible>::Success) -> S,
+    fn(<L as OpticsFallible>::Error) -> E,
+>;
+
+impl<T: ?Sized, L: Optics<T>, F, G> Optics<T> for MapFallible<L, F, G> {
+    type View = L::View;
+}
+
+impl<L: OpticsFallible, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> OpticsFallible for MapFallible<L, F, G> {
+    type Success = S;
+    type Error = E;
+    fn success_witness(&self) -> S {
+        (self.1)(self.0.success_witness())
+    }
+}
+
+impl<T, L: AffineFold<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> AffineFold<T> for MapFallible<L, F, G> {
+    fn preview(&self, s: T) -> Result<Self::View, E> {
+        self.0.preview(s).map_err(&self.2)
+    }
+}
+
+impl<'a, T: ?Sized, L: AffineFoldRef<'a, T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> AffineFoldRef<'a, T> for MapFallible<L, F, G> {
+    fn preview_ref(&self, s: &'a T) -> Result<&'a Self::View, E> {
+        self.0.preview_ref(s).map_err(&self.2)
+    }
+}
+
+impl<'a, T: ?Sized, L: AffineFoldMut<'a, T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> AffineFoldMut<'a, T> for MapFallible<L, F, G> {
+    fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut Self::View, E> {
+        self.0.preview_mut(s).map_err(&self.2)
+    }
+}
+
+impl<T, L: Getter<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Getter<T> for MapFallible<L, F, G> {
+    fn view(&self, s: T) -> Self::View { self.0.view(s) }
+}
+
+impl<'a, T: ?Sized, L: GetterRef<'a, T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> GetterRef<'a, T> for MapFallible<L, F, G> {
+    fn view_ref(&self, s: &'a T) -> &'a Self::View { self.0.view_ref(s) }
+}
+
+impl<'a, T: ?Sized, L: GetterMut<'a, T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> GetterMut<'a, T> for MapFallible<L, F, G> {
+    fn view_mut(&self, s: &'a mut T) -> &'a mut Self::View { self.0.view_mut(s) }
+}
+
+impl<T, L: Review<T>, F, G> Review<T> for MapFallible<L, F, G> {
+    fn review(&self, a: Self::View) -> T { self.0.review(a) }
+}
+
+impl<T, L: Iso<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Iso<T> for MapFallible<L, F, G> {}
+
+impl<T, L: Setter<T>, F, G> Setter<T> for MapFallible<L, F, G> {
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View)) { self.0.over(s, f) }
+    fn set_cloned(&self, a: &Self::View, s: &mut T) where Self::View: Clone { self.0.set_cloned(a, s) }
+}
+
+impl<T, L: Traversal<T>, F, G> Traversal<T> for MapFallible<L, F, G> {
+    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View)) { self.0.traverse(s, f) }
+    fn fold<C>(&self, s: T, init: C, f: impl FnMut(&mut C, Self::View)) -> C { self.0.fold(s, init, f) }
+    fn flatten(&self, s: T) -> Vec<Self::View> { self.0.flatten(s) }
+}
+
+impl<T, L: AffineTraversal<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> AffineTraversal<T> for MapFallible<L, F, G> {
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) { self.0.map(s, f) }
+    fn set(&self, s: &mut T, a: Self::View) { self.0.set(s, a) }
+}
+
+impl<T, L: Lens<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Lens<T> for MapFallible<L, F, G> {}
+
+impl<T, L: Prism<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Prism<T> for MapFallible<L, F, G> {}
 
 /// Easy composition for optics. See also [`Compose`].
 ///
@@ -363,7 +446,7 @@ macro_rules! mark_infallible {
     ($name:ident) => {
         impl $crate::traits::OpticsFallible for $name {
             type Success = $name;
-            type Error = $crate::concrete::Infallible;
+            type Error = std::convert::Infallible;
             fn success_witness(&self) -> $name { *self }
         }
     }

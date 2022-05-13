@@ -20,6 +20,10 @@
 //!
 #![doc = include_str ! ("../optics.svg")]
 
+use std::convert::Infallible;
+use std::fmt::{Debug, Display};
+use crate::concrete::{MapError, MapFallible, MapFallibleTo, MapSuccess};
+
 /// Any optics: a view type associated.
 pub trait Optics<T: ?Sized> {
     /// View type for this optics.
@@ -34,6 +38,33 @@ pub trait OpticsFallible {
     type Error;
     /// Get a lightweight witness for success.
     fn success_witness(&self) -> Self::Success;
+    /// Map the `Success` and `Error` type for this fallible optics.
+    fn map_fallible<S, F, E, G>(self, f: F, g: G) -> MapFallible<Self, F, G>
+        where Self: Sized, F: Fn(Self::Success) -> S, G: Fn(Self::Error) -> E {
+        MapFallible(self, f, g)
+    }
+    /// Map the `Success` type for this fallible optics.
+    fn map_success<S, F>(self, f: F) -> MapSuccess<Self, F>
+        where Self: Sized, F: Fn(Self::Success) -> S {
+        MapFallible(self, f, std::convert::identity)
+    }
+    /// Map the `Error` type for this fallible optics.
+    fn map_error<E, G>(self, g: G) -> MapError<Self, G>
+        where Self: Sized, G: Fn(Self::Error) -> E {
+        MapFallible(self, std::convert::identity, g)
+    }
+    /// Assert that this optics should never fail (in practice).
+    /// The resulting optics panics on error.
+    fn assert_infallible(self) -> MapFallibleTo<Self, Self::Success, Infallible>
+        where Self: Sized, Self::Error: Debug {
+        self.map_error(|err| panic!("unexpected failure: {err:?}"))
+    }
+    /// Map the `Error` type to `Box<str>`.
+    fn to_str_err(self) -> MapFallibleTo<Self, Box<str>, Box<str>>
+        where Self: Sized, Self::Error: Display, Self::Success: Display {
+        self.map_fallible(|s| s.to_string().into_boxed_str(),
+                          |err| err.to_string().into_boxed_str())
+    }
 }
 
 /// Optics, with source and view types [`Sized`].
