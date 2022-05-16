@@ -130,7 +130,7 @@ pub trait Review<T>: OpticsSized<T> {
 }
 
 /// Isomorphisms: getter and review.
-pub trait Iso<T>: Getter<T> + Review<T> {}
+pub trait Iso<T>: Getter<T> + Review<T> + Lens<T> + Prism<T> {}
 
 /// Setter.
 pub trait Setter<T>: OpticsSized<T> {
