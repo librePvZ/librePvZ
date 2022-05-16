@@ -123,7 +123,7 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
         }
         Ok(packed::Meta { name: track.name, start_frame, end_frame })
     } else {
-        log::warn!(target: "pack", "discontinuous meta track: found ranges {ranges:?}");
+        log::warn!(target: "pack", "discontinuous meta track {}: found ranges {ranges:?}", track.name);
         Err(track)
     }
 }

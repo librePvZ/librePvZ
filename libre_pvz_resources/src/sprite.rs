@@ -47,9 +47,9 @@ impl AnimDesc {
     }
 
     /// Get a meta track by name.
-    pub fn get_meta(&self, name: &str) -> Option<&Meta> {
+    pub fn get_meta(&self, name: &str) -> Option<(usize, &Meta)> {
         let k = self.meta.binary_search_by_key(&name, |meta| meta.name.as_str()).ok()?;
-        Some(&self.meta[k])
+        Some((k, &self.meta[k]))
     }
 }
 

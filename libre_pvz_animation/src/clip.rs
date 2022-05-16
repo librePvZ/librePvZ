@@ -20,7 +20,7 @@
 
 use std::collections::BTreeMap;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 use bevy::prelude::*;
 use bevy::reflect::{TypeUuid, TypeRegistry, TypeRegistryInternal};
@@ -110,8 +110,10 @@ impl AnimationClipBuilder {
 #[derive(Component)]
 #[allow(missing_debug_implementations)]
 pub struct AnimationPlayer {
-    paused: bool,
-    repeat: bool,
+    /// Whether this animation is paused.
+    pub paused: bool,
+    /// Whether this animation should loop.
+    pub repeat: bool,
     speed: u32,
     elapsed_nanos: u64,
     clip: Arc<AnimationClip>,
@@ -131,6 +133,22 @@ impl AnimationPlayer {
     pub fn pause(&mut self) { self.paused = true }
     /// Resume the animation.
     pub fn resume(&mut self) { self.paused = false }
+
+    /// Speed of this animation.
+    pub fn speed(&self) -> f64 { self.speed as f64 / SPEED_FACTOR as f64 }
+    /// Set the speed of this animation.
+    pub fn set_speed(&mut self, speed: f64) {
+        self.speed = (speed * SPEED_FACTOR as f64).round() as u32;
+    }
+
+    /// Progress of this animation.
+    pub fn progress(&self) -> f64 {
+        self.elapsed_nanos as f64 / self.clip.duration_nanos as f64
+    }
+    /// Set the progress of this animation.
+    pub fn set_progress(&mut self, progress: f64) {
+        self.elapsed_nanos = (self.clip.duration_nanos as f64 * progress) as u64;
+    }
 
     /// Tick the time by several seconds.
     pub fn tick(&mut self, delta: Duration) {
@@ -155,19 +173,34 @@ impl AnimationPlayer {
 }
 
 #[derive(Component)]
-pub(crate) struct CurveBinding(Entity, u32, u32);
+pub(crate) struct CurveBinding(Entity, u32, u32, Weak<AnimationClip>);
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn bind_curve_system(
-    mut players: Query<(Entity, &AnimationPlayer), Added<AnimationPlayer>>,
+    mut players: Query<
+        (Entity, &AnimationPlayer),
+        Or<(Added<AnimationPlayer>, Changed<AnimationPlayer>)>,
+    >,
     children: Query<&Children>,
     names: Query<&Name>,
     mut commands: Commands,
 ) {
     for (root, player) in players.iter_mut() {
+        remove_bindings(root, &children, &mut commands);
         for (path, start, end) in player.clip.iter() {
             if let Some(entity) = locate(root, path, &children, &names) {
-                commands.entity(entity).insert(CurveBinding(root, *start, *end));
+                let binding = CurveBinding(root, *start, *end, Arc::downgrade(&player.clip));
+                commands.entity(entity).insert(binding);
             }
+        }
+    }
+}
+
+fn remove_bindings(root: Entity, children: &Query<&Children>, commands: &mut Commands) {
+    if let Ok(current_children) = children.get(root) {
+        for &child in current_children.iter() {
+            commands.entity(child).remove::<CurveBinding>();
+            remove_bindings(child, children, commands);
         }
     }
 }
@@ -217,6 +250,7 @@ fn animate_entity(
     world: &World,
 ) {
     let player = players.get(binding.0).unwrap();
+    if binding.3.as_ptr() != player.clip.as_ref() { return; }
     let range = binding.1 as usize..binding.2 as usize;
     for curve in &player.clip.curves[range] {
         let result = unsafe {

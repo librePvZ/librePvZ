@@ -143,6 +143,8 @@ impl<'a, T, O> TrackContent<'a> for BitBox<T, O>
 pub trait FrameIndex: Send + Sync + 'static {
     /// Duration of this track, in seconds.
     fn duration(&self) -> f32;
+    /// Number of indices.
+    fn count(&self) -> usize;
     /// Frame index in the keyframe list from a timestamp.
     /// Return value interpreted the same way as [`slice::binary_search`].
     fn index_from_time(&self, time: f32) -> Result<usize, usize>;
@@ -163,6 +165,7 @@ impl<I: Into<u64> + Into<f32> + Copy + Send + Sync + 'static> FrameIndex for Fra
     fn duration(&self) -> f32 {
         <I as Into<f32>>::into(*self.indices.last().unwrap()) * self.frame_len
     }
+    fn count(&self) -> usize { self.indices.len() }
     fn index_from_time(&self, time: f32) -> Result<usize, usize> {
         let k = (time / self.frame_len) as u64;
         self.indices.binary_search_by_key(&k, |k| <I as Into<u64>>::into(*k))
@@ -228,16 +231,21 @@ impl<F, I, T, C> TypedCurve for Track<F, I, C>
         let delta = |k: usize| self.indices.time_at_index(k + 1) - self.indices.time_at_index(k);
         let elapsed = |k: usize| time - self.indices.time_at_index(k);
 
+        assert_eq!(self.indices.count(), self.frames.track_len());
         let n = self.frames.track_len();
         let (this, next, ratio) = match self.indices.index_from_time(time) {
             Ok(k) if k + 1 >= n => (k, k, 0.0),
             Ok(k) => (k, k + 1, elapsed(k) / delta(k)),
-            Err(k) if k >= n => (n, n, 0.0),
+            Err(k) if k == n => (n - 1, n - 1, 0.0),
             Err(0) => (0, 0, 0.0),
             Err(k) => (k - 1, k, elapsed(k - 1) / delta(k - 1)),
         };
 
-        C::Keyframe::interpolate(self.frames.track_get(this).borrow(), self.frames.track_get(next).borrow(), ratio)
+        C::Keyframe::interpolate(
+            self.frames.track_get(this).borrow(),
+            self.frames.track_get(next).borrow(),
+            ratio,
+        )
     }
 
     fn field_accessor(&self) -> &FieldAccessor<Self::Value> {
@@ -315,16 +323,18 @@ impl Indices {
               F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
               F::Success: Display, F::Error: Display {
         if self.is_empty() { return None; }
+        let component_type = TypeId::of::<S>();
+        let field_accessor = Compose(_Reflect::<S>::default(), field).to_str_err();
         Some(match self {
             Indices::U8(indices) => Box::new(Track {
-                component_type: TypeId::of::<S>(),
-                field_accessor: Compose(_Reflect::<S>::default(), field).to_str_err(),
+                component_type,
+                field_accessor,
                 indices: FrameIndexFixedFPS { frame_len, indices: indices.into_boxed_slice() },
                 frames,
             }),
             Indices::U16(indices) => Box::new(Track {
-                component_type: TypeId::of::<S>(),
-                field_accessor: Compose(_Reflect::<S>::default(), field).to_str_err(),
+                component_type,
+                field_accessor,
                 indices: FrameIndexFixedFPS { frame_len, indices: indices.into_boxed_slice() },
                 frames,
             }),

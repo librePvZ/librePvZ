@@ -77,17 +77,15 @@ pub struct Animation {
     pub clips: Box<[OnceCell<Arc<AnimationClip>>]>,
 }
 
+const WIDTH: f32 = 80.0;
+const HALF_WIDTH: f32 = WIDTH / 2.0;
+
 impl Animation {
     /// Spawn an animation.
-    pub fn spawn_on(&self, meta: &str, commands: &mut Commands) -> Option<Entity> {
-        let k = self.description.meta.binary_search_by_key(&meta, |m| m.name.as_str()).ok()?;
-        let clip = self.clip_for(k);
+    pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> Entity {
+        let clip = self.clip_for(meta);
         let parent = commands.spawn_bundle(TransformBundle {
-            local: bevy::prelude::Transform {
-                scale: Vec3::new(3.0, 3.0, 3.0),
-                translation: Vec3::new(-120.0, 120.0, 0.0),
-                ..Default::default()
-            },
+            local: Transform::from_translation(Vec3::new(-HALF_WIDTH, HALF_WIDTH, 0.0)),
             ..TransformBundle::default()
         }).id();
         for track in self.description.tracks.iter() {
@@ -99,7 +97,7 @@ impl Animation {
         }
         let player = AnimationPlayer::new(clip, 1.0, true);
         commands.entity(parent).insert(player);
-        Some(parent)
+        parent
     }
 
     /// Accumulate the actions until some frame.
@@ -133,7 +131,7 @@ impl Animation {
                 let mut visibilities = CurveBuilder::<BitVec>::with_capacity(n);
                 let mut alphas = CurveBuilder::<Vec<f32>>::with_capacity(n);
 
-                let frame0 = self.accumulated_frame_to(track, meta.end_frame as usize);
+                let frame0 = self.accumulated_frame_to(track, meta.start_frame as usize);
                 for (k, frame) in std::iter::once(&frame0)
                     .chain(track.frames[(
                         Bound::Excluded(meta.start_frame as usize),
