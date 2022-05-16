@@ -18,10 +18,12 @@
 
 use bevy::prelude::*;
 use libre_pvz::resources::bevy::{Animation, AnimationLoader};
+use libre_pvz_animation::AnimationPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(AnimationPlugin)
         .add_asset::<Animation>()
         .init_asset_loader::<AnimationLoader>()
         .add_startup_system(setup_camera)
@@ -43,13 +45,11 @@ fn load_anim(server: Res<AssetServer>, mut commands: Commands) {
 
 fn init_anim(mut ev_anim: EventReader<AssetEvent<Animation>>,
              assets: Res<Assets<Animation>>,
-             mut animation_clips: ResMut<Assets<AnimationClip>>,
              mut commands: Commands) {
     for event in ev_anim.iter() {
         if let AssetEvent::Created { handle } = event {
             let anim = assets.get(handle).unwrap();
-            let meta_anim_idle = anim.description.get_meta("anim_idle").unwrap();
-            anim.spawn_on(meta_anim_idle, &mut commands, &mut animation_clips);
+            anim.spawn_on("anim_idle", &mut commands);
         }
     }
 }

@@ -19,30 +19,69 @@
 //! Bevy related utilities.
 
 use std::ops::Bound;
+use std::sync::Arc;
+use std::fmt::{Debug, Display, Formatter};
 use bevy::prelude::*;
 use bevy::asset::{AssetLoader, AssetPath, BoxedFuture, LoadContext, LoadedAsset};
 use bevy::utils::HashMap;
 use bevy::reflect::TypeUuid;
 use bevy::sprite::Anchor;
+use bitvec::prelude::*;
 use bincode::config::Configuration;
 use bincode::decode_from_slice;
-use crate::sprite::{AffineMatrix3d, AnimDesc, Action, Element, Meta, Track, Frame};
+use optics::{optics, concrete::_Identity};
+use once_cell::sync::OnceCell;
+use libre_pvz_animation::clip::{AnimationClip, AnimationPlayer, EntityPath};
+use libre_pvz_animation::key_frame::CurveBuilder;
+use crate::sprite::{AffineMatrix3d, AnimDesc, Action, Element, Track, Frame};
+
+optics::declare_lens_from_field! {
+    _Color for color as Sprite => Color;
+}
+
+optics::declare_lens! {
+    _Alpha as Color => f32,
+    (color) => match color {
+        Color::Rgba { alpha, .. } |
+        Color::RgbaLinear { alpha, .. } |
+        Color::Hsla { alpha, .. } => alpha,
+    }
+}
+
+impl Debug for _Alpha {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Color::alpha")
+    }
+}
+
+impl Display for _Alpha {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("alpha")
+    }
+}
+
+optics::declare_lens_from_field! {
+    _IsVisible for is_visible as Visibility => bool;
+}
 
 /// Animation and all its dependency images.
-#[derive(Debug)]
 #[derive(TypeUuid)]
 #[uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b"]
+#[allow(missing_debug_implementations)]
 pub struct Animation {
     /// the animation description.
     pub description: AnimDesc,
     /// all the dependency images.
     pub images: HashMap<String, Handle<Image>>,
+    /// all the [`AnimationClip`]s generated from the [`Meta`]s.
+    pub clips: Box<[OnceCell<Arc<AnimationClip>>]>,
 }
 
 impl Animation {
     /// Spawn an animation.
-    pub fn spawn_on(&self, meta: &Meta, commands: &mut Commands, anims: &mut ResMut<Assets<AnimationClip>>) -> Entity {
-        let root = Name::new("root");
+    pub fn spawn_on(&self, meta: &str, commands: &mut Commands) -> Option<Entity> {
+        let k = self.description.meta.binary_search_by_key(&meta, |m| m.name.as_str()).ok()?;
+        let clip = self.clip_for(k);
         let parent = commands.spawn_bundle(TransformBundle {
             local: bevy::prelude::Transform {
                 scale: Vec3::new(3.0, 3.0, 3.0),
@@ -50,120 +89,83 @@ impl Animation {
                 ..Default::default()
             },
             ..TransformBundle::default()
-        }).insert(root.clone()).id();
-        let mut anim = AnimationClip::default();
-        for (z, track) in self.description.tracks.iter().enumerate() {
+        }).id();
+        for track in self.description.tracks.iter() {
             let this = Name::new(track.name.to_string());
-            let path = EntityPath { parts: vec![root.clone(), this.clone()] };
-            anim.set_curves_for_path(path, self.curves_for(track, meta, z as f32));
             let mut bundle = SpriteBundle::default();
             bundle.sprite.anchor = Anchor::TopLeft;
             let this = commands.spawn_bundle(bundle).insert(this).id();
             commands.entity(parent).add_child(this);
         }
-        let mut player = AnimationPlayer::default();
-        player.play(anims.add(anim)).repeat();
+        let player = AnimationPlayer::new(clip, 1.0, true);
         commands.entity(parent).insert(player);
-        parent
+        Some(parent)
     }
 
-    /// Get key frames in this track.
-    pub fn curves_for(&self, track: &Track, meta: &Meta, z_order: f32) -> Vec<VariableCurve> {
-        let frame_len = 1.0 / self.description.fps;
-
-        let mut transform_timestamps = Vec::new();
-        let mut rotations = Vec::new();
-        let mut translations = Vec::new();
-        let mut scales = Vec::new();
-
-        let mut texture_timestamps = Vec::new();
-        let mut textures = Vec::new();
-
-        let mut visibility_timestamps = Vec::new();
-        let mut visibilities = Vec::new();
-
-        let mut alpha_timestamps = Vec::new();
-        let mut alphas = Vec::new();
-
-        let frames_until_0 = || track
-            .frames[..=meta.start_frame as usize].iter()
+    /// Accumulate the actions until some frame.
+    pub fn accumulated_frame_to(&self, track: &Track, k: usize) -> Frame {
+        let frames_until_k = || track
+            .frames[..=k].iter()
             .flat_map(|frame| frame.0.iter());
-        let frame0 = Frame([
-            frames_until_0().filter(|act| matches!(act, Action::LoadElement(_))).last(),
-            frames_until_0().filter(|act| matches!(act, Action::Transform(_))).last(),
-            frames_until_0().filter(|act| matches!(act, Action::Alpha(_))).last(),
-            frames_until_0().filter(|act| matches!(act, Action::Show(_))).last(),
-        ].into_iter().flatten().cloned().collect());
-        for (k, frame) in std::iter::once(&frame0)
-            .chain(track.frames[(
-                Bound::Excluded(meta.start_frame as usize),
-                Bound::Excluded(meta.end_frame as usize)
-            )].iter())
-            .chain(std::iter::once(&frame0))
-            .enumerate() {
-            let t = frame_len * k as f32;
-            for trans in frame.0.iter() {
-                match trans {
-                    Action::LoadElement(Element::Text { .. }) => todo!(),
-                    Action::LoadElement(Element::Image { image }) => {
-                        texture_timestamps.push(t);
-                        textures.push(self.images[image].clone());
+        Frame([
+            frames_until_k().filter(|act| matches!(act, Action::LoadElement(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Transform(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Alpha(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Show(_))).last(),
+        ].into_iter().flatten().cloned().collect())
+    }
+
+    /// Animation clip for the [`Meta`] at some index.
+    pub fn clip_for(&self, k: usize) -> Arc<AnimationClip> {
+        self.clips[k].get_or_init(|| {
+            let frame_len = 1.0 / self.description.fps;
+
+            let mut clip_builder = AnimationClip::builder();
+            let meta = &self.description.meta[k];
+            for (z_order, track) in self.description.tracks.iter().enumerate() {
+                let path = EntityPath::from([Name::new(track.name.clone())]);
+
+                let z_order = z_order as f32 * 0.1;
+
+                let n = (meta.end_frame - meta.start_frame + 1) as usize;
+                let mut transforms = CurveBuilder::<Vec<Transform>>::with_capacity(n);
+                let mut textures = CurveBuilder::<Vec<Handle<Image>>>::with_capacity(n);
+                let mut visibilities = CurveBuilder::<BitVec>::with_capacity(n);
+                let mut alphas = CurveBuilder::<Vec<f32>>::with_capacity(n);
+
+                let frame0 = self.accumulated_frame_to(track, meta.end_frame as usize);
+                for (k, frame) in std::iter::once(&frame0)
+                    .chain(track.frames[(
+                        Bound::Excluded(meta.start_frame as usize),
+                        Bound::Excluded(meta.end_frame as usize)
+                    )].iter())
+                    .chain(std::iter::once(&frame0))
+                    .enumerate() {
+                    for act in frame.0.iter() {
+                        match act {
+                            Action::LoadElement(Element::Text { .. }) => todo!(),
+                            Action::LoadElement(Element::Image { image }) =>
+                                textures.push_keyframe(k, self.images[image].clone()),
+                            Action::Alpha(alpha) => alphas.push_keyframe(k, *alpha),
+                            Action::Show(visible) => visibilities.push_keyframe(k, *visible),
+                            Action::Transform(mat) =>
+                                transforms.push_keyframe(k, mat.as_transform_with_z(z_order)),
+                        }
                     }
-                    Action::Alpha(alpha) => {
-                        alpha_timestamps.push(t);
-                        alphas.push(*alpha);
-                    }
-                    Action::Show(visible) => {
-                        visibility_timestamps.push(t);
-                        visibilities.push(*visible);
-                    }
-                    Action::Transform(mat) => {
-                        transform_timestamps.push(t);
-                        let transform = mat.as_transform_with_z(z_order);
-                        rotations.push(transform.rotation);
-                        translations.push(transform.translation);
-                        scales.push(transform.scale);
-                    }
+                }
+
+                for curve in [
+                    transforms.finish(frame_len, _Identity::<Transform>::default()),
+                    textures.finish(frame_len, _Identity::<Handle<Image>>::default()),
+                    visibilities.finish(frame_len, _IsVisible),
+                    alphas.finish(frame_len, optics!(_Color._Alpha)),
+                ].into_iter().flatten() {
+                    clip_builder.add_dyn_curve(path.clone(), curve);
                 }
             }
-        }
 
-        let mut curves = Vec::new();
-        if !transform_timestamps.is_empty() {
-            curves.extend([
-                VariableCurve {
-                    keyframe_timestamps: transform_timestamps.clone(),
-                    keyframes: Keyframes::Rotation(rotations),
-                },
-                VariableCurve {
-                    keyframe_timestamps: transform_timestamps.clone(),
-                    keyframes: Keyframes::Translation(translations),
-                },
-                VariableCurve {
-                    keyframe_timestamps: transform_timestamps,
-                    keyframes: Keyframes::Scale(scales),
-                }
-            ]);
-        }
-        if !texture_timestamps.is_empty() {
-            curves.push(VariableCurve {
-                keyframe_timestamps: texture_timestamps,
-                keyframes: Keyframes::Texture(textures),
-            });
-        }
-        if !visibility_timestamps.is_empty() {
-            curves.push(VariableCurve {
-                keyframe_timestamps: visibility_timestamps,
-                keyframes: Keyframes::Visibility(visibilities),
-            });
-        }
-        if !alpha_timestamps.is_empty() {
-            curves.push(VariableCurve {
-                keyframe_timestamps: alpha_timestamps,
-                keyframes: Keyframes::Alpha(alphas),
-            });
-        }
-        curves
+            Arc::new(clip_builder.build())
+        }).clone()
     }
 }
 
@@ -189,7 +191,8 @@ impl AssetLoader for AnimationLoader {
                 images.insert(name, load_context.get_handle(asset_path.get_id()));
                 deps.push(asset_path);
             }
-            let anim = Animation { description: anim, images };
+            let clips = std::iter::repeat_with(OnceCell::new).take(anim.meta.len()).collect();
+            let anim = Animation { description: anim, images, clips };
             load_context.set_default_asset(LoadedAsset::new(anim).with_dependencies(deps));
             Ok(())
         })

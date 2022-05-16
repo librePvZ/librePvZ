@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Ruifeng Xie <ruifengx@outlook.com>"]
 repository = "https://github.com/ruifengx/librePvZ.git"
-homepage = "https://github.com/ruifengx/librePvZ/tree/main/librePvZ"
+homepage = "https://github.com/ruifengx/librePvZ/tree/main/libre_pvz"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 description = "librePvZ game logic"
@@ -13,4 +13,7 @@ description = "librePvZ game logic"
 
 [dependencies]
 bevy = "0.7.0"
+egui = "0.18.1"
+bevy_egui = "0.14.0"
 libre_pvz_resources = { path = "../libre_pvz_resources", features = ["bevy"] }
+libre_pvz_animation = { path = "../libre_pvz_animation" }

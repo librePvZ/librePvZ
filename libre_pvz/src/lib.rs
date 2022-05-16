@@ -21,9 +21,4 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
-/// Frames per second.
-pub const FPS: f32 = 12.0;
-/// Time duration for one frame.
-pub const FRAME_TIME: f32 = 1.0 / FPS;
-
 pub use libre_pvz_resources as resources;
