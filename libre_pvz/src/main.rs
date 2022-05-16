@@ -17,6 +17,7 @@
  */
 
 use bevy::prelude::*;
+use bevy_egui::{EguiContext, EguiPlugin};
 use libre_pvz::resources::bevy::{Animation, AnimationLoader};
 use libre_pvz_animation::AnimationPlugin;
 
@@ -24,11 +25,13 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(AnimationPlugin)
+        .add_plugin(EguiPlugin)
         .add_asset::<Animation>()
         .init_asset_loader::<AnimationLoader>()
         .add_startup_system(setup_camera)
         .add_startup_system(load_anim)
         .add_system(init_anim)
+        .add_system(animation_ui)
         .run();
 }
 
@@ -51,5 +54,17 @@ fn init_anim(mut ev_anim: EventReader<AssetEvent<Animation>>,
             let anim = assets.get(handle).unwrap();
             anim.spawn_on("anim_idle", &mut commands);
         }
+    }
+}
+
+fn animation_ui(mut context: ResMut<EguiContext>,
+                animations: Res<Assets<Animation>>,
+                stage: Res<Stage>) {
+    if let Some(anim) = animations.get(&stage.0) {
+        egui::Window::new("Animation").show(context.ctx_mut(), |ui| {
+            for meta in anim.description.meta.iter() {
+                ui.label(&meta.name);
+            }
+        });
     }
 }
