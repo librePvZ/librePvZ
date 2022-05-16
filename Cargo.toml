@@ -1,12 +1,9 @@
 [workspace]
 members = [
     "optics",
-    "bevy_animation",
     "libre_pvz",
     "libre_pvz_resources",
+    "libre_pvz_animation",
     "reanim-decode",
 ]
 resolver = "2"
-
-[patch.crates-io]
-bevy_animation = { path = "bevy_animation" }
