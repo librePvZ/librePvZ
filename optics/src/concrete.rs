@@ -17,7 +17,9 @@
  */
 
 //! Concrete implementations for optics.
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::fmt::{Debug, Display, Formatter};
+use std::marker::PhantomData;
+use derivative::Derivative;
 use crate::traits::*;
 
 crate::declare_lens! {
@@ -36,10 +38,82 @@ impl<T> Iso<T> for Identity {}
 
 impl Display for Identity {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if !f.alternate() { f.write_str("Identity")?; }
-        Ok(())
+        f.write_str("self")
     }
 }
+
+/// Identity optics, explicit about source and view types.
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
+#[derivative(Copy(bound = ""), Clone(bound = ""))]
+#[derivative(Eq(bound = ""), PartialEq(bound = ""))]
+pub struct _Identity<T: ?Sized>(PhantomData<fn() -> T>);
+
+impl<T: ?Sized> Debug for _Identity<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "_Identity::<{}>", std::any::type_name::<T>())
+    }
+}
+
+impl<T: ?Sized> Display for _Identity<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "self<{}>", std::any::type_name::<T>())
+    }
+}
+
+impl<T: ?Sized> Optics<T> for _Identity<T> { type View = T; }
+
+impl<T: ?Sized> OpticsFallible for _Identity<T> {
+    type Success = _Identity<T>;
+    type Error = _Identity<T>;
+    fn success_witness(&self) -> _Identity<T> { _Identity::default() }
+}
+
+impl<T> Getter<T> for _Identity<T> {
+    fn view(&self, s: T) -> T { s }
+}
+
+impl<'a, T: ?Sized + 'a> GetterRef<'a, T> for _Identity<T> {
+    fn view_ref(&self, s: &'a T) -> &'a T { s }
+}
+
+impl<'a, T: ?Sized + 'a> GetterMut<'a, T> for _Identity<T> {
+    fn view_mut(&self, s: &'a mut T) -> &'a mut T { s }
+}
+
+impl<T> AffineFold<T> for _Identity<T> {
+    fn preview(&self, s: T) -> Result<T, Self::Error> { Ok(s) }
+}
+
+impl<'a, T: ?Sized + 'a> AffineFoldRef<'a, T> for _Identity<T> {
+    fn preview_ref(&self, s: &'a T) -> Result<&'a T, Self::Error> { Ok(s) }
+}
+
+impl<'a, T: ?Sized + 'a> AffineFoldMut<'a, T> for _Identity<T> {
+    fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut T, Self::Error> { Ok(s) }
+}
+
+impl<T> Review<T> for _Identity<T> {
+    fn review(&self, a: T) -> T { a }
+}
+
+impl<T> AffineTraversal<T> for _Identity<T> {
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut T)) { f(s) }
+}
+
+impl<T> Traversal<T> for _Identity<T> {
+    fn traverse(&self, s: T, f: &mut dyn FnMut(T)) { f(s) }
+}
+
+impl<T> Setter<T> for _Identity<T> {
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut T)) { f(s) }
+}
+
+impl<T> Lens<T> for _Identity<T> {}
+
+impl<T> Prism<T> for _Identity<T> {}
+
+impl<T> Iso<T> for _Identity<T> {}
 
 /// Success type for [`Compose`]d optics.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -85,8 +159,7 @@ impl<K: Debug, L: Debug> Debug for Compose<K, L> {
 
 impl<K: Display, L: Display> Display for Compose<K, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() { f.write_char('.')?; }
-        write!(f, "{}{:#}", self.0, self.1)
+        write!(f, "{}.{}", self.0, self.1)
     }
 }
 
@@ -291,8 +364,7 @@ impl<T, L: Prism<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Prism<T
 ///     format!("{:?}", optics!(_Ok._1._Some)),
 ///     "Result::Ok\
 ///     .{(T0, T1),(T0, T1, T2),(T0, T1, T2, T3)}::1\
-///     .Option::Some\
-///     .Identity".to_string()
+///     .Option::Some".to_string()
 /// );
 /// ```
 ///
@@ -311,8 +383,12 @@ impl<T, L: Prism<T>, S, F: Fn(L::Success) -> S, E, G: Fn(L::Error) -> E> Prism<T
 #[macro_export]
 macro_rules! optics {
     () => { $crate::concrete::Identity };
-    ($head:ident $(. $tail:ident)*) => {
-        $crate::concrete::Compose($head, $crate::optics!($($tail).*))
+    ($single:tt) => { #[allow(unused_parens)]{ $single } };
+    ($head:tt $(. $tail:tt)*) => {
+        $crate::concrete::Compose(
+            #[allow(unused_parens)]{ $head },
+            $crate::optics!($($tail).*),
+        )
     }
 }
 

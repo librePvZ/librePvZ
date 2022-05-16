@@ -22,3 +22,6 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
     - optics
 - added tuple field accessors (lens): _1, _2, _3, _4
 - added enum accessors (prism): _Some, _Ok, _Err
+- added generic optics: Identity, _Identity
+  - Identity: polymorphic in source and view type
+  - _Identity: explicit about source and view type (better type inference)
