@@ -25,3 +25,4 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - added generic optics: Identity, _Identity
   - Identity: polymorphic in source and view type
   - _Identity: explicit about source and view type (better type inference)
+- added: (shared) references to optics are optics

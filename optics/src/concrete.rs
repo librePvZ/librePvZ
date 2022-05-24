@@ -22,6 +22,64 @@ use std::marker::PhantomData;
 use derivative::Derivative;
 use crate::traits::*;
 
+impl<L: Optics<T>, T: ?Sized> Optics<T> for &L { type View = L::View; }
+
+impl<L: OpticsFallible> OpticsFallible for &L {
+    type Success = L::Success;
+    type Error = L::Error;
+    fn success_witness(&self) -> L::Success { L::success_witness(self) }
+}
+
+impl<L: Getter<T>, T> Getter<T> for &L {
+    fn view(&self, s: T) -> L::View { L::view(self, s) }
+}
+
+impl<'a, L: GetterRef<'a, T>, T: ?Sized + 'a> GetterRef<'a, T> for &L {
+    fn view_ref(&self, s: &'a T) -> &'a L::View { L::view_ref(self, s) }
+}
+
+impl<'a, L: GetterMut<'a, T>, T: ?Sized + 'a> GetterMut<'a, T> for &L {
+    fn view_mut(&self, s: &'a mut T) -> &'a mut L::View { L::view_mut(self, s) }
+}
+
+impl<L: AffineFold<T>, T> AffineFold<T> for &L {
+    fn preview(&self, s: T) -> Result<L::View, Self::Error> { L::preview(self, s) }
+}
+
+impl<'a, L: AffineFoldRef<'a, T>, T: ?Sized + 'a> AffineFoldRef<'a, T> for &L {
+    fn preview_ref(&self, s: &'a T) -> Result<&'a L::View, Self::Error> { L::preview_ref(self, s) }
+}
+
+impl<'a, L: AffineFoldMut<'a, T>, T: ?Sized + 'a> AffineFoldMut<'a, T> for &L {
+    fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut L::View, Self::Error> { L::preview_mut(self, s) }
+}
+
+impl<L: Review<T>, T> Review<T> for &L {
+    fn review(&self, a: L::View) -> T { L::review(self, a) }
+}
+
+impl<L: Setter<T>, T> Setter<T> for &L {
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View)) { L::over(self, s, f) }
+    fn set_cloned(&self, a: &Self::View, s: &mut T) where Self::View: Clone { L::set_cloned(self, a, s) }
+}
+
+impl<L: Traversal<T>, T> Traversal<T> for &L {
+    fn traverse(&self, s: T, f: &mut dyn FnMut(L::View)) { L::traverse(self, s, f) }
+    fn fold<C>(&self, s: T, init: C, f: impl FnMut(&mut C, Self::View)) -> C { L::fold(self, s, init, f) }
+    fn flatten(&self, s: T) -> Vec<Self::View> { L::flatten(self, s) }
+}
+
+impl<L: AffineTraversal<T>, T> AffineTraversal<T> for &L {
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) { L::map(self, s, f) }
+    fn set(&self, s: &mut T, a: Self::View) { L::set(self, s, a) }
+}
+
+impl<L: Lens<T>, T> Lens<T> for &L {}
+
+impl<L: Prism<T>, T> Prism<T> for &L {}
+
+impl<L: Iso<T>, T> Iso<T> for &L {}
+
 crate::declare_lens! {
     /// Identity optics.
     #[derive(Debug)]
