@@ -122,12 +122,9 @@ pub fn transform_propagate_system(
     >,
     children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, transform_changed, mut global_transform) in root_query.iter_mut() {
-        let mut changed = false;
-        if transform_changed {
-            let t = global_transform.compute_affine() * transform.to_affine();
-            *global_transform = GlobalTransform::from(t);
-            changed = true;
+    for (children, transform, changed, mut global_transform) in root_query.iter_mut() {
+        if changed {
+            *global_transform = GlobalTransform::from(transform.to_affine());
         }
 
         if let Some(children) = children {
