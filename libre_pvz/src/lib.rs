@@ -22,3 +22,6 @@
 #![warn(missing_debug_implementations)]
 
 pub use libre_pvz_resources as resources;
+pub use libre_pvz_animation as animation;
+
+pub mod diagnostics;

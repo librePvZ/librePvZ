@@ -20,8 +20,10 @@ use bevy::prelude::*;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy_egui::{EguiContext, EguiPlugin};
 use egui::Slider;
+use libre_pvz::diagnostics::{BoundingBoxPlugin, BoundingBoxRoot};
 use libre_pvz::resources::bevy::{Animation, AnimationLoader};
-use libre_pvz_animation::{AnimationPlugin, clip::AnimationPlayer};
+use libre_pvz::animation::{AnimationPlugin, clip::AnimationPlayer};
+use libre_pvz::animation::transform::{Transform2D, TransformBundle2D};
 
 fn main() {
     let anim_name = AnimName(std::env::args().into_iter().nth(1)
@@ -37,6 +39,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(AnimationPlugin)
         .add_plugin(EguiPlugin)
+        .add_plugin(BoundingBoxPlugin)
         .add_asset::<Animation>()
         .init_asset_loader::<AnimationLoader>()
         .add_startup_system(setup_camera)
@@ -55,6 +58,7 @@ fn setup_camera(mut commands: Commands) {
 struct Stage {
     animation: Handle<Animation>,
     scaling_factor: f32,
+    show_bounding_box: bool,
     selected_meta: usize,
     last_selected_meta: usize,
 }
@@ -66,6 +70,7 @@ fn load_anim(server: Res<AssetServer>, anim_name: Res<AnimName>, mut commands: C
     commands.insert_resource(Stage {
         animation,
         scaling_factor: 3.0,
+        show_bounding_box: false,
         selected_meta: 0,
         last_selected_meta: 0,
     });
@@ -81,14 +86,20 @@ fn init_anim(mut ev_anim: EventReader<AssetEvent<Animation>>,
     for event in ev_anim.iter() {
         if let AssetEvent::Created { handle } = event {
             let anim = assets.get(handle).unwrap();
-            let scaling = commands.spawn_bundle(TransformBundle {
-                local: Transform::from_scale(Vec3::new(
-                    stage.scaling_factor,
-                    stage.scaling_factor,
-                    1.0,
-                )),
-                ..TransformBundle::default()
-            }).insert(Scaling).id();
+            let scaling = commands
+                .spawn_bundle(TransformBundle2D {
+                    local: Transform2D::from_scale(Vec2::new(
+                        stage.scaling_factor,
+                        stage.scaling_factor,
+                    )),
+                    ..TransformBundle2D::default()
+                })
+                .insert(Scaling)
+                .insert(BoundingBoxRoot {
+                    z_order: 100.0,
+                    is_visible: stage.show_bounding_box,
+                })
+                .id();
             stage.selected_meta = anim.description
                 .get_meta("anim_idle")
                 .map(|(k, _)| k)
@@ -152,17 +163,26 @@ fn animation_ui(mut context: ResMut<EguiContext>,
                     },
                 ));
             });
+            ui.horizontal(|ui| {
+                ui.label("Bounding boxes:");
+                ui.checkbox(&mut stage.show_bounding_box, "show");
+            });
         }
     });
 }
 
 fn respond_to_stage_change(stage: Res<Stage>,
                            animations: Res<Assets<Animation>>,
-                           mut scaling: Query<&mut Transform, With<Scaling>>,
+                           mut scaling: Query<(&mut Transform2D, &mut BoundingBoxRoot), With<Scaling>>,
                            mut player: Query<&mut AnimationPlayer>) {
-    if let Ok(mut transform) = scaling.get_single_mut() {
-        transform.scale.x = stage.scaling_factor;
-        transform.scale.y = stage.scaling_factor;
+    if let Ok((mut transform, mut bb)) = scaling.get_single_mut() {
+        if transform.scale.x != stage.scaling_factor {
+            transform.scale.x = stage.scaling_factor;
+            transform.scale.y = stage.scaling_factor;
+        }
+        if bb.is_visible != stage.show_bounding_box {
+            bb.is_visible = stage.show_bounding_box;
+        }
     }
     if stage.selected_meta != stage.last_selected_meta {
         if let Ok(mut player) = player.get_single_mut() {
