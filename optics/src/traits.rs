@@ -60,10 +60,9 @@ pub trait OpticsFallible {
         self.map_error(|err| panic!("unexpected failure: {err:?}"))
     }
     /// Map the `Error` type to `Box<str>`.
-    fn to_str_err(self) -> MapFallibleTo<Self, Box<str>, Box<str>>
-        where Self: Sized, Self::Error: Display, Self::Success: Display {
-        self.map_fallible(|s| s.to_string().into_boxed_str(),
-                          |err| err.to_string().into_boxed_str())
+    fn to_str_err(self) -> MapFallibleTo<Self, Self::Success, Box<str>>
+        where Self: Sized, Self::Error: Display {
+        self.map_error(|err| err.to_string().into_boxed_str())
     }
 }
 
