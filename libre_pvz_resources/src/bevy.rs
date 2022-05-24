@@ -32,8 +32,9 @@ use bincode::decode_from_slice;
 use optics::{optics, concrete::_Identity};
 use once_cell::sync::OnceCell;
 use libre_pvz_animation::clip::{AnimationClip, AnimationPlayer, EntityPath};
-use libre_pvz_animation::key_frame::CurveBuilder;
-use crate::sprite::{AffineMatrix3d, AnimDesc, Action, Element, Track, Frame};
+use libre_pvz_animation::key_frame::{ConstCurve, CurveBuilder};
+use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
+use crate::sprite::{AnimDesc, Action, Element, Track, Frame};
 
 optics::declare_lens_from_field! {
     _Color for color as Sprite => Color;
@@ -64,6 +65,13 @@ optics::declare_lens_from_field! {
     _IsVisible for is_visible as Visibility => bool;
 }
 
+optics::declare_lens_from_field! {
+    _Translation for translation as Transform2D => Vec2;
+    _Scale for scale as Transform2D => Vec2;
+    _Rotation for rotation as Transform2D => Vec2;
+    _ZOrder for z_order as Transform2D => f32;
+}
+
 /// Animation and all its dependency images.
 #[derive(TypeUuid)]
 #[uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b"]
@@ -84,13 +92,13 @@ impl Animation {
     /// Spawn an animation.
     pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> Entity {
         let clip = self.clip_for(meta);
-        let parent = commands.spawn_bundle(TransformBundle {
-            local: Transform::from_translation(Vec3::new(-HALF_WIDTH, HALF_WIDTH, 0.0)),
-            ..TransformBundle::default()
+        let parent = commands.spawn_bundle(TransformBundle2D {
+            local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
+            ..TransformBundle2D::default()
         }).id();
         for track in self.description.tracks.iter() {
             let this = Name::new(track.name.to_string());
-            let mut bundle = SpriteBundle::default();
+            let mut bundle = SpriteBundle2D::default();
             bundle.sprite.anchor = Anchor::TopLeft;
             let this = commands.spawn_bundle(bundle).insert(this).id();
             commands.entity(parent).add_child(this);
@@ -107,7 +115,9 @@ impl Animation {
             .flat_map(|frame| frame.0.iter());
         Frame([
             frames_until_k().filter(|act| matches!(act, Action::LoadElement(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Transform(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Translation(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Scale(_))).last(),
+            frames_until_k().filter(|act| matches!(act, Action::Rotation(_))).last(),
             frames_until_k().filter(|act| matches!(act, Action::Alpha(_))).last(),
             frames_until_k().filter(|act| matches!(act, Action::Show(_))).last(),
         ].into_iter().flatten().cloned().collect())
@@ -126,7 +136,9 @@ impl Animation {
                 let z_order = z_order as f32 * 0.1;
 
                 let n = (meta.end_frame - meta.start_frame + 1) as usize;
-                let mut transforms = CurveBuilder::<Vec<Transform>>::with_capacity(n);
+                let mut translations = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
+                let mut scales = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
+                let mut rotations = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
                 let mut textures = CurveBuilder::<Vec<Handle<Image>>>::with_capacity(n);
                 let mut visibilities = CurveBuilder::<BitVec>::with_capacity(n);
                 let mut alphas = CurveBuilder::<Vec<f32>>::with_capacity(n);
@@ -144,20 +156,24 @@ impl Animation {
                             Action::LoadElement(Element::Text { .. }) => todo!(),
                             Action::LoadElement(Element::Image { image }) =>
                                 textures.push_keyframe(k, self.images[image].clone()),
-                            Action::Alpha(alpha) => alphas.push_keyframe(k, *alpha),
-                            Action::Show(visible) => visibilities.push_keyframe(k, *visible),
-                            Action::Transform(mat) =>
-                                transforms.push_keyframe(k, mat.as_transform_with_z(z_order)),
+                            &Action::Alpha(alpha) => alphas.push_keyframe(k, alpha),
+                            &Action::Show(visible) => visibilities.push_keyframe(k, visible),
+                            &Action::Translation(t) => translations.push_keyframe(k, Vec2::from(t)),
+                            &Action::Scale(s) => scales.push_keyframe(k, Vec2::from(s)),
+                            &Action::Rotation(r) => rotations.push_keyframe(k, Vec2::from(r)),
                         }
                     }
                 }
 
-                for curve in [
-                    transforms.finish(frame_len, _Identity::<Transform>::default()),
+                let z_order_curve = ConstCurve::new_boxed(z_order, _ZOrder);
+                for curve in std::iter::once(z_order_curve).chain([
+                    translations.finish(frame_len, _Translation),
+                    scales.finish(frame_len, _Scale),
+                    rotations.finish(frame_len, _Rotation),
                     textures.finish(frame_len, _Identity::<Handle<Image>>::default()),
                     visibilities.finish(frame_len, _IsVisible),
                     alphas.finish(frame_len, optics!(_Color._Alpha)),
-                ].into_iter().flatten() {
+                ].into_iter().flatten()) {
                     clip_builder.add_dyn_curve(path.clone(), curve);
                 }
             }
@@ -196,31 +212,4 @@ impl AssetLoader for AnimationLoader {
         })
     }
     fn extensions(&self) -> &[&str] { &["anim"] }
-}
-
-impl AffineMatrix3d {
-    /// Convert to [`Mat4`] with a custom `z` order.
-    pub fn as_mat4_with_z(&self, z: f32) -> Mat4 {
-        let [[sx, kx, x], [ky, sy, y]] = self.0;
-        // column major, see this as transposed
-        Mat4::from_cols_array_2d(&[
-            [sx, ky, 0., 0.],
-            [kx, sy, 0., 0.],
-            [0., 0., 1., 0.],
-            [x, y, z, 1.],
-        ])
-    }
-
-    /// Convert to [`Transform`] with a custom `z` order.
-    pub fn as_transform_with_z(&self, z: f32) -> Transform {
-        Transform::from_matrix(self.as_mat4_with_z(z))
-    }
-}
-
-impl From<&'_ AffineMatrix3d> for Mat4 {
-    fn from(m: &AffineMatrix3d) -> Mat4 { m.as_mat4_with_z(0.0) }
-}
-
-impl From<&'_ AffineMatrix3d> for Transform {
-    fn from(m: &AffineMatrix3d) -> Transform { m.as_transform_with_z(0.0) }
 }

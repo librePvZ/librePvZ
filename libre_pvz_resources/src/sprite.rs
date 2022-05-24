@@ -81,10 +81,11 @@ pub struct Track {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Frame(pub Box<[Action]>);
 
-/// Affine transformation in 3D.
-#[derive(Debug, Copy, Clone, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct AffineMatrix3d(pub [[f32; 3]; 2]);
+/// 2D vectors.
+pub type Vec2 = [f32; 2];
+
+/// 2x2 matrices (column major).
+pub type Mat2 = [Vec2; 2];
 
 /// Key frame action.
 #[derive(Debug, Clone, Encode, Decode)]
@@ -96,8 +97,12 @@ pub enum Action {
     Alpha(f32),
     /// Show or hide the element.
     Show(bool),
-    /// Change transformation matrix in `[[sx, kx, tx], [ky, sy, ty]]` format.
-    Transform(AffineMatrix3d),
+    /// Change the translation.
+    Translation(Vec2),
+    /// Change the scaling.
+    Scale(Vec2),
+    /// Change the rotation.
+    Rotation(Vec2),
 }
 
 /// Element on the stage. Only one element is allowed on a single frame.

@@ -22,7 +22,8 @@ use std::io::BufRead;
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 use libre_pvz_resources::sprite as packed;
-use libre_pvz_resources::sprite::{AffineMatrix3d, Element};
+use libre_pvz_resources::sprite::Element;
+use packed::Action;
 use crate::stream::{Decode, Stream, Result};
 
 /// Animation in a `.reanim` file.
@@ -91,9 +92,12 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
         .filter(|(_, frame)| !frame.0.is_empty()) {
         for trans in frame.0.iter() {
             let visible = match trans {
-                &packed::Action::Show(visible) => visible,
-                packed::Action::LoadElement(_) => return Err(track),
-                packed::Action::Alpha(_) | packed::Action::Transform(_) => {
+                &Action::Show(visible) => visible,
+                Action::LoadElement(_) => return Err(track),
+                Action::Alpha(_)
+                | Action::Translation(_)
+                | Action::Scale(_)
+                | Action::Rotation(_) => {
                     ignored_count += 1;
                     continue;
                 }
@@ -188,30 +192,31 @@ impl From<Track> for packed::Track {
             let mut packed = Vec::new();
             // transformations: matrix and/or alpha
             let Transform { x, y, kx, ky, sx, sy, f, a } = frame.transform;
-            if [x, y, kx, ky, sx, sy].iter().any(Option::is_some) {
-                let x = x.unwrap_or(last_frame.x);
-                let y = y.unwrap_or(last_frame.y);
-                let sx = sx.unwrap_or(last_frame.sx);
-                let sy = sy.unwrap_or(last_frame.sy);
-                let kx = kx.unwrap_or(last_frame.kx);
-                let ky = ky.unwrap_or(last_frame.ky);
-                last_frame = RawTrans { x, y, kx, ky, sx, sy };
+            if x.is_some() || y.is_some() {
+                last_frame.x = x.unwrap_or(last_frame.x);
+                last_frame.y = y.unwrap_or(last_frame.y);
+                // our y-axis is in the opposite direction
+                packed.push(Action::Translation([last_frame.x, -last_frame.y]));
+            }
+            if sx.is_some() || sy.is_some() {
+                last_frame.sx = sx.unwrap_or(last_frame.sx);
+                last_frame.sy = sy.unwrap_or(last_frame.sy);
+                packed.push(Action::Scale([last_frame.sx, last_frame.sy]));
+            }
+            if kx.is_some() || ky.is_some() {
+                last_frame.kx = kx.map(f32::to_radians).unwrap_or(last_frame.kx);
+                last_frame.ky = ky.map(f32::to_radians).unwrap_or(last_frame.ky);
                 // it is 'ky' that was negated in 'FlashReanimExport.jsfl'
                 // but our y-axis is in the opposite direction
                 // so anti-diagonal elements should be negated
                 // the overall effect is to negate 'kx' instead of 'ky'
-                let kx = -kx;
-                let mat = [
-                    [sx * kx.to_radians().cos(), sy * ky.to_radians().sin(), x],
-                    [sx * kx.to_radians().sin(), sy * ky.to_radians().cos(), -y],
-                ];
-                packed.push(packed::Action::Transform(AffineMatrix3d(mat)));
+                packed.push(Action::Rotation([-last_frame.kx, last_frame.ky]));
             }
             if let Some(a) = a {
-                packed.push(packed::Action::Alpha(a));
+                packed.push(Action::Alpha(a));
             }
             if let Some(f) = f {
-                packed.push(packed::Action::Show(f >= 0.0));
+                packed.push(Action::Show(f >= 0.0));
                 if ![0.0, -1.0].contains(&f) {
                     log::warn!(target: "pack", "non-standard <f> node with value {f}");
                 }
@@ -232,14 +237,14 @@ impl From<Track> for packed::Track {
                 if !image_name_valid {
                     log::error!(target: "pack", "exotic file name: {image}");
                 }
-                packed.push(packed::Action::LoadElement(Element::Image { image }));
+                packed.push(Action::LoadElement(Element::Image { image }));
                 has_image = true;
             }
             match (text, font) {
                 (Some(text), Some(font)) => if has_image {
                     log::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
                 } else {
-                    packed.push(packed::Action::LoadElement(Element::Text { text, font }));
+                    packed.push(Action::LoadElement(Element::Text { text, font }));
                 },
                 (Some(text), None) => log::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),
                 (None, Some(font)) => log::warn!(target: "pack", "dropped <font>{font}</font> without <text>"),
