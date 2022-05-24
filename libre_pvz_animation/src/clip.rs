@@ -26,6 +26,7 @@ use bevy::prelude::*;
 use bevy::reflect::{TypeUuid, TypeRegistry, TypeRegistryInternal};
 use bevy::tasks::ComputeTaskPool;
 use bevy::utils::tracing::warn;
+use dashmap::DashSet;
 use thiserror::Error;
 use crate::key_frame::Curve;
 
@@ -57,8 +58,6 @@ pub struct AnimationClip {
 impl AnimationClip {
     /// Get a builder to build an animation clip.
     pub fn builder() -> AnimationClipBuilder { AnimationClipBuilder::new() }
-    /// Get the duration of this animation clip, i.e., the maximum duration of all curves.
-    pub fn duration_nanos(&self) -> u64 { self.duration_nanos }
     /// Get an iterator of [`Curve`]s into this animation clip.
     pub fn iter(&self) -> std::slice::Iter<(EntityPath, u32, u32)> { self.path_mapping.iter() }
     /// Get the [`Curve`] at index `k`.
@@ -143,16 +142,18 @@ impl AnimationPlayer {
 
     /// Progress of this animation.
     pub fn progress(&self) -> f64 {
+        if self.clip.duration_nanos == 0 { return 1.0; }
         self.elapsed_nanos as f64 / self.clip.duration_nanos as f64
     }
     /// Set the progress of this animation.
     pub fn set_progress(&mut self, progress: f64) {
+        if self.clip.duration_nanos == 0 { return; }
         self.elapsed_nanos = (self.clip.duration_nanos as f64 * progress) as u64;
     }
 
     /// Tick the time by several seconds.
     pub fn tick(&mut self, delta: Duration) {
-        if self.paused { return; }
+        if self.paused || self.clip.duration_nanos == 0 { return; }
         // [correctness: truncate delta to u64]
         // assuming a speed of 1.0 (therefore self.speed = SPEED_FACTOR)
         // we need delta > 5 hours to overflow nanoseconds in u64
@@ -186,21 +187,11 @@ pub(crate) fn bind_curve_system(
     mut commands: Commands,
 ) {
     for (root, player) in players.iter_mut() {
-        remove_bindings(root, &children, &mut commands);
         for (path, start, end) in player.clip.iter() {
             if let Some(entity) = locate(root, path, &children, &names) {
                 let binding = CurveBinding(root, *start, *end, Arc::downgrade(&player.clip));
                 commands.entity(entity).insert(binding);
             }
-        }
-    }
-}
-
-fn remove_bindings(root: Entity, children: &Query<&Children>, commands: &mut Commands) {
-    if let Ok(current_children) = children.get(root) {
-        for &child in current_children.iter() {
-            commands.entity(child).remove::<CurveBinding>();
-            remove_bindings(child, children, commands);
         }
     }
 }
@@ -236,10 +227,20 @@ pub(crate) fn animate_entities_system(
     players: Query<&AnimationPlayer>,
     type_registry: Res<TypeRegistry>,
     task_pool: Res<ComputeTaskPool>,
+    dead: Local<DashSet<Entity>>,
+    mut commands: Commands,
 ) {
     let type_registry = type_registry.read();
     entities.par_for_each(task_pool.as_ref(), BINDING_BATCH_SIZE, |(entity, binding)|
-        animate_entity(entity, binding, &players, type_registry.deref(), world));
+        if animate_entity(entity, binding, &players, type_registry.deref(), world) {
+            dead.insert(entity);
+        });
+    if !dead.is_empty() {
+        for entity in dead.iter() {
+            commands.entity(*entity).remove::<CurveBinding>();
+        }
+        dead.clear();
+    }
 }
 
 fn animate_entity(
@@ -248,10 +249,11 @@ fn animate_entity(
     players: &Query<&AnimationPlayer>,
     type_registry: &TypeRegistryInternal,
     world: &World,
-) {
+) -> bool {
     let player = players.get(binding.0).unwrap();
-    if binding.3.as_ptr() != player.clip.as_ref() { return; }
+    if binding.3.as_ptr() != player.clip.as_ref() { return false; }
     let range = binding.1 as usize..binding.2 as usize;
+    let mut success = false;
     for curve in &player.clip.curves[range] {
         let result = unsafe {
             sample_curve_component(
@@ -263,8 +265,9 @@ fn animate_entity(
         };
         if let Err(err) = result {
             warn!("animation error: {err}");
-        }
+        } else { success = true; }
     }
+    success
 }
 
 /// Error for access into entities with some path.

@@ -21,6 +21,7 @@
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::fmt::{Debug, Display, Formatter};
+use std::marker::PhantomData;
 use std::ops::Deref;
 use bitvec::prelude::*;
 use derivative::Derivative;
@@ -43,6 +44,12 @@ impl Animatable for bool {
 impl Animatable for f32 {
     fn interpolate(a: &f32, b: &f32, time: f32) -> f32 {
         a * (1_f32 - time) + b * time
+    }
+}
+
+impl Animatable for Vec2 {
+    fn interpolate(a: &Vec2, b: &Vec2, time: f32) -> Vec2 {
+        Vec2::lerp(*a, *b, time)
     }
 }
 
@@ -76,13 +83,6 @@ impl Animatable for HandleId {
     fn interpolate(a: &HandleId, _b: &HandleId, _time: f32) -> HandleId { *a }
 }
 
-/// Field accessor for a targeted field from any [`Reflect`].
-pub type FieldAccessor<'a, T> = dyn AffineFoldMut<
-    'a, dyn Reflect,
-    View=T, ViewLifeBound=T,
-    Success=Box<str>, Error=Box<str>,
->;
-
 /// Animation curve.
 pub trait Curve: Send + Sync + 'static {
     /// Get the type ID for the target component.
@@ -107,7 +107,61 @@ pub trait TypedCurve {
     /// doesn't have to be.
     fn sample(&self, time: f32) -> Self::Value;
     /// Get a field accessor for the targeted field.
-    fn field_accessor(&self) -> &FieldAccessor<Self::Value>;
+    fn access_field<'a>(&self, data: &'a mut dyn Reflect) -> Result<&'a mut Self::Value, Box<str>>;
+}
+
+/// Constant curve.
+#[derive(Derivative)]
+#[derivative(Debug(bound = "T: Debug, F: Debug"))]
+pub struct ConstCurve<S, T, F> {
+    value: T,
+    field_accessor: F,
+    #[derivative(Debug = "ignore")]
+    _target_type: PhantomData<fn() -> S>,
+}
+
+impl<S, T, F> ConstCurve<S, T, F> {
+    /// Create a constant curve.
+    pub fn new(value: T, field_accessor: F) -> Self {
+        ConstCurve {
+            value,
+            field_accessor,
+            _target_type: PhantomData,
+        }
+    }
+
+    /// Create a constant curve.
+    pub fn new_boxed(value: T, field_accessor: F) -> Box<dyn Curve>
+        where S: Reflect, T: Send + Sync + Clone + 'static,
+              F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
+              F::Error: Display {
+        Box::new(Self::new(value, field_accessor))
+    }
+}
+
+impl<S, T, F> Curve for ConstCurve<S, T, F>
+    where S: Reflect, T: Send + Sync + Clone + 'static,
+          F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
+          F::Error: Display {
+    fn component_type(&self) -> TypeId { TypeId::of::<S>() }
+    fn component_type_name(&self) -> &'static str { std::any::type_name::<S>() }
+    fn duration(&self) -> f32 { 0.0 }
+    fn apply_sampled(&self, _time: f32, output: &mut dyn Reflect) -> Result<(), Box<str>> {
+        let output = self.access_field(output)?;
+        output.clone_from(&self.value);
+        Ok(())
+    }
+}
+
+impl<S, T, F> TypedCurve for ConstCurve<S, T, F>
+    where S: Reflect, T: Send + Sync + Clone + 'static,
+          F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
+          F::Error: Display {
+    type Value = T;
+    fn sample(&self, _time: f32) -> T { self.value.clone() }
+    fn access_field<'a>(&self, data: &'a mut dyn Reflect) -> Result<&'a mut Self::Value, Box<str>> {
+        Compose(_Reflect::<S>::default(), &self.field_accessor).to_str_err().preview_mut(data)
+    }
 }
 
 /// Provides linear random access to keyframe contents in a [`Track`].
@@ -178,9 +232,9 @@ impl<I: Into<u64> + Into<f32> + Copy + Send + Sync + 'static> FrameIndex for Fra
 /// Keyframe animation track with a fixed frame rate.
 #[derive(Derivative)]
 #[derivative(Debug(bound = "F: Debug"))]
-pub struct Track<F, I, C> {
+pub struct Track<S, F, I, C> {
     /// Target component type.
-    pub component_type: TypeId,
+    pub _component_type: PhantomData<fn() -> S>,
     /// Field accessor from [`Reflect`].
     pub field_accessor: F,
     /// Keyframe indices.
@@ -191,7 +245,7 @@ pub struct Track<F, I, C> {
     pub frames: C,
 }
 
-impl<F: Display, I: FrameIndex, C: for<'a> TrackContent<'a>> Display for Track<F, I, C> {
+impl<S, F: Display, I: FrameIndex, C: for<'a> TrackContent<'a>> Display for Track<S, F, I, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Track[{}: {}; len = {}, dur = {:.1}s]",
                self.field_accessor,
@@ -200,31 +254,29 @@ impl<F: Display, I: FrameIndex, C: for<'a> TrackContent<'a>> Display for Track<F
     }
 }
 
-impl<F, I, T, C> Curve for Track<F, I, C>
+impl<S, F, I, T, C> Curve for Track<S, F, I, C>
     where I: FrameIndex + Send + Sync + 'static,
           C: for<'a> TrackContent<'a, Keyframe=T> + Send + Sync + 'static,
-          T: Send + Sync + Animatable + 'static,
-          F: Send + Sync + 'static + for<'a> AffineFoldMut<
-              'a, dyn Reflect, View=T, ViewLifeBound=T,
-              Success=Box<str>, Error=Box<str>> {
-    fn component_type(&self) -> TypeId { self.component_type }
-    fn component_type_name(&self) -> &'static str { std::any::type_name::<T>() }
+          S: Reflect, T: Send + Sync + Animatable + 'static,
+          F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
+          F::Error: Display {
+    fn component_type(&self) -> TypeId { TypeId::of::<S>() }
+    fn component_type_name(&self) -> &'static str { std::any::type_name::<S>() }
     fn duration(&self) -> f32 { self.indices.duration() }
     fn apply_sampled(&self, time: f32, output: &mut dyn Reflect) -> Result<(), Box<str>> {
-        let output = self.field_accessor.preview_mut(output)?;
+        let output = self.access_field(output)?;
         let sampled = self.sample(time);
         *output = sampled;
         Ok(())
     }
 }
 
-impl<F, I, T, C> TypedCurve for Track<F, I, C>
+impl<S, F, I, T, C> TypedCurve for Track<S, F, I, C>
     where I: FrameIndex + Send + Sync + 'static,
           C: for<'a> TrackContent<'a, Keyframe=T> + Send + Sync + 'static,
-          T: Send + Sync + Animatable + 'static,
-          F: Send + Sync + 'static + for<'a> AffineFoldMut<
-              'a, dyn Reflect, View=T, ViewLifeBound=T,
-              Success=Box<str>, Error=Box<str>> {
+          S: Reflect, T: Send + Sync + Animatable + 'static,
+          F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
+          F::Error: Display {
     type Value = T;
 
     fn sample(&self, time: f32) -> Self::Value {
@@ -248,8 +300,8 @@ impl<F, I, T, C> TypedCurve for Track<F, I, C>
         )
     }
 
-    fn field_accessor(&self) -> &FieldAccessor<Self::Value> {
-        &self.field_accessor
+    fn access_field<'a>(&self, data: &'a mut dyn Reflect) -> Result<&'a mut T, Box<str>> {
+        Compose(_Reflect::<S>::default(), &self.field_accessor).to_str_err().preview_mut(data)
     }
 }
 
@@ -323,18 +375,16 @@ impl Indices {
               F: Send + Sync + 'static + for<'a> AffineFoldMut<'a, S, View=T, ViewLifeBound=T>,
               F::Success: Display, F::Error: Display {
         if self.is_empty() { return None; }
-        let component_type = TypeId::of::<S>();
-        let field_accessor = Compose(_Reflect::<S>::default(), field).to_str_err();
         Some(match self {
             Indices::U8(indices) => Box::new(Track {
-                component_type,
-                field_accessor,
+                _component_type: PhantomData,
+                field_accessor: field,
                 indices: FrameIndexFixedFPS { frame_len, indices: indices.into_boxed_slice() },
                 frames,
             }),
             Indices::U16(indices) => Box::new(Track {
-                component_type,
-                field_accessor,
+                _component_type: PhantomData,
+                field_accessor: field,
                 indices: FrameIndexFixedFPS { frame_len, indices: indices.into_boxed_slice() },
                 frames,
             }),

@@ -21,11 +21,14 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
+pub mod transform;
 pub mod reflect;
 pub mod key_frame;
 pub mod clip;
 
 use bevy::prelude::*;
+use bevy::transform::TransformSystem;
+use crate::transform::Transform2D;
 
 /// Labels for animation systems.
 #[derive(Clone, Debug, SystemLabel, PartialEq, Eq, Hash)]
@@ -44,7 +47,12 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<clip::AnimationClip>()
+        app.register_type::<Transform2D>()
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                transform::transform_propagate_system
+                    .label(TransformSystem::TransformPropagate))
+            .add_asset::<clip::AnimationClip>()
             .add_system(clip::bind_curve_system.label(AnimationSystem::PlayerCurveBind))
             .add_system(clip::tick_animation_system.label(AnimationSystem::PlayerTicking))
             .add_system_to_stage(
