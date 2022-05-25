@@ -25,3 +25,4 @@ pub use libre_pvz_resources as resources;
 pub use libre_pvz_animation as animation;
 
 pub mod diagnostics;
+pub mod almanac;

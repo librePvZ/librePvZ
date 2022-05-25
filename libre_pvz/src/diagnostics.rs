@@ -93,7 +93,7 @@ fn add_bounding_box_system(
 ) {
     for (root, &BoundingBoxRoot { z_order, is_visible }) in roots.iter() {
         let mut pending = vec![root];
-        let white_stroke = DrawMode::Stroke(StrokeMode::new(Color::ANTIQUE_WHITE, 0.3));
+        let white_stroke = DrawMode::Stroke(StrokeMode::new(Color::ANTIQUE_WHITE, 0.5));
         let trans = Transform2D { z_order, ..Transform2D::default() };
         while let Some(current) = pending.pop() {
             if let Ok(children) = children.get(current) {
