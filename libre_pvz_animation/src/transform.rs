@@ -31,7 +31,7 @@ pub struct Transform2D {
     pub translation: Vec2,
     /// Rotation of both axes.
     pub rotation: Vec2,
-    /// Absolute z-order.
+    /// Relative z-order.
     pub z_order: f32,
     /// Scaling along x and y-axes.
     pub scale: Vec2,
