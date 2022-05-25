@@ -110,7 +110,7 @@ impl<'a> AffineFoldMut<'a, dyn Reflect> for Access {
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct FieldPath(pub &'static [Access]);
 
-/// Helper for creating [`FieldPath`]es.
+/// Helper for creating [`FieldPath`]s.
 /// - Empty field path refers to the root data.
 /// - The `2` is parenthesized for disambiguation, because otherwise `2.` is parsed as a whole
 ///   floating-point literal.

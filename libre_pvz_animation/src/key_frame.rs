@@ -91,7 +91,7 @@ pub trait Curve: Send + Sync + 'static {
     fn component_type_name(&self) -> &'static str;
     /// Duration of this curve, in seconds.
     fn duration(&self) -> f32;
-    /// Apply the [`Curve::sample`]d value to some [`Reflect`] as the result.
+    /// Apply the [`TypedCurve::sample`]d value to some [`Reflect`] as the result.
     fn apply_sampled(&self, time: f32, output: &mut dyn Reflect) -> Result<(), Box<str>>;
 }
 
@@ -105,6 +105,8 @@ pub trait TypedCurve {
     /// not have the same duration, we require `sample` be well-defined for any positive time.
     /// This typically will just return the value that would be sampled at time `duration`, but it
     /// doesn't have to be.
+    ///
+    /// [`AnimationClip`]: crate::clip::AnimationClip
     fn sample(&self, time: f32) -> Self::Value;
     /// Get a field accessor for the targeted field.
     fn access_field<'a>(&self, data: &'a mut dyn Reflect) -> Result<&'a mut Self::Value, Box<str>>;
