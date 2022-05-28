@@ -2,9 +2,9 @@
 
 [![language](https://img.shields.io/badge/language-Rust-red)](https://www.rust-lang.org/)
 [![license](https://img.shields.io/badge/License-AGPL--v3.0-blueviolet)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Build and Test](https://github.com/ruifengx/librePvZ/actions/workflows/build.yaml/badge.svg)](https://github.com/ruifengx/librePvZ/actions/workflows/build.yaml)
-[![doc](https://img.shields.io/badge/Doc-Github%20Pages-brightgreen)](https://ruifengx.github.io/librePvZ/)
-[![dependency status](https://deps.rs/repo/github/ruifengx/librePvZ/status.svg)](https://deps.rs/repo/github/ruifengx/librePvZ)
+[![Build and Test](https://github.com/librePvZ/librePvZ/actions/workflows/build.yaml/badge.svg)](https://github.com/librePvZ/librePvZ/actions/workflows/build.yaml)
+[![doc](https://img.shields.io/badge/Doc-Github%20Pages-brightgreen)](https://librePvZ.github.io/librePvZ/)
+[![dependency status](https://deps.rs/repo/github/librePvZ/librePvZ/status.svg)](https://deps.rs/repo/github/librePvZ/librePvZ)
 ![version](https://img.shields.io/badge/WIP-0.1-yellow)
 
 ## License
