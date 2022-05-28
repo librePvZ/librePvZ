@@ -115,6 +115,7 @@ fn add_bounding_box_system(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn update_bounding_box_system(
     roots: Query<&BoundingBoxRoot>,
     mut boxes: Query<(Entity, &mut BoundingBox, &mut Path, &Parent, &mut Visibility)>,
