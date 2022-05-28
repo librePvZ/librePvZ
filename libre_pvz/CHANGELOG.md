@@ -2,6 +2,8 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 ## Unreleased
 
+### Almanac Screen
+
 - support previewing animations (default meta track "anim_idle")
 - GUI panels for controlling preview behaviour:
   - show (average) frame rate for diagnostics
