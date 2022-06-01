@@ -18,11 +18,11 @@
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
-use libre_pvz::resources::bevy::{Animation, AnimationLoader};
 use libre_pvz::animation::AnimationPlugin;
 use libre_pvz::diagnostics::BoundingBoxPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
+use libre_pvz_resources::bevy::ResourcesPlugin;
 
 fn main() {
     // let anim_name = std::env::args().into_iter().nth(1)
@@ -35,11 +35,10 @@ fn main() {
         .add_plugin(EguiPlugin)
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
-        .add_asset::<Animation>()
-        .init_asset_loader::<AnimationLoader>()
-        .add_startup_system(setup_camera)
+        .add_plugin(ResourcesPlugin)
         .add_plugin(LawnPlugin)
         // .add_plugin(AlmanacPlugin::new(anim_name))
+        .add_startup_system(setup_camera)
         .run();
 }
 

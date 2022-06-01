@@ -36,6 +36,17 @@ use libre_pvz_animation::key_frame::{ConstCurve, CurveBuilder};
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
 use crate::sprite::{AnimDesc, Action, Element, Track, Frame};
 
+/// Resources plugin.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct ResourcesPlugin;
+
+impl Plugin for ResourcesPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_asset::<Animation>()
+            .init_asset_loader::<AnimationLoader>();
+    }
+}
+
 optics::declare_lens_from_field! {
     _Color for color as Sprite => Color;
 }
