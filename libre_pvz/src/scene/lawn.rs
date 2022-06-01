@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use crate::animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
 use crate::resources::bevy::Animation;
-use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, failure_ui, PendingAssets};
+use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
 const BKG_IMAGE: &str = "background1.jpg";
 #[allow(unused)]
@@ -56,10 +56,10 @@ impl Plugin for LawnPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GridInfo::default())
             .attach_loader(AssetLoader::default()
-                .with_collection::<LawnAssets>())
+                .with_collection::<LawnAssets>()
+                .enable_failure_ui())
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(setup_lawn))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system))
-            .add_system_set(SystemSet::on_update(AssetState::LoadFailure).with_system(failure_ui));
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system));
     }
 }
 
@@ -77,6 +77,14 @@ impl AssetCollection for LawnAssets {
             peashooter_anim: pending.load_from(asset_server, PEASHOOTER_ANIM),
         };
         (assets, pending)
+    }
+    fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
+        if handle.id == self.peashooter_anim.id {
+            let anim = world.resource::<Assets<Animation>>().get(handle).unwrap();
+            for (path, image) in &anim.images {
+                pending.track(path, image.clone());
+            }
+        }
     }
 }
 

@@ -25,7 +25,7 @@ use bevy::asset::{Asset, LoadState};
 use bevy::ecs::schedule::StateData;
 use bevy_egui::EguiContext;
 use derivative::Derivative;
-use egui::Align2;
+use egui::{Align2, WidgetText};
 
 /// Pending asset for loading.
 #[derive(Debug, Clone)]
@@ -41,22 +41,24 @@ pub struct PendingAsset {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct PendingAssets<C> {
-    /// Pending assets.
-    pub pending: Vec<PendingAsset>,
+    pending: Vec<PendingAsset>,
     _marker: PhantomData<C>,
 }
 
 impl<C> PendingAssets<C> {
     /// Create a container for pending assets.
     pub fn new() -> Self { PendingAssets::default() }
-    /// Load an asset from an asset server, and record it as pending.
-    pub fn load_from<T: Asset>(&mut self, asset_server: &AssetServer, path: &str) -> Handle<T> {
-        let handle = asset_server.load(path);
+    /// Track this handle as pending.
+    pub fn track<T: Asset>(&mut self, path: &str, handle: Handle<T>) -> Handle<T> {
         self.pending.push(PendingAsset {
             path: path.to_string().into_boxed_str(),
             handle: handle.clone_untyped(),
         });
         handle
+    }
+    /// Load an asset from an asset server, and record it as pending.
+    pub fn load_from<T: Asset>(&mut self, asset_server: &AssetServer, path: &str) -> Handle<T> {
+        self.track(path, asset_server.load(path))
     }
 }
 
@@ -64,6 +66,8 @@ impl<C> PendingAssets<C> {
 pub trait AssetCollection: Sized + Send + Sync + 'static {
     /// Start loading the assets, and return the pending assets for checking.
     fn load(world: &World) -> (Self, PendingAssets<Self>);
+    /// Track in addition the dependencies of some asset.
+    fn track_dep(&self, _handle: HandleUntyped, _world: &World, _pending: &mut PendingAssets<Self>) {}
 }
 
 /// Default asset loading states.
@@ -84,6 +88,7 @@ pub struct AssetLoader<S = AssetState> {
     success_state: S,
     failure_state: S,
     collection_count: usize,
+    enable_failure_ui: bool,
     start_loading: SystemSet,
     check_loading: SystemSet,
     _marker: PhantomData<S>,
@@ -107,7 +112,7 @@ impl AssetLoaderExt for App {
         let status = Status {
             pending_collection_count: loader.collection_count,
             success_state: loader.success_state,
-            failure_state: loader.failure_state,
+            failure_state: loader.failure_state.clone(),
             failures: Vec::new(),
         };
         self.add_state(loader.initial_state.clone())
@@ -118,7 +123,12 @@ impl AssetLoaderExt for App {
                 .before(LoaderSystem::Exit))
             .add_system_set(SystemSet::on_update(loader.initial_state)
                 .with_system(finish_loading::<S>)
-                .label(LoaderSystem::Exit))
+                .label(LoaderSystem::Exit));
+        if loader.enable_failure_ui {
+            self.add_system_set(SystemSet::on_update(loader.failure_state)
+                .with_system(failure_ui::<S>));
+        }
+        self
     }
 }
 
@@ -136,6 +146,7 @@ impl<S: StateData> AssetLoader<S> {
     /// Create an asset loader, with specified state transition.
     pub fn new(initial_state: S, success_state: S, failure_state: S) -> AssetLoader<S> {
         AssetLoader {
+            enable_failure_ui: false,
             collection_count: 0,
             start_loading: SystemSet::on_enter(initial_state.clone()),
             check_loading: SystemSet::on_update(initial_state.clone()),
@@ -146,11 +157,20 @@ impl<S: StateData> AssetLoader<S> {
         }
     }
 
+    /// Enable the default load failure UI (depends on [`bevy_egui`]).
+    pub fn enable_failure_ui(mut self) -> Self {
+        self.enable_failure_ui = true;
+        self
+    }
+
     /// Add a collection to be loaded.
     pub fn with_collection<C: AssetCollection>(mut self) -> Self {
         self.collection_count += 1;
         self.start_loading = self.start_loading.with_system(start_loading::<S, C>);
-        self.check_loading = self.check_loading.with_system(check_loading_status::<S, C>);
+        self.check_loading = self.check_loading.with_system(
+            check_loading_status::<S, C>
+                .chain(track_dependencies::<C>)
+                .chain(update_pending::<S, C>));
         self
     }
 }
@@ -186,9 +206,9 @@ fn check_loading_status<S: StateData, T: AssetCollection>(
     mut loading_status: ResMut<Status<S>>,
     asset_server: Res<AssetServer>,
     mut pending_assets: ResMut<PendingAssets<T>>,
-    mut commands: Commands,
-) {
+) -> Vec<HandleUntyped> {
     let mut current = 0;
+    let mut finished = Vec::new();
     while current < pending_assets.pending.len() {
         let handle = &pending_assets.pending[current].handle;
         match asset_server.get_load_state(handle) {
@@ -197,16 +217,39 @@ fn check_loading_status<S: StateData, T: AssetCollection>(
                 continue;
             }
             LoadState::Loaded => {
-                pending_assets.pending.swap_remove(current);
+                finished.push(pending_assets.pending.swap_remove(current).handle);
             }
             // treat unloaded assets as failures (be strict)
             LoadState::Failed | LoadState::Unloaded => {
-                let path = pending_assets.pending.swap_remove(current).path;
-                loading_status.failures.push(path);
+                let asset = pending_assets.pending.swap_remove(current);
+                loading_status.failures.push(asset.path);
             }
         }
     }
-    if pending_assets.pending.is_empty() {
+    finished
+}
+
+fn track_dependencies<T: AssetCollection>(
+    finished: In<Vec<HandleUntyped>>,
+    collection: Res<T>,
+    world: &World,
+) -> PendingAssets<T> {
+    let mut pending_assets = PendingAssets::new();
+    for handle in finished.0 {
+        collection.track_dep(handle, world, &mut pending_assets);
+    }
+    pending_assets
+}
+
+fn update_pending<S: StateData, T: AssetCollection>(
+    deps: In<PendingAssets<T>>,
+    mut loading_status: ResMut<Status<S>>,
+    mut pending_assets: ResMut<PendingAssets<T>>,
+    mut commands: Commands,
+) {
+    if !deps.0.pending.is_empty() { // add even more
+        pending_assets.pending.extend(deps.0.pending);
+    } else if pending_assets.pending.is_empty() { // nothing left
         loading_status.pending_collection_count -= 1;
         commands.remove_resource::<PendingAssets<T>>();
     }
@@ -268,7 +311,7 @@ impl AssetFailure {
             n, names.into_iter(),
             || "Failed to load these assets:\n".to_string(),
             |msg, name| writeln!(msg, "• {}", name.as_ref()),
-            |msg, n| writeln!(msg, "... and {n} others"),
+            |msg, n| write!(msg, "... and {n} others"),
         );
         let msg = match result {
             Ok(None) => return None,
@@ -282,13 +325,15 @@ impl AssetFailure {
 }
 
 /// Shared asset loading failure UI.
-pub fn failure_ui(
+pub fn failure_ui<S: StateData>(
+    loading_status: Res<Status<S>>,
     mut context: ResMut<EguiContext>,
     windows: Res<Windows>,
     failure: Res<AssetFailure>,
+    mut state: ResMut<State<S>>,
     mut app_exit_events: EventWriter<'_, '_, AppExit>,
 ) {
-    let width = f32::min(200.0, windows.primary().width() / 2.0);
+    let width = f32::min(300.0, windows.primary().width() / 2.0);
     egui::Window::new("Error")
         .default_width(width)
         .resizable(false)
@@ -296,8 +341,14 @@ pub fn failure_ui(
         .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
         .show(context.ctx_mut(), |ui| {
             ui.label(&failure.0);
-            ui.vertical_centered(|ui| if ui.button("Exit").clicked() {
-                app_exit_events.send(AppExit);
+            ui.label(WidgetText::from("You may still proceed, but the program may crash.").italics());
+            ui.horizontal(|ui| {
+                if ui.button("Proceed Anyway").clicked() {
+                    state.set(loading_status.success_state.clone()).unwrap();
+                }
+                if ui.button("Exit").clicked() {
+                    app_exit_events.send(AppExit);
+                }
             });
         });
 }

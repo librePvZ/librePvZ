@@ -19,7 +19,6 @@
 //! An (over-)simplified almanac scene.
 
 use bevy::prelude::*;
-use bevy::asset::LoadState;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
 use bevy_egui::EguiContext;
@@ -29,7 +28,7 @@ use crate::animation::clip::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
 use crate::resources::bevy::Animation;
 use crate::diagnostics::BoundingBoxRoot;
-use crate::scene::loading::{AssetCollection, AssetFailure, AssetLoader, AssetLoaderExt, AssetState, failure_ui, PendingAssets};
+use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
 /// Width of almanac frame.
 pub const WIDTH: f32 = 315.0;
@@ -97,12 +96,12 @@ impl Plugin for AlmanacPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .insert_resource(self.0.clone())
-            .attach_loader(AssetLoader::default().with_collection::<Stage>())
+            .attach_loader(AssetLoader::default()
+                .with_collection::<Stage>()
+                .enable_failure_ui())
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(init_anim))
-            .add_system_set(SystemSet::on_exit(AssetState::AssetLoading).with_system(check_failure))
             .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(animation_ui))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(respond_to_stage_change))
-            .add_system_set(SystemSet::on_update(AssetState::LoadFailure).with_system(failure_ui));
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(respond_to_stage_change));
     }
 }
 
@@ -131,22 +130,18 @@ impl AssetCollection for Stage {
             last_selected_meta: 0,
         }, pending)
     }
+    fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
+        if handle.id == self.animation.id {
+            let anim = world.resource::<Assets<Animation>>().get(handle).unwrap();
+            for (path, image) in &anim.images {
+                pending.track(path, image.clone());
+            }
+        }
+    }
 }
 
 #[derive(Component)]
 struct Scaling;
-
-fn check_failure(
-    stage: Res<Stage>,
-    animations: Res<Assets<Animation>>,
-    server: Res<AssetServer>,
-    mut commands: Commands,
-) {
-    let anim = animations.get(&stage.animation).unwrap();
-    commands.insert_resource(AssetFailure::from_names(3, anim.images.iter()
-        .filter(|(_, image)| server.get_load_state(image.id) == LoadState::Failed)
-        .map(|(name, _)| name)));
-}
 
 fn init_anim(
     assets: Res<Assets<Animation>>,
@@ -211,13 +206,11 @@ fn animation_ui(
     mut context: ResMut<EguiContext>,
     diagnostics: Res<Diagnostics>,
     animations: Res<Assets<Animation>>,
-    asset_failure: Option<Res<AssetFailure>>,
     mut player: Query<&mut AnimationPlayer>,
     mut stage: ResMut<Stage>,
 ) {
     let anim = animations.get(&stage.animation).unwrap();
     let player = &mut player.get_single_mut().unwrap();
-    let sep = if asset_failure.is_some() { 1.0 } else { 4.0 };
     egui::Window::new("Control Panel")
         .resizable(false)
         .title_bar(false)
@@ -227,13 +220,9 @@ fn animation_ui(
         .show(context.ctx_mut(), |ui| {
             Grid::new("metrics")
                 .num_columns(2)
-                .spacing([15.0, sep])
+                .spacing([15.0, 4.0])
                 .show(ui, |ui|
                     metrics_ui(ui, &mut stage, &diagnostics, anim, player));
-            if let Some(asset_failure) = asset_failure {
-                ui.separator();
-                ui.label(&asset_failure.0);
-            }
         });
 }
 
