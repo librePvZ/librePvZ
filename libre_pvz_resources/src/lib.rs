@@ -21,7 +21,7 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
-pub mod sprite;
+pub mod animation;
 
 #[cfg(feature = "bevy")]
 pub mod bevy;

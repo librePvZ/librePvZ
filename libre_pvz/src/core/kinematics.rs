@@ -83,8 +83,7 @@ pub fn coordinate_translation_system(
 ) {
     for (pos, mut trans) in objects.iter_mut() {
         trans.translation.x = pos.0.x;
-        trans.translation.y = pos.0.y;
-        trans.z_order = pos.0.z;
+        trans.translation.y = pos.0.y + pos.0.z;
     }
 }
 

@@ -198,7 +198,7 @@ fn init_anim(
         .map(|(k, _)| k)
         .unwrap_or(0);
     stage.last_selected_meta = stage.selected_meta;
-    let entity = anim.spawn_on(stage.selected_meta, &mut commands);
+    let (entity, _) = anim.spawn_on(stage.selected_meta, &mut commands);
     commands.entity(scaling).add_child(entity);
 }
 

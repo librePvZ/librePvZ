@@ -28,7 +28,7 @@ use clap::{ArgEnum, Parser, Subcommand};
 use fern::colors::{Color::*, ColoredLevelConfig};
 use log::LevelFilter;
 use serde::{Serialize, Serializer};
-use libre_pvz_resources::sprite as packed;
+use libre_pvz_resources::animation as packed;
 use crate::reanim::Animation;
 use crate::xml::Xml;
 

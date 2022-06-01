@@ -161,7 +161,7 @@ impl AnimationPlayer {
         self.elapsed_nanos += (delta.as_nanos() as u64 * self.speed as u64) / SPEED_FACTOR;
         if self.repeat {
             self.elapsed_nanos %= self.clip.duration_nanos;
-        } else {
+        } else if self.elapsed_nanos >= self.clip.duration_nanos {
             self.elapsed_nanos = 0;
             self.paused = true;
         }

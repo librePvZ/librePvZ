@@ -20,7 +20,11 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use libre_pvz_animation::clip::AnimationPlayer;
+use libre_pvz_resources::animation::Action;
 use crate::animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
+use crate::core::kinematics::{Position, Velocity};
+use crate::core::projectile::VanishingBound;
 use crate::resources::bevy::Animation;
 use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
@@ -33,6 +37,8 @@ const BKG_HEIGHT: f32 = 600.0;
 const WIDTH: f32 = HEIGHT * 16.0 / 9.0;
 const HEIGHT: f32 = BKG_HEIGHT;
 
+const PLANT_SHADOW: &str = "plantshadow.png";
+const PROJECTILE_PEA: &str = "ProjectilePea.png";
 const PEASHOOTER_ANIM: &str = "Peashooter.anim";
 
 /// Plugin for lawn scene.
@@ -55,16 +61,27 @@ impl LawnPlugin {
 impl Plugin for LawnPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GridInfo::default())
+            .insert_resource(VanishingBound {
+                top: HEIGHT * 0.75,
+                bottom: -HEIGHT * 0.75,
+                left: -WIDTH * 0.75,
+                right: WIDTH * 0.75,
+                maximum_height: HEIGHT * 2.0,
+            })
             .attach_loader(AssetLoader::default()
                 .with_collection::<LawnAssets>()
                 .enable_failure_ui())
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(setup_lawn))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system));
+            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_peashooter_system))
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system))
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(peashooter_fire_system));
     }
 }
 
 struct LawnAssets {
     lawn_background: Handle<Image>,
+    plant_shadow: Handle<Image>,
+    projectile_pea: Handle<Image>,
     peashooter_anim: Handle<Animation>,
 }
 
@@ -74,6 +91,8 @@ impl AssetCollection for LawnAssets {
         let mut pending = PendingAssets::new();
         let assets = LawnAssets {
             lawn_background: pending.load_from(asset_server, BKG_IMAGE),
+            plant_shadow: pending.load_from(asset_server, PLANT_SHADOW),
+            projectile_pea: pending.load_from(asset_server, PROJECTILE_PEA),
             peashooter_anim: pending.load_from(asset_server, PEASHOOTER_ANIM),
         };
         (assets, pending)
@@ -88,12 +107,14 @@ impl AssetCollection for LawnAssets {
     }
 }
 
+#[allow(unused)]
 const GRID_X_COUNT: u8 = 9;
+#[allow(unused)]
 const GRID_Y_COUNT: u8 = 5;
 
 const GRID_SIZE: f32 = 80.0;
 
-fn setup_lawn(assets: Res<LawnAssets>, animations: Res<Assets<Animation>>, mut commands: Commands) {
+fn setup_lawn(assets: Res<LawnAssets>, mut commands: Commands) {
     commands.spawn_bundle(SpriteBundle2D {
         sprite: Sprite {
             anchor: Anchor::TopLeft,
@@ -103,17 +124,6 @@ fn setup_lawn(assets: Res<LawnAssets>, animations: Res<Assets<Animation>>, mut c
         transform: Transform2D::from_translation(Vec2::new(-WIDTH / 2.0, HEIGHT / 2.0)),
         ..SpriteBundle2D::default()
     });
-    let peashooter = animations.get(&assets.peashooter_anim).unwrap();
-    for x in 0..GRID_X_COUNT {
-        for y in 0..GRID_Y_COUNT {
-            let mut trans = TransformBundle2D::default();
-            trans.local.z_order = 10.0;
-            let parent = commands.spawn_bundle(trans).insert(GridPos { x, y }).id();
-            let (idle, _) = peashooter.description.get_meta("anim_full_idle").unwrap();
-            let child = peashooter.spawn_on(idle, &mut commands);
-            commands.entity(parent).add_child(child);
-        }
-    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -131,10 +141,13 @@ impl Default for GridInfo {
     }
 }
 
+/// Position in the lawn grid.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Component)]
-struct GridPos {
-    x: u8,
-    y: u8,
+pub struct GridPos {
+    /// Horizontal, larger means farther from the door (left to right).
+    pub x: u8,
+    /// Vertical, larger means farther from the seed slot (top down).
+    pub y: u8,
 }
 
 impl GridInfo {
@@ -158,5 +171,113 @@ fn update_grid_system(
         for (pos, mut trans) in grids.iter_mut() {
             trans.translation = grid_info.translation_for(pos);
         }
+    }
+}
+
+#[derive(Copy, Clone, Component)]
+struct PeashooterHead;
+
+#[derive(Copy, Clone, Component)]
+enum PeashooterPhase {
+    Fire1,
+    Fire2,
+    Rest,
+}
+
+impl PeashooterPhase {
+    fn goto_next(&mut self) {
+        *self = match *self {
+            PeashooterPhase::Fire1 => PeashooterPhase::Fire2,
+            PeashooterPhase::Fire2 => PeashooterPhase::Rest,
+            PeashooterPhase::Rest => PeashooterPhase::Fire1,
+        };
+    }
+    fn is_shooting(self) -> bool { matches!(self, PeashooterPhase::Fire1 | PeashooterPhase::Fire2) }
+    fn player_speed(self) -> f32 {
+        match self {
+            PeashooterPhase::Fire1 | PeashooterPhase::Fire2 => REPEATER_SHOOTING_SPEED_FACTOR,
+            PeashooterPhase::Rest => 1.0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Component)]
+struct PeashooterStemTop;
+
+// const REPEATER_LAUNCH_RATE: f32 = 150.0;
+// const REPEATER_COOL_DOWN: f32 = REPEATER_LAUNCH_RATE / 12.0;
+const REPEATER_SHOOTING_FRAME_RATE: f32 = 45.0;
+const REPEATER_SHOOTING_SPEED_FACTOR: f32 = REPEATER_SHOOTING_FRAME_RATE / 12.0;
+
+const PEA_VELOCITY: f32 = 9.9 * 30.0;
+
+fn spawn_peashooter_system(
+    assets: Res<LawnAssets>,
+    animations: Res<Assets<Animation>>,
+    mut commands: Commands,
+) {
+    let anim = animations.get(&assets.peashooter_anim).unwrap();
+    // the whole plant
+    let mut trans = TransformBundle2D::default();
+    trans.local.z_order = 10.0;
+    let plant = commands.spawn_bundle(trans).insert(GridPos { x: 2, y: 2 }).id();
+    // the shadow
+    let mut shadow = SpriteBundle2D::default();
+    shadow.transform.translation.y = -30.0;
+    shadow.transform.z_order = -1.0;
+    shadow.texture = assets.plant_shadow.clone();
+    let shadow = commands.spawn_bundle(shadow).id();
+    commands.entity(plant).add_child(shadow);
+    // the stem: anim_idle
+    let (anim_idle, meta_idle) = anim.description.get_meta("anim_idle").unwrap();
+    let (stem, stem_tracks) = anim.spawn_on(anim_idle, &mut commands);
+    commands.entity(plant).add_child(stem);
+    // head should be attached to 'anim_stem'
+    let (track_stem, anim_stem) = anim.description.tracks.iter().zip(stem_tracks)
+        .find(|(track, _)| track.name == "anim_stem").unwrap();
+    // spawn an anchor entity to fix up initial translation of 'anim_stem'
+    let mut anchor_trans = SpriteBundle2D::default();
+    if let Some(&Action::Translation([tx, ty])) = track_stem
+        .frames[meta_idle.start_frame as usize].0.iter()
+        .find(|act| matches!(act, Action::Translation(_))) {
+        anchor_trans.transform.translation = Vec2::new(40.0 - tx, -40.0 - ty);
+    }
+    let anchor = commands.spawn_bundle(anchor_trans).insert(PeashooterStemTop).id();
+    commands.entity(anim_stem).add_child(anchor);
+    // the normal head: anim_head_idle
+    let (anim_head_idle, _) = anim.description.get_meta("anim_head_idle").unwrap();
+    let (head_idle, _) = anim.spawn_on(anim_head_idle, &mut commands);
+    commands.entity(head_idle).insert(PeashooterHead).insert(PeashooterPhase::Rest);
+    commands.entity(anchor).add_child(head_idle);
+}
+
+fn peashooter_fire_system(
+    mut head: Query<(&Parent, &mut AnimationPlayer, &mut PeashooterPhase), With<PeashooterHead>>,
+    stem_top: Query<&GlobalTransform, With<PeashooterStemTop>>,
+    lawn_assets: Res<LawnAssets>,
+    animations: Res<Assets<Animation>>,
+    mut commands: Commands,
+) {
+    let (parent, mut player, mut phase) = head.single_mut();
+    player.repeat = false;
+    if player.paused {
+        if phase.is_shooting() {
+            let stem_top_trans = stem_top.get(parent.0).unwrap().translation();
+            let x0 = stem_top_trans.x + 24.0;
+            let y0 = stem_top_trans.y + 33.0;
+            let p0 = Position(Vec3::new(x0, y0, 0.0));
+            let vel = Velocity(Vec3::new(PEA_VELOCITY, 0.0, 0.0));
+            let mut bundle = SpriteBundle2D::default();
+            bundle.texture = lawn_assets.projectile_pea.clone();
+            bundle.sprite.anchor = Anchor::TopLeft;
+            bundle.transform.z_order = 100.0;
+            commands.spawn_bundle(bundle).insert(p0).insert(vel);
+        }
+        let anim = animations.get(&lawn_assets.peashooter_anim).unwrap();
+        let (shooting, _) = anim.description.get_meta("anim_shooting").unwrap();
+        let (idle, _) = anim.description.get_meta("anim_head_idle").unwrap();
+        phase.goto_next();
+        let k = if phase.is_shooting() { shooting } else { idle };
+        *player = AnimationPlayer::new(anim.clip_for(k), phase.player_speed(), false);
     }
 }

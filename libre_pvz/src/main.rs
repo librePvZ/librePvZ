@@ -19,6 +19,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use libre_pvz::animation::AnimationPlugin;
+use libre_pvz::core::kinematics::KinematicsPlugin;
 use libre_pvz::diagnostics::BoundingBoxPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
@@ -36,6 +37,7 @@ fn main() {
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugin(ResourcesPlugin)
+        .add_plugin(KinematicsPlugin)
         .add_plugin(LawnPlugin)
         // .add_plugin(AlmanacPlugin::new(anim_name))
         .add_startup_system(setup_camera)

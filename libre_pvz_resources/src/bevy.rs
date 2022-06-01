@@ -34,7 +34,7 @@ use once_cell::sync::OnceCell;
 use libre_pvz_animation::clip::{AnimationClip, AnimationPlayer, EntityPath};
 use libre_pvz_animation::key_frame::{ConstCurve, CurveBuilder};
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
-use crate::sprite::{AnimDesc, Action, Element, Track, Frame};
+use crate::animation::{AnimDesc, Action, Element, Track, Frame};
 
 /// Resources plugin.
 #[derive(Default, Debug, Copy, Clone)]
@@ -101,8 +101,9 @@ const HALF_WIDTH: f32 = WIDTH / 2.0;
 
 impl Animation {
     /// Spawn an animation.
-    pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> Entity {
+    pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> (Entity, Vec<Entity>) {
         let clip = self.clip_for(meta);
+        let mut track_entities = Vec::new();
         let parent = commands.spawn_bundle(TransformBundle2D {
             local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
             ..TransformBundle2D::default()
@@ -113,10 +114,11 @@ impl Animation {
             bundle.sprite.anchor = Anchor::TopLeft;
             let this = commands.spawn_bundle(bundle).insert(this).id();
             commands.entity(parent).add_child(this);
+            track_entities.push(this);
         }
         let player = AnimationPlayer::new(clip, 1.0, true);
         commands.entity(parent).insert(player);
-        parent
+        (parent, track_entities)
     }
 
     /// Accumulate the actions until some frame.

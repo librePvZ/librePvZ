@@ -21,8 +21,8 @@
 use std::io::BufRead;
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
-use libre_pvz_resources::sprite as packed;
-use libre_pvz_resources::sprite::Element;
+use libre_pvz_resources::animation as packed;
+use libre_pvz_resources::animation::Element;
 use packed::Action;
 use crate::stream::{Decode, Stream, Result};
 
