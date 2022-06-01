@@ -16,14 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! librePvZ: game logic implementation.
+//! Common behaviours for plants or zombies.
 
-#![warn(missing_docs)]
-#![warn(missing_debug_implementations)]
+use bevy::prelude::*;
 
-pub use libre_pvz_resources as resources;
-pub use libre_pvz_animation as animation;
-
-pub mod core;
-pub mod scene;
-pub mod diagnostics;
+/// Periodic behaviours.
+#[derive(Debug, Copy, Clone, Component)]
+pub struct Periodic<B> {
+    /// Time period for this behaviour.
+    pub period: f32,
+    /// Current cool down for this behaviour, down from `period` to 0.
+    pub cool_down: f32,
+    /// Base behaviour to be repeated periodically.
+    pub base_behaviour: B,
+}

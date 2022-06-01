@@ -29,16 +29,27 @@ use libre_pvz_animation::transform::Transform2D;
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBoxPlugin;
 
+/// Labels for the bounding box systems.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, SystemLabel)]
+pub enum BoundingBoxSystem {
+    /// Set up for newly-[`Added`] [`BoundingBoxRoot`]s.
+    AddBoundingBox,
+    /// Update bounding boxes upon changes of sprites or textures.
+    UpdateBoundingBox,
+}
+
 impl Plugin for BoundingBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ShapePlugin)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 add_bounding_box_system
+                    .label(BoundingBoxSystem::AddBoundingBox)
                     .before(TransformSystem::TransformPropagate))
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_bounding_box_system
+                    .label(BoundingBoxSystem::UpdateBoundingBox)
                     .before(TransformSystem::TransformPropagate));
     }
 }

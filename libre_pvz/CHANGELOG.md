@@ -2,7 +2,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 ## Unreleased
 
-### Almanac Screen
+### Almanac Scene
 
 - support previewing animations (default meta track "anim_idle")
 - GUI panels for controlling preview behaviour:
@@ -11,3 +11,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
   - allow adjusting scale & speed
   - allow pausing and adjusting the progress
   - show bounding boxes for diagnostics
+
+### Lawn Scene
+
+- show day lawn, set up a grid system on the lawn

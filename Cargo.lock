@@ -1751,6 +1751,7 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "bevy_prototype_lyon",
+ "derivative",
  "egui",
  "libre_pvz_animation",
  "libre_pvz_resources",

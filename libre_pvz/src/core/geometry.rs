@@ -16,14 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! librePvZ: game logic implementation.
+//! Geometry-related stuff.
 
-#![warn(missing_docs)]
-#![warn(missing_debug_implementations)]
+use bevy::prelude::*;
 
-pub use libre_pvz_resources as resources;
-pub use libre_pvz_animation as animation;
-
-pub mod core;
-pub mod scene;
-pub mod diagnostics;
+/// Box for collision detection.
+#[derive(Debug, Copy, Clone, Component)]
+pub struct CollideBox {
+    /// Center of this box.
+    pub center: Vec2,
+    /// Size of this box.
+    pub dimension: Vec2,
+}

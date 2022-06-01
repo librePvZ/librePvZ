@@ -16,25 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Almanac screen.
+//! An (over-)simplified almanac scene.
 
 use bevy::prelude::*;
-use bevy::app::AppExit;
 use bevy::asset::LoadState;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
-use bevy::ecs::schedule::IntoSystemDescriptor;
 use bevy::sprite::Anchor;
-use bevy_egui::{EguiContext, EguiPlugin};
+use bevy_egui::EguiContext;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
 use libre_pvz_animation::transform::TransformBundle2D;
 use crate::animation::clip::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
 use crate::resources::bevy::Animation;
-use crate::diagnostics::{BoundingBoxPlugin, BoundingBoxRoot};
-
-/// The almanac entity.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Almanac(pub Entity);
+use crate::diagnostics::BoundingBoxRoot;
+use crate::scene::loading::{AssetCollection, AssetFailure, AssetLoader, AssetLoaderExt, AssetState, failure_ui, PendingAssets};
 
 /// Width of almanac frame.
 pub const WIDTH: f32 = 315.0;
@@ -74,7 +69,7 @@ pub const DESCRIPTION_TOP_LEFT: [f32; 2] = [32.0, 231.0];
 /// Description window width.
 pub const DESCRIPTION_WIDTH: f32 = WIDTH - 2.0 * DESCRIPTION_TOP_LEFT[0];
 
-/// Plugin for almanac screen.
+/// Plugin for almanac scene.
 #[derive(Debug)]
 pub struct AlmanacPlugin(AnimName);
 
@@ -98,43 +93,69 @@ impl AlmanacPlugin {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum AppState {
-    AssetLoading,
-    AssetReady,
-    LoadFailure,
-}
-
-impl AppState {
-    fn on_enter<Params>(self, system: impl IntoSystemDescriptor<Params>) -> SystemSet {
-        SystemSet::on_enter(self).with_system(system)
-    }
-    fn on_update<Params>(self, system: impl IntoSystemDescriptor<Params>) -> SystemSet {
-        SystemSet::on_update(self).with_system(system)
-    }
-}
-
 impl Plugin for AlmanacPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .add_plugin(EguiPlugin)
-            .add_plugin(BoundingBoxPlugin)
-            .add_startup_system(setup)
             .insert_resource(self.0.clone())
-            .add_startup_system(load_anim)
-            .add_state(AppState::AssetLoading)
-            .add_system_set(AppState::AssetLoading.on_update(wait_for_assets))
-            .add_system_set(AppState::AssetReady.on_enter(init_anim))
-            .add_system_set(AppState::AssetReady.on_enter(check_failure))
-            .add_system_set(AppState::AssetReady.on_update(animation_ui))
-            .add_system_set(AppState::AssetReady.on_update(respond_to_stage_change))
-            .add_system_set(AppState::LoadFailure.on_update(failure_ui));
+            .attach_loader(AssetLoader::default().with_collection::<Stage>())
+            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(init_anim))
+            .add_system_set(SystemSet::on_exit(AssetState::AssetLoading).with_system(check_failure))
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(animation_ui))
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(respond_to_stage_change))
+            .add_system_set(SystemSet::on_update(AssetState::LoadFailure).with_system(failure_ui));
     }
 }
 
-fn setup(server: Res<AssetServer>, mut commands: Commands) {
+struct Stage {
+    animation: Handle<Animation>,
+    almanac_background: Handle<Image>,
+    ground_background: Handle<Image>,
+    scaling_factor: f32,
+    show_bounding_box: bool,
+    selected_meta: usize,
+    last_selected_meta: usize,
+}
+
+impl AssetCollection for Stage {
+    fn load(world: &World) -> (Self, PendingAssets<Self>) {
+        let anim_name = world.resource::<AnimName>();
+        let asset_server = world.resource::<AssetServer>();
+        let mut pending = PendingAssets::new();
+        (Stage {
+            animation: pending.load_from(asset_server, anim_name.0.as_ref()),
+            almanac_background: pending.load_from(asset_server, ALMANAC_IMAGE),
+            ground_background: pending.load_from(asset_server, GROUND_IMAGE),
+            scaling_factor: 1.5,
+            show_bounding_box: false,
+            selected_meta: 0,
+            last_selected_meta: 0,
+        }, pending)
+    }
+}
+
+#[derive(Component)]
+struct Scaling;
+
+fn check_failure(
+    stage: Res<Stage>,
+    animations: Res<Assets<Animation>>,
+    server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    let anim = animations.get(&stage.animation).unwrap();
+    commands.insert_resource(AssetFailure::from_names(3, anim.images.iter()
+        .filter(|(_, image)| server.get_load_state(image.id) == LoadState::Failed)
+        .map(|(name, _)| name)));
+}
+
+fn init_anim(
+    assets: Res<Assets<Animation>>,
+    mut stage: ResMut<Stage>,
+    mut context: ResMut<EguiContext>,
+    mut commands: Commands,
+) {
     let almanac = commands.spawn_bundle(SpriteBundle2D {
-        texture: server.load(ALMANAC_IMAGE),
+        texture: stage.almanac_background.clone(),
         sprite: Sprite {
             anchor: Anchor::TopLeft,
             ..Sprite::default()
@@ -147,7 +168,7 @@ fn setup(server: Res<AssetServer>, mut commands: Commands) {
         ..SpriteBundle2D::default()
     }).id();
     let ground = commands.spawn_bundle(SpriteBundle2D {
-        texture: server.load(GROUND_IMAGE),
+        texture: stage.ground_background.clone(),
         transform: Transform2D {
             z_order: -1.0,
             translation: Vec2::from(GROUND_CENTER),
@@ -156,120 +177,7 @@ fn setup(server: Res<AssetServer>, mut commands: Commands) {
         ..SpriteBundle2D::default()
     }).id();
     commands.entity(almanac).add_child(ground);
-    commands.insert_resource(Almanac(almanac));
-}
 
-struct Stage {
-    animation: Handle<Animation>,
-    scaling_factor: f32,
-    show_bounding_box: bool,
-    selected_meta: usize,
-    last_selected_meta: usize,
-}
-
-fn load_anim(server: Res<AssetServer>, anim_name: Res<AnimName>, mut commands: Commands) {
-    let animation = server.load(anim_name.0.as_ref());
-    commands.insert_resource(Stage {
-        animation,
-        scaling_factor: 1.5,
-        show_bounding_box: false,
-        selected_meta: 0,
-        last_selected_meta: 0,
-    });
-}
-
-#[derive(Component)]
-struct Scaling;
-
-fn wait_for_assets(
-    stage: Res<Stage>, assets: Res<AssetServer>,
-    mut state: ResMut<State<AppState>>,
-    mut commands: Commands,
-) {
-    use bevy::asset::LoadState::*;
-    match assets.get_load_state(&stage.animation) {
-        Loaded => state.set(AppState::AssetReady).unwrap(),
-        Failed => {
-            commands.spawn_bundle(SpriteBundle2D {
-                sprite: Sprite {
-                    color: Color::rgba(0.0, 0.0, 0.0, 0.9),
-                    ..Sprite::default()
-                },
-                transform: Transform2D {
-                    scale: Vec2::new(WIDTH, HEIGHT),
-                    z_order: 200.0,
-                    ..Transform2D::default()
-                },
-                ..SpriteBundle2D::default()
-            });
-            state.set(AppState::LoadFailure).unwrap();
-        }
-        _ => {}
-    }
-}
-
-// init; k * first_k; [0 => {}; 1 => first_k; n => rest(n)]
-fn try_first_k_and_rest<T, E, I: IntoIterator>(
-    k: usize, iter: I,
-    init: impl FnOnce() -> T,
-    mut first_k: impl FnMut(&mut T, I::Item) -> Result<(), E>,
-    rest: impl FnOnce(&mut T, usize) -> Result<(), E>,
-) -> Result<Option<T>, E> {
-    assert_ne!(k, 0, "must at least require one element");
-    let mut iter = iter.into_iter();
-    let first = match iter.next() {
-        None => return Ok(None),
-        Some(first) => first,
-    };
-    let mut state = init();
-    first_k(&mut state, first)?;
-    for x in iter.by_ref().take(k - 1) {
-        first_k(&mut state, x)?;
-    }
-    if let Some(x) = iter.next() {
-        let remaining = iter.count() + 1;
-        match remaining {
-            1 => first_k(&mut state, x)?,
-            _ => rest(&mut state, remaining)?,
-        }
-    }
-    Ok(Some(state))
-}
-
-struct AssetFailure(String);
-
-fn check_failure(
-    stage: Res<Stage>,
-    animations: Res<Assets<Animation>>,
-    server: Res<AssetServer>,
-    mut commands: Commands,
-) {
-    let anim = animations.get(&stage.animation).unwrap();
-    use std::fmt::Write;
-    let result = try_first_k_and_rest(
-        3, anim.images.iter().filter(|(_, image)|
-            server.get_load_state(image.id) == LoadState::Failed),
-        || "Failed to load these assets:\n".to_string(),
-        |msg, (name, _)| writeln!(msg, "• {name}"),
-        |msg, n| writeln!(msg, "... and {n} others"),
-    );
-    let msg = match result {
-        Ok(None) => return,
-        Ok(Some(msg)) => msg,
-        Err(std::fmt::Error) => "double failure:\n\
-            • failed to load some assets\n\
-            • cannot show which assets failed".to_string(),
-    };
-    commands.insert_resource(AssetFailure(msg));
-}
-
-fn init_anim(
-    assets: Res<Assets<Animation>>,
-    mut stage: ResMut<Stage>,
-    almanac: Res<Almanac>,
-    mut context: ResMut<EguiContext>,
-    mut commands: Commands,
-) {
     // light theme fits better to the almanac scene
     context.ctx_mut().set_visuals(Visuals::light());
     let anim = assets.get(&stage.animation).unwrap();
@@ -289,7 +197,7 @@ fn init_anim(
             is_visible: stage.show_bounding_box,
         })
         .id();
-    commands.entity(almanac.0).add_child(scaling);
+    commands.entity(almanac).add_child(scaling);
     stage.selected_meta = anim.description
         .get_meta("anim_idle")
         .map(|(k, _)| k)
@@ -409,26 +317,4 @@ fn respond_to_stage_change(
         new_player.paused = player.paused;
         *player = new_player;
     }
-}
-
-fn failure_ui(
-    mut context: ResMut<EguiContext>,
-    stage: Res<Stage>,
-    anim_name: Res<AnimName>,
-    server: Res<AssetServer>,
-    mut app_exit_events: EventWriter<'_, '_, AppExit>,
-) {
-    egui::Window::new("Error")
-        .default_width(WIDTH / 2.)
-        .resizable(false)
-        .collapsible(false)
-        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(context.ctx_mut(), |ui| {
-            if server.get_load_state(&stage.animation) == LoadState::Failed {
-                ui.label(format!("Failed to load animation:\n• {}", anim_name.0));
-            }
-            ui.vertical_centered(|ui| if ui.button("Exit").clicked() {
-                app_exit_events.send(AppExit);
-            });
-        });
 }
