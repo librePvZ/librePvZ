@@ -92,7 +92,7 @@ pub struct Animation {
     pub description: AnimDesc,
     /// all the dependency images.
     pub images: HashMap<String, Handle<Image>>,
-    /// all the [`AnimationClip`]s generated from the [`Meta`](crate::sprite::Meta)s.
+    /// all the [`AnimationClip`]s generated from the [`Meta`](crate::animation::Meta)s.
     pub clips: Box<[OnceCell<Arc<AnimationClip>>]>,
 }
 
@@ -136,7 +136,7 @@ impl Animation {
         ].into_iter().flatten().cloned().collect())
     }
 
-    /// Animation clip for the [`Meta`](crate::sprite::Meta) at some index.
+    /// Animation clip for the [`Meta`](crate::animation::Meta) at some index.
     pub fn clip_for(&self, k: usize) -> Arc<AnimationClip> {
         self.clips[k].get_or_init(|| {
             let frame_len = 1.0 / self.description.fps;
