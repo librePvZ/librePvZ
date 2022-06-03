@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build/Test/Doc
 
 on:
   push:
@@ -31,13 +31,16 @@ jobs:
         toolchain: stable
         override: true
         components: clippy
-    - uses: actions-rs/cargo@v1
+    - uses: Swatinem/rust-cache@v1
+    - name: Clippy checks
+      uses: actions-rs/cargo@v1
       with:
         command: clippy
         # currently warnings in local Bevy fork
         args: --all-features
         # args: -- -D warnings
-    - uses: actions-rs/cargo@v1
+    - name: Run tests
+      uses: actions-rs/cargo@v1
       with:
         command: test
         args: --all-features
@@ -47,20 +50,22 @@ jobs:
     needs: [test]
     if: github.event_name == 'push'
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         submodules: true
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
-    - uses: actions-rs/cargo@v1
+    - uses: Swatinem/rust-cache@v1
+    - name: Generate documentation
+      uses: actions-rs/cargo@v1
       with:
         command: doc
         args: --all-features
-    - name: Copy Doc Index Page
+    - name: Copy documentation index page
       run: cp .github/pages/index.html ${{ env.DOC_PATH }}
-    - name: Deploy Documentation
+    - name: Deploy documentation
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
