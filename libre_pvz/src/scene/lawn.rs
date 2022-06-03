@@ -261,6 +261,8 @@ fn peashooter_fire_system(
     let (parent, mut player, mut phase) = head.single_mut();
     player.repeat = false;
     if player.paused {
+        // we want to keep that line aligned with other assignments
+        #[allow(clippy::field_reassign_with_default)]
         if phase.is_shooting() {
             let stem_top_trans = stem_top.get(parent.0).unwrap().translation();
             let x0 = stem_top_trans.x + 24.0;
