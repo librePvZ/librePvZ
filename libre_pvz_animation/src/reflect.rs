@@ -18,7 +18,6 @@
 
 //! Helpers for [`bevy::reflect`], for use in keyframe animations.
 
-use std::any::TypeId;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
 use derivative::Derivative;
@@ -179,107 +178,6 @@ impl<'a> AffineFoldMut<'a, dyn Reflect> for FieldPath {
         Ok(data)
     }
 }
-
-/// Check target type and then access with some [`FieldPath`].
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct AccessPath {
-    /// Target type ID to query.
-    pub target_type_id: TypeId,
-    /// Target type name for diagnostics.
-    pub target_type_name: &'static str,
-    /// Field path into that type.
-    pub field_path: FieldPath,
-}
-//
-// /// Helper for creating [`AccessPath`]es.
-// ///
-// /// ```
-// /// # use libre_pvz_animation::access_path;
-// /// # use libre_pvz_animation::reflect::{Access, FieldPath, AccessPath};
-// /// assert_eq!(access_path!(u32), AccessPath {
-// ///     target_type_id: std::any::TypeId::of::<u32>(),
-// ///     target_type_name: std::any::type_name::<u32>(),
-// ///     field_path: FieldPath(&[]),
-// /// });
-// /// assert_eq!(access_path!(u32:field_name.(2).[42]), AccessPath {
-// ///     target_type_id: std::any::TypeId::of::<u32>(),
-// ///     target_type_name: std::any::type_name::<u32>(),
-// ///     field_path: FieldPath(&[
-// ///         Access::Field("field_name"),
-// ///         Access::TupleIndex(2),
-// ///         Access::ListIndex(42),
-// ///     ]),
-// /// });
-// /// ```
-// #[macro_export]
-// macro_rules! access_path {
-//     ($t:ty $(: $($fields:tt).+)?) => {
-//         $crate::reflect::AccessPath {
-//             target_type_id: ::std::any::TypeId::of::<$t>(),
-//             target_type_name: ::std::any::type_name::<$t>(),
-//             field_path: $crate::field_path!($($($fields).+)?),
-//         }
-//     }
-// }
-//
-// impl Display for AccessPath {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{}.{}", self.target_type_name, self.field_path)
-//     }
-// }
-//
-// /// Error for access into entities with some [`AccessPath`].
-// #[derive(Debug, Clone, Error)]
-// pub enum AccessPathError {
-//     /// Cannot retrieve a data about the target type being a [`Component`](bevy::ecs::component::Component).
-//     #[error("type '{0}' is not known as a component")]
-//     NotKnownAsComponent(&'static str),
-//     /// No such [`Component`](bevy::ecs::component::Component) present on specified entity.
-//     #[error("component with type '{0}' not found")]
-//     NoSuchComponent(&'static str),
-//     /// Error during a field access using a [`FieldPath`].
-//     #[error("type '{0}' does not have required field: {1}")]
-//     NoSuchField(&'static str, Box<str>),
-// }
-//
-// impl AccessPath {
-//     /// Get shared access to some field in some component for the specific entity in the world.
-//     pub fn view<'a>(self, entity: Entity, world: &'a World, types: &TypeRegistryInternal)
-//                     -> Result<&'a dyn Reflect, AccessPathError> {
-//         let component = types.get_type_data::<ReflectComponent>(self.target_type_id)
-//             .ok_or(AccessPathError::NotKnownAsComponent(self.target_type_name))?
-//             .reflect_component(world, entity)
-//             .ok_or(AccessPathError::NoSuchComponent(self.target_type_name))?;
-//         self.field_path.to_str_err().preview_ref(component).map_err(|err|
-//             AccessPathError::NoSuchField(self.target_type_name, err))
-//     }
-//
-//     /// Get mutable access to some field in some component for the specific entity in the world.
-//     pub fn view_mut<'a>(self, entity: Entity, world: &'a mut World, types: &TypeRegistryInternal)
-//                         -> Result<&'a mut dyn Reflect, AccessPathError> {
-//         let component = types.get_type_data::<ReflectComponent>(self.target_type_id)
-//             .ok_or(AccessPathError::NotKnownAsComponent(self.target_type_name))?
-//             .reflect_component_mut(world, entity)
-//             .ok_or(AccessPathError::NoSuchComponent(self.target_type_name))?;
-//         self.field_path.to_str_err().preview_mut(component.into_inner()).map_err(|err|
-//             AccessPathError::NoSuchField(self.target_type_name, err))
-//     }
-//
-//     /// Get mutable access to some field in some component for the specific entity in the world.
-//     ///
-//     /// # Safety
-//     /// Same requirements as in [`ReflectComponent::reflect_component_unchecked_mut`].
-//     pub unsafe fn view_unchecked_mut<'a>(
-//         self, entity: Entity, world: &'a World, types: &TypeRegistryInternal,
-//     ) -> Result<&'a mut dyn Reflect, AccessPathError> {
-//         let component = types.get_type_data::<ReflectComponent>(self.target_type_id)
-//             .ok_or(AccessPathError::NotKnownAsComponent(self.target_type_name))?
-//             .reflect_component_unchecked_mut(world, entity)
-//             .ok_or(AccessPathError::NoSuchComponent(self.target_type_name))?;
-//         self.field_path.to_str_err().preview_mut(component.into_inner()).map_err(|err|
-//             AccessPathError::NoSuchField(self.target_type_name, err))
-//     }
-// }
 
 /// [`AffineFoldRef`] and [`AffineFoldMut`] from [`Reflect`] to a concrete type.
 #[derive(Derivative)]
