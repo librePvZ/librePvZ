@@ -280,6 +280,7 @@ fn try_first_k_and_rest<T, E, I: IntoIterator>(
     k: usize, iter: I,
     init: impl FnOnce() -> T,
     mut first_k: impl FnMut(&mut T, I::Item) -> Result<(), E>,
+    mut sep: impl FnMut(&mut T) -> Result<(), E>,
     rest: impl FnOnce(&mut T, usize) -> Result<(), E>,
 ) -> Result<Option<T>, E> {
     assert_ne!(k, 0, "must at least require one element");
@@ -291,10 +292,12 @@ fn try_first_k_and_rest<T, E, I: IntoIterator>(
     let mut state = init();
     first_k(&mut state, first)?;
     for x in iter.by_ref().take(k - 1) {
+        sep(&mut state)?;
         first_k(&mut state, x)?;
     }
     if let Some(x) = iter.next() {
         let remaining = iter.count() + 1;
+        sep(&mut state)?;
         match remaining {
             1 => first_k(&mut state, x)?,
             _ => rest(&mut state, remaining)?,
@@ -310,7 +313,8 @@ impl AssetFailure {
         let result = try_first_k_and_rest(
             n, names.into_iter(),
             || "Failed to load these assets:\n".to_string(),
-            |msg, name| writeln!(msg, "• {}", name.as_ref()),
+            |msg, name| write!(msg, "• {}", name.as_ref()),
+            |msg| writeln!(msg),
             |msg, n| write!(msg, "... and {n} others"),
         );
         let msg = match result {
