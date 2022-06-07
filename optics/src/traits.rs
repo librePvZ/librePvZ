@@ -60,9 +60,9 @@ pub trait OpticsFallible {
         self.map_error(|err| panic!("unexpected failure: {err:?}"))
     }
     /// Map the `Error` type to `Box<str>`.
-    fn to_str_err(self) -> MapFallibleTo<Self, Self::Success, Box<str>>
+    fn to_str_err(self) -> MapFallibleTo<Self, Self::Success, String>
         where Self: Sized, Self::Error: Display {
-        self.map_error(|err| err.to_string().into_boxed_str())
+        self.map_error(|err| err.to_string())
     }
 }
 
@@ -76,16 +76,6 @@ impl<T, L: Optics<T>> OpticsSized<T> for L where L::View: Sized {
     type ViewSized = L::View;
 }
 
-/// Optics, with view types guaranteed to live long enough.
-pub trait OpticsLifeBound<'a, T: ?Sized>: Optics<T, View=Self::ViewLifeBound> {
-    /// [`Optics::View`], but explicitly bound by a lifetime.
-    type ViewLifeBound: ?Sized + 'a;
-}
-
-impl<'a, T: ?Sized, L: Optics<T>> OpticsLifeBound<'a, T> for L where L::View: 'a {
-    type ViewLifeBound = L::View;
-}
-
 /// AffineFold: getter, but may fail.
 pub trait AffineFold<T>: OpticsSized<T> + OpticsFallible {
     /// Retrieve the value targeted by an AffineFold.
@@ -93,13 +83,13 @@ pub trait AffineFold<T>: OpticsSized<T> + OpticsFallible {
 }
 
 /// AffineFold, with shared references.
-pub trait AffineFoldRef<'a, T: ?Sized>: OpticsLifeBound<'a, T> + OpticsFallible {
+pub trait AffineFoldRef<'a, T: ?Sized>: Optics<T> + OpticsFallible where Self::View: 'a {
     /// Retrieve a shared reference the value targeted by an AffineFold.
     fn preview_ref(&self, s: &'a T) -> Result<&'a Self::View, Self::Error>;
 }
 
 /// AffineFold, with mutable references.
-pub trait AffineFoldMut<'a, T: ?Sized>: OpticsLifeBound<'a, T> + OpticsFallible {
+pub trait AffineFoldMut<'a, T: ?Sized>: Optics<T> + OpticsFallible where Self::View: 'a {
     /// Retrieve a mutable reference the value targeted by an AffineFold.
     fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut Self::View, Self::Error>;
 }
@@ -111,13 +101,13 @@ pub trait Getter<T>: AffineFold<T> {
 }
 
 /// Getter, with shared references.
-pub trait GetterRef<'a, T: ?Sized>: AffineFoldRef<'a, T> {
+pub trait GetterRef<'a, T: ?Sized>: AffineFoldRef<'a, T> where Self::View: 'a {
     /// Get a shared reference to the value pointed to by a getter.
     fn view_ref(&self, s: &'a T) -> &'a Self::View;
 }
 
 /// Getter, with mutable references.
-pub trait GetterMut<'a, T: ?Sized>: AffineFoldMut<'a, T> {
+pub trait GetterMut<'a, T: ?Sized>: AffineFoldMut<'a, T> where Self::View: 'a {
     /// Get a mutable reference to the value pointed to by a getter.
     fn view_mut(&self, s: &'a mut T) -> &'a mut Self::View;
 }
