@@ -66,18 +66,8 @@ pub trait OpticsFallible {
     }
 }
 
-/// Optics, with source and view types [`Sized`].
-pub trait OpticsSized<T>: Optics<T, View=Self::ViewSized> {
-    /// [`Optics::View`], but explicitly [`Sized`].
-    type ViewSized;
-}
-
-impl<T, L: Optics<T>> OpticsSized<T> for L where L::View: Sized {
-    type ViewSized = L::View;
-}
-
 /// AffineFold: getter, but may fail.
-pub trait AffineFold<T>: OpticsSized<T> + OpticsFallible {
+pub trait AffineFold<T>: Optics<T> + OpticsFallible where Self::View: Sized {
     /// Retrieve the value targeted by an AffineFold.
     fn preview(&self, s: T) -> Result<Self::View, Self::Error>;
 }
@@ -95,7 +85,7 @@ pub trait AffineFoldMut<'a, T: ?Sized>: Optics<T> + OpticsFallible where Self::V
 }
 
 /// Getter.
-pub trait Getter<T>: AffineFold<T> {
+pub trait Getter<T>: AffineFold<T> where Self::View: Sized {
     /// View the value pointed to by a getter.
     fn view(&self, s: T) -> Self::View;
 }
@@ -113,16 +103,16 @@ pub trait GetterMut<'a, T: ?Sized>: AffineFoldMut<'a, T> where Self::View: 'a {
 }
 
 /// Review: dual of getter.
-pub trait Review<T>: OpticsSized<T> {
+pub trait Review<T>: Optics<T> where Self::View: Sized {
     /// Retrieve the value targeted by a review.
     fn review(&self, a: Self::View) -> T;
 }
 
 /// Isomorphisms: getter and review.
-pub trait Iso<T>: Getter<T> + Review<T> + Lens<T> + Prism<T> {}
+pub trait Iso<T>: Getter<T> + Review<T> + Lens<T> + Prism<T> where Self::View: Sized {}
 
 /// Setter.
-pub trait Setter<T>: OpticsSized<T> {
+pub trait Setter<T>: Optics<T> where Self::View: Sized {
     /// Apply a setter as a modifier.
     fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View));
     /// Apply a setter.
@@ -137,7 +127,7 @@ pub trait Setter<T>: OpticsSized<T> {
 }
 
 /// Traversal (and also Fold).
-pub trait Traversal<T>: Setter<T> {
+pub trait Traversal<T>: Setter<T> where Self::View: Sized {
     /// Evaluate the action from left to right on each element targeted by a Traversal.
     fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View));
     /// Fold every element targeted by this Traversal into a single result.
@@ -152,7 +142,7 @@ pub trait Traversal<T>: Setter<T> {
 }
 
 /// AffineTraversal: usually composition of [`Lens`]es and [`Prism`]s.
-pub trait AffineTraversal<T>: Traversal<T> + AffineFold<T> {
+pub trait AffineTraversal<T>: Traversal<T> + AffineFold<T> where Self::View: Sized {
     /// Restricted version for [`Setter::over`]. Custom implementation recommended.
     fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) {
         let mut f = Some(f);
@@ -166,7 +156,7 @@ pub trait AffineTraversal<T>: Traversal<T> + AffineFold<T> {
 }
 
 /// Lens: getter and setter.
-pub trait Lens<T>: Getter<T> + AffineTraversal<T> {}
+pub trait Lens<T>: Getter<T> + AffineTraversal<T> where Self::View: Sized {}
 
 /// Prism: review and setter.
-pub trait Prism<T>: Review<T> + AffineTraversal<T> {}
+pub trait Prism<T>: Review<T> + AffineTraversal<T> where Self::View: Sized {}

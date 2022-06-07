@@ -30,7 +30,7 @@ impl<L: OpticsFallible> OpticsFallible for &L {
     fn success_witness(&self) -> L::Success { L::success_witness(self) }
 }
 
-impl<L: Getter<T>, T> Getter<T> for &L {
+impl<L: Getter<T>, T> Getter<T> for &L where Self::View: Sized {
     fn view(&self, s: T) -> L::View { L::view(self, s) }
 }
 
@@ -42,7 +42,7 @@ impl<'a, L: GetterMut<'a, T>, T: ?Sized + 'a> GetterMut<'a, T> for &L where L::V
     fn view_mut(&self, s: &'a mut T) -> &'a mut L::View { L::view_mut(self, s) }
 }
 
-impl<L: AffineFold<T>, T> AffineFold<T> for &L {
+impl<L: AffineFold<T>, T> AffineFold<T> for &L where Self::View: Sized {
     fn preview(&self, s: T) -> Result<L::View, Self::Error> { L::preview(self, s) }
 }
 
@@ -54,31 +54,31 @@ impl<'a, L: AffineFoldMut<'a, T>, T: ?Sized + 'a> AffineFoldMut<'a, T> for &L wh
     fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut L::View, Self::Error> { L::preview_mut(self, s) }
 }
 
-impl<L: Review<T>, T> Review<T> for &L {
+impl<L: Review<T>, T> Review<T> for &L where Self::View: Sized {
     fn review(&self, a: L::View) -> T { L::review(self, a) }
 }
 
-impl<L: Setter<T>, T> Setter<T> for &L {
+impl<L: Setter<T>, T> Setter<T> for &L where Self::View: Sized {
     fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View)) { L::over(self, s, f) }
     fn set_cloned(&self, a: &Self::View, s: &mut T) where Self::View: Clone { L::set_cloned(self, a, s) }
 }
 
-impl<L: Traversal<T>, T> Traversal<T> for &L {
+impl<L: Traversal<T>, T> Traversal<T> for &L where Self::View: Sized {
     fn traverse(&self, s: T, f: &mut dyn FnMut(L::View)) { L::traverse(self, s, f) }
     fn fold<C>(&self, s: T, init: C, f: impl FnMut(&mut C, Self::View)) -> C { L::fold(self, s, init, f) }
     fn flatten(&self, s: T) -> Vec<Self::View> { L::flatten(self, s) }
 }
 
-impl<L: AffineTraversal<T>, T> AffineTraversal<T> for &L {
+impl<L: AffineTraversal<T>, T> AffineTraversal<T> for &L where Self::View: Sized {
     fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) { L::map(self, s, f) }
     fn set(&self, s: &mut T, a: Self::View) { L::set(self, s, a) }
 }
 
-impl<L: Lens<T>, T> Lens<T> for &L {}
+impl<L: Lens<T>, T> Lens<T> for &L where Self::View: Sized {}
 
-impl<L: Prism<T>, T> Prism<T> for &L {}
+impl<L: Prism<T>, T> Prism<T> for &L where Self::View: Sized {}
 
-impl<L: Iso<T>, T> Iso<T> for &L {}
+impl<L: Iso<T>, T> Iso<T> for &L where Self::View: Sized {}
 
 crate::declare_lens! {
     /// Identity optics.
@@ -233,17 +233,18 @@ impl<K: OpticsFallible, L: OpticsFallible> OpticsFallible for Compose<K, L> {
     }
 }
 
-impl<K: AffineFold<T>, L: AffineFold<K::ViewSized>, T> AffineFold<T> for Compose<K, L> {
-    fn preview(&self, s: T) -> Result<L::ViewSized, Self::Error> {
+impl<K, L, T> AffineFold<T> for Compose<K, L>
+    where K: AffineFold<T>, K::View: Sized,
+          L: AffineFold<K::View>, L::View: Sized {
+    fn preview(&self, s: T) -> Result<L::View, Self::Error> {
         self.1.preview(self.0.preview(s)?)
             .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
     }
 }
 
 impl<'a, T: ?Sized, K, L> AffineFoldRef<'a, T> for Compose<K, L>
-    where K: AffineFoldRef<'a, T>,
-          L: AffineFoldRef<'a, K::View>,
-          K::View: 'a, L::View: 'a {
+    where K: AffineFoldRef<'a, T>, K::View: 'a,
+          L: AffineFoldRef<'a, K::View>, L::View: 'a {
     fn preview_ref(&self, s: &'a T) -> Result<&'a L::View, Self::Error> {
         self.1.preview_ref(self.0.preview_ref(s)?)
             .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
@@ -251,68 +252,81 @@ impl<'a, T: ?Sized, K, L> AffineFoldRef<'a, T> for Compose<K, L>
 }
 
 impl<'a, T: ?Sized, K, L> AffineFoldMut<'a, T> for Compose<K, L>
-    where K: AffineFoldMut<'a, T>,
-          L: AffineFoldMut<'a, K::View>,
-          K::View: 'a, L::View: 'a {
+    where K: AffineFoldMut<'a, T>, K::View: 'a,
+          L: AffineFoldMut<'a, K::View>, L::View: 'a {
     fn preview_mut(&self, s: &'a mut T) -> Result<&'a mut L::View, Self::Error> {
         self.1.preview_mut(self.0.preview_mut(s)?)
             .map_err(|err| ErrorCompose::Tail(self.0.success_witness(), err))
     }
 }
 
-impl<K: Getter<T>, L: Getter<K::ViewSized>, T> Getter<T> for Compose<K, L> {
-    fn view(&self, s: T) -> L::ViewSized {
+impl<K, L, T> Getter<T> for Compose<K, L>
+    where K: Getter<T>, K::View: Sized,
+          L: Getter<K::View>, L::View: Sized {
+    fn view(&self, s: T) -> L::View {
         self.1.view(self.0.view(s))
     }
 }
 
 impl<'a, T: ?Sized, K, L> GetterRef<'a, T> for Compose<K, L>
-    where K: GetterRef<'a, T>,
-          L: GetterRef<'a, K::View>,
-          K::View: 'a, L::View: 'a {
+    where K: GetterRef<'a, T>, K::View: 'a,
+          L: GetterRef<'a, K::View>, L::View: 'a {
     fn view_ref(&self, s: &'a T) -> &'a L::View {
         self.1.view_ref(self.0.view_ref(s))
     }
 }
 
 impl<'a, T: ?Sized, K, L> GetterMut<'a, T> for Compose<K, L>
-    where K: GetterMut<'a, T>,
-          L: GetterMut<'a, K::View>,
-          K::View: 'a, L::View: 'a {
+    where K: GetterMut<'a, T>, K::View: 'a,
+          L: GetterMut<'a, K::View>, L::View: 'a {
     fn view_mut(&self, s: &'a mut T) -> &'a mut L::View {
         self.1.view_mut(self.0.view_mut(s))
     }
 }
 
-impl<K: Review<T>, L: Review<K::ViewSized>, T> Review<T> for Compose<K, L> {
-    fn review(&self, a: L::ViewSized) -> T {
+impl<K, L, T> Review<T> for Compose<K, L>
+    where K: Review<T>, K::View: Sized,
+          L: Review<K::View>, L::View: Sized {
+    fn review(&self, a: L::View) -> T {
         self.0.review(self.1.review(a))
     }
 }
 
-impl<K: Iso<T>, L: Iso<K::ViewSized>, T> Iso<T> for Compose<K, L> {}
+impl<K, L, T> Iso<T> for Compose<K, L>
+    where K: Iso<T>, K::View: Sized,
+          L: Iso<K::View>, L::View: Sized {}
 
-impl<K: Setter<T>, L: Setter<K::ViewSized>, T> Setter<T> for Compose<K, L> {
-    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut L::ViewSized)) {
+impl<K, L, T> Setter<T> for Compose<K, L>
+    where K: Setter<T>, K::View: Sized,
+          L: Setter<K::View>, L::View: Sized {
+    fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut L::View)) {
         self.0.over(s, &mut |c| self.1.over(c, f))
     }
 }
 
-impl<K: Traversal<T>, L: Traversal<K::ViewSized>, T> Traversal<T> for Compose<K, L> {
-    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::ViewSized)) {
+impl<K, L, T> Traversal<T> for Compose<K, L>
+    where K: Traversal<T>, K::View: Sized,
+          L: Traversal<K::View>, L::View: Sized {
+    fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View)) {
         self.0.traverse(s, &mut |v| self.1.traverse(v, f))
     }
 }
 
-impl<K: AffineTraversal<T>, L: AffineTraversal<K::ViewSized>, T> AffineTraversal<T> for Compose<K, L> {
-    fn map(&self, s: &mut T, f: impl FnOnce(&mut L::ViewSized)) {
+impl<K, L, T> AffineTraversal<T> for Compose<K, L>
+    where K: AffineTraversal<T>, K::View: Sized,
+          L: AffineTraversal<K::View>, L::View: Sized {
+    fn map(&self, s: &mut T, f: impl FnOnce(&mut L::View)) {
         self.0.map(s, |v| self.1.map(v, f))
     }
 }
 
-impl<K: Lens<T>, L: Lens<K::ViewSized>, T> Lens<T> for Compose<K, L> {}
+impl<K, L, T> Lens<T> for Compose<K, L>
+    where K: Lens<T>, K::View: Sized,
+          L: Lens<K::View>, L::View: Sized {}
 
-impl<K: Prism<T>, L: Prism<K::ViewSized>, T> Prism<T> for Compose<K, L> {}
+impl<K, L, T> Prism<T> for Compose<K, L>
+    where K: Prism<T>, K::View: Sized,
+          L: Prism<K::View>, L::View: Sized {}
 
 /// Optics wrapper for mapping the [`Success`] and [`Error`] value.
 ///
@@ -353,7 +367,7 @@ impl<L: OpticsFallible, S, F, E, G> OpticsFallible for MapFallible<L, F, G>
 }
 
 impl<T, L: AffineFold<T>, S, F, E, G> AffineFold<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {
     fn preview(&self, s: T) -> Result<Self::View, E> {
         self.0.preview(s).map_err(&self.2)
     }
@@ -374,7 +388,7 @@ impl<'a, T: ?Sized, L: AffineFoldMut<'a, T>, S, F, E, G> AffineFoldMut<'a, T> fo
 }
 
 impl<T, L: Getter<T>, S, F, E, G> Getter<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {
     fn view(&self, s: T) -> Self::View { self.0.view(s) }
 }
 
@@ -388,35 +402,35 @@ impl<'a, T: ?Sized, L: GetterMut<'a, T>, S, F, E, G> GetterMut<'a, T> for MapFal
     fn view_mut(&self, s: &'a mut T) -> &'a mut Self::View { self.0.view_mut(s) }
 }
 
-impl<T, L: Review<T>, F, G> Review<T> for MapFallible<L, F, G> {
+impl<T, L: Review<T>, F, G> Review<T> for MapFallible<L, F, G> where L::View: Sized {
     fn review(&self, a: Self::View) -> T { self.0.review(a) }
 }
 
 impl<T, L: Iso<T>, S, F, E, G> Iso<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {}
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {}
 
-impl<T, L: Setter<T>, F, G> Setter<T> for MapFallible<L, F, G> {
+impl<T, L: Setter<T>, F, G> Setter<T> for MapFallible<L, F, G> where L::View: Sized {
     fn over(&self, s: &mut T, f: &mut dyn FnMut(&mut Self::View)) { self.0.over(s, f) }
     fn set_cloned(&self, a: &Self::View, s: &mut T) where Self::View: Clone { self.0.set_cloned(a, s) }
 }
 
-impl<T, L: Traversal<T>, F, G> Traversal<T> for MapFallible<L, F, G> {
+impl<T, L: Traversal<T>, F, G> Traversal<T> for MapFallible<L, F, G> where L::View: Sized {
     fn traverse(&self, s: T, f: &mut dyn FnMut(Self::View)) { self.0.traverse(s, f) }
     fn fold<C>(&self, s: T, init: C, f: impl FnMut(&mut C, Self::View)) -> C { self.0.fold(s, init, f) }
     fn flatten(&self, s: T) -> Vec<Self::View> { self.0.flatten(s) }
 }
 
 impl<T, L: AffineTraversal<T>, S, F, E, G> AffineTraversal<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {
     fn map(&self, s: &mut T, f: impl FnOnce(&mut Self::View)) { self.0.map(s, f) }
     fn set(&self, s: &mut T, a: Self::View) { self.0.set(s, a) }
 }
 
 impl<T, L: Lens<T>, S, F, E, G> Lens<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {}
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {}
 
 impl<T, L: Prism<T>, S, F, E, G> Prism<T> for MapFallible<L, F, G>
-    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E {}
+    where F: Fn(L::Success) -> S, G: Fn(L::Error) -> E, L::View: Sized {}
 
 /// Easy composition for optics. See also [`Compose`].
 ///
