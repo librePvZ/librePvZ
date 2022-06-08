@@ -206,7 +206,7 @@ impl<E, S, R> From<E> for ErrorCompose<E, S, R> {
 }
 
 /// Composed optics of `K` and `L`; `K` is applied first.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Compose<K, L>(pub K, pub L);
 
 impl<K: Debug, L: Debug> Debug for Compose<K, L> {
@@ -577,7 +577,7 @@ macro_rules! declare_lens {
         ($s:ident) => by_val: $by_val:expr, by_ref: $by_ref:expr, by_mut: $by_mut:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone, PartialEq)]
+        #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         $vis struct $name;
 
         $crate::mark_infallible!($name);
@@ -592,7 +592,7 @@ macro_rules! declare_lens {
         ($s:ident) $(reused($wrap:ident))? => $reused:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone, PartialEq)]
+        #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         $vis struct $name;
 
         $crate::mark_infallible!($name);
@@ -704,7 +704,7 @@ macro_rules! declare_lens_from_field {
         $(as $base:ty => $target:ty $(, for<$($p:ident),+ $(,)?>)?)+
     );+ $(;)?) => {$(
         $(#[$m])*
-        #[derive(Copy, Clone, PartialEq)]
+        #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         $vis struct $name;
 
         impl std::fmt::Debug for $name {
@@ -874,7 +874,7 @@ macro_rules! declare_affine_traversal {
         ($s:ident) => by_val: $by_val:expr, by_ref: $by_ref:expr, by_mut: $by_mut:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone, PartialEq)]
+        #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         $vis struct $name;
 
         $crate::mark_fallible!($name);
@@ -889,7 +889,7 @@ macro_rules! declare_affine_traversal {
         ($s:ident) $(reused($wrap:ident))? => $reused:expr $(,)?
     ) => {
         $(#[$m])*
-        #[derive(Copy, Clone, PartialEq)]
+        #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         $vis struct $name;
 
         $crate::mark_fallible!($name);

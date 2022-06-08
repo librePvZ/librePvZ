@@ -6,7 +6,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - added Rust-specific optics with (shared, mutable) references: GetterRef, GetterMut, AffineFoldRef, AffineFoldMut
 - added full error handling capability to AffineFold, AffineFoldRef, AffineFoldMut, and Compose
 - added helper macros:
-  - "declare" family:
+  - "declare" family (with impl Hash/Ord):
     - declare_lens_from_field
     - declare_lens
     - declare_prism_from_variant
