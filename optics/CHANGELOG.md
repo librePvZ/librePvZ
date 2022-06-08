@@ -4,6 +4,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 - added lens hierarchy: Iso, Lens, Prism, Getter, Review, AffineTraversal, AffineFold, Traversal, Fold, Setter
 - added Rust-specific optics with (shared, mutable) references: GetterRef, GetterMut, AffineFoldRef, AffineFoldMut
+- added trait OpticsKnownSource: this means the optics is not polymorphic in its source, and can be treated as a flexible "field path"
 - added full error handling capability to AffineFold, AffineFoldRef, AffineFoldMut, and Compose
 - added helper macros:
   - "declare" family (with impl Hash/Ord):
@@ -24,5 +25,5 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - added enum accessors (prism): _Some, _Ok, _Err
 - added generic optics: Identity, _Identity
   - Identity: polymorphic in source and view type
-  - _Identity: explicit about source and view type (better type inference)
+  - _Identity: explicit about source and view type (better type inference & implement OpticsKnownSource)
 - added: (shared) references to optics are optics

@@ -104,7 +104,7 @@ impl Display for Identity {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 #[derivative(Copy(bound = ""), Clone(bound = ""))]
-#[derivative(Eq(bound = ""), PartialEq(bound = ""))]
+#[derivative(Hash(bound = ""), Eq(bound = ""), PartialEq(bound = ""))]
 pub struct _Identity<T: ?Sized>(PhantomData<fn() -> T>);
 
 impl<T: ?Sized> Debug for _Identity<T> {
@@ -126,6 +126,8 @@ impl<T: ?Sized> OpticsFallible for _Identity<T> {
     type Error = _Identity<T>;
     fn success_witness(&self) -> _Identity<T> { _Identity::default() }
 }
+
+impl<T: ?Sized> OpticsKnownSource for _Identity<T> { type Source = T; }
 
 impl<T> Getter<T> for _Identity<T> {
     fn view(&self, s: T) -> T { s }
@@ -581,6 +583,7 @@ macro_rules! declare_lens {
         $vis struct $name;
 
         $crate::mark_infallible!($name);
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base);
         $crate::impl_lens! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) => by_val: $by_val, by_ref: $by_ref, by_mut: $by_mut
@@ -596,6 +599,7 @@ macro_rules! declare_lens {
         $vis struct $name;
 
         $crate::mark_infallible!($name);
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base);
         $crate::impl_lens! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) $(reused($wrap))? => $reused
@@ -625,6 +629,22 @@ macro_rules! mark_fallible {
             fn success_witness(&self) -> $name { *self }
         }
     }
+}
+
+/// Mark an optics to have a single known source type by implementing [`OpticsKnownSource`].
+#[macro_export]
+macro_rules! mark_known_source {
+    ($name:ident: $base:ty) => {
+        impl $crate::traits::OpticsKnownSource for $name {
+            type Source = $base;
+        }
+    };
+    ($name:ident $(for<$($p:ident),+>)? : $base:ty) => {};
+    ($name:ident if single ($(for<$($p:ident),+>)?, $base:ty)) => {
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base);
+    };
+    ($name:ident if single ($(for<$($p:ident),+>)?, $base:ty;
+                            $($(for<$($p_rest:ident),+>)?, $rest:ty);+)) => {}
 }
 
 /// Similar to [`declare_lens`], but does not define the lens type for you.
@@ -731,6 +751,7 @@ macro_rules! declare_lens_from_field {
         }
 
         $crate::mark_infallible!($name);
+        $crate::mark_known_source!($name if single ($($(for<$($p),+>)?, $base);+));
 
         $(
             $crate::impl_lens! {
@@ -790,6 +811,8 @@ macro_rules! declare_prism_from_variant {
         as $base:ident $(<$($p1:ident),+ $(,)?>)? => $target:ty
         $(, for <$($p:ident),+ $(,)?>)?
     );+ $(;)?) => {$(
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base $(<$($p1),+>)?);
+
         $crate::declare_affine_traversal! {
             $(#[$m])* $vis $name as $base $(<$($p1),+>)? => $target $(, for<$($p),+>)?,
             (s) => if let $base::$variant(x) = s { Ok(x) } else { Err($name) }
@@ -878,6 +901,7 @@ macro_rules! declare_affine_traversal {
         $vis struct $name;
 
         $crate::mark_fallible!($name);
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base);
         $crate::impl_affine_traversal! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) => by_val: $by_val, by_ref: $by_ref, by_mut: $by_mut
@@ -893,6 +917,7 @@ macro_rules! declare_affine_traversal {
         $vis struct $name;
 
         $crate::mark_fallible!($name);
+        $crate::mark_known_source!($name $(for<$($p),+>)? : $base);
         $crate::impl_affine_traversal! {
             $name as $base => $target $(, for<$($p),+>)?,
             ($s) $(reused($wrap))? => $reused

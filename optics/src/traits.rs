@@ -30,6 +30,12 @@ pub trait Optics<T: ?Sized> {
     type View: ?Sized;
 }
 
+/// Optics with a single possible source type.
+pub trait OpticsKnownSource: Optics<Self::Source> {
+    /// Source type for this optics.
+    type Source: ?Sized;
+}
+
 /// Optics with a success type and an error type associated.
 pub trait OpticsFallible {
     /// Success type for this optics.
