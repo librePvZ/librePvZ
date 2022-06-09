@@ -811,8 +811,6 @@ macro_rules! declare_prism_from_variant {
         as $base:ident $(<$($p1:ident),+ $(,)?>)? => $target:ty
         $(, for <$($p:ident),+ $(,)?>)?
     );+ $(;)?) => {$(
-        $crate::mark_known_source!($name $(for<$($p),+>)? : $base $(<$($p1),+>)?);
-
         $crate::declare_affine_traversal! {
             $(#[$m])* $vis $name as $base $(<$($p1),+>)? => $target $(, for<$($p),+>)?,
             (s) => if let $base::$variant(x) = s { Ok(x) } else { Err($name) }
