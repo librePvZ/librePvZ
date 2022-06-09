@@ -121,7 +121,7 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
     if let [(start_frame, end_frame)] = ranges[..] {
         let on_err = |n: usize| log::error!(target: "pack", "frame index ({n}) overflow in a meta track");
         let start_frame = narrow!(start_frame, on_err, track);
-        let end_frame = narrow!(end_frame, on_err, track);
+        let end_frame = narrow!(end_frame - 1, on_err, track);
         if ignored_count > 0 {
             log::warn!(target: "pack", "ignored {ignored_count} transform/alpha in meta track {}", track.name);
         }

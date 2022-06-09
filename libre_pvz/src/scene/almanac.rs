@@ -23,8 +23,9 @@ use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
 use bevy_egui::EguiContext;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
+use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::TransformBundle2D;
-use crate::animation::clip::AnimationPlayer;
+use crate::animation::player::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
 use crate::resources::bevy::Animation;
 use crate::diagnostics::BoundingBoxRoot;
@@ -253,25 +254,27 @@ fn metrics_ui(
     ui.end_row();
 
     ui.label("Status:");
-    ui.checkbox(&mut player.paused, "paused");
+    let mut paused = player.paused();
+    ui.checkbox(&mut paused, "paused");
+    if paused != player.paused() { if paused { player.pause() } else { player.resume() } }
     ui.end_row();
 
-    ui.label("Speed:");
-    ui.add(Slider::from_get_set(0.0..=2.0, |val| match val {
-        None => player.speed(),
+    ui.label("Frame rate:");
+    ui.add(Slider::from_get_set(1.0..=50.0, |val| match val {
+        None => player.frame_rate() as f64,
         Some(val) => {
-            player.set_speed(val);
+            player.set_frame_rate(val as f32);
             val
         }
     }));
     ui.end_row();
 
     ui.label("Progress:");
-    ui.add_enabled(player.paused, Slider::from_get_set(
-        0.0..=100.0, |val| match val {
-            None => player.progress() * 100.0,
+    ui.add_enabled(player.paused(), Slider::from_get_set(
+        0.0..=player.frame_count() as f64, |val| match val {
+            None => player.progress(),
             Some(val) => {
-                player.set_progress(val / 100.0);
+                player.set_progress(val);
                 val
             }
         },
@@ -300,10 +303,6 @@ fn respond_to_stage_change(
     if stage.selected_meta != stage.last_selected_meta {
         let mut player = player.get_single_mut().unwrap();
         let anim = animations.get(&stage.animation).unwrap();
-        let clip = anim.clip_for(stage.selected_meta);
-        let mut new_player = AnimationPlayer::new(clip, 1.0, true);
-        new_player.set_progress(player.progress());
-        new_player.paused = player.paused;
-        *player = new_player;
+        player.set_segment(Segment::from(&anim.description.meta[stage.selected_meta]))
     }
 }

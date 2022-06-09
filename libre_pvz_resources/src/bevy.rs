@@ -18,7 +18,6 @@
 
 //! Bevy related utilities.
 
-use std::ops::Bound;
 use std::sync::Arc;
 use std::fmt::{Debug, Display, Formatter};
 use bevy::prelude::*;
@@ -29,12 +28,13 @@ use bevy::sprite::Anchor;
 use bitvec::prelude::*;
 use bincode::config::Configuration;
 use bincode::decode_from_slice;
-use optics::{optics, concrete::_Identity};
+use optics::concrete::_Identity;
 use once_cell::sync::OnceCell;
-use libre_pvz_animation::clip::{AnimationClip, AnimationPlayer, EntityPath};
-use libre_pvz_animation::key_frame::{ConstCurve, CurveBuilder};
+use libre_pvz_animation::player::AnimationPlayer;
+use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
+use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
-use crate::animation::{AnimDesc, Action, Element, Track, Frame};
+use crate::animation::{AnimDesc, Action, Element, Track, Frame, Meta};
 
 /// Resources plugin.
 #[derive(Default, Debug, Copy, Clone)]
@@ -80,7 +80,6 @@ optics::declare_lens_from_field! {
     _Translation for translation as Transform2D => Vec2;
     _Scale for scale as Transform2D => Vec2;
     _Rotation for rotation as Transform2D => Vec2;
-    _ZOrder for z_order as Transform2D => f32;
 }
 
 /// Animation and all its dependency images.
@@ -92,8 +91,14 @@ pub struct Animation {
     pub description: AnimDesc,
     /// all the dependency images.
     pub images: HashMap<String, Handle<Image>>,
-    /// all the [`AnimationClip`]s generated from the [`Meta`](crate::animation::Meta)s.
-    pub clips: Box<[OnceCell<Arc<AnimationClip>>]>,
+    /// the [`AnimationClip`] generated from description.
+    pub clip: OnceCell<Arc<AnimationClip>>,
+}
+
+impl From<&Meta> for Segment {
+    fn from(meta: &Meta) -> Segment {
+        Segment { start: meta.start_frame, end: meta.end_frame }
+    }
 }
 
 const WIDTH: f32 = 80.0;
@@ -102,93 +107,67 @@ const HALF_WIDTH: f32 = WIDTH / 2.0;
 impl Animation {
     /// Spawn an animation.
     pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> (Entity, Vec<Entity>) {
-        let clip = self.clip_for(meta);
+        let clip = self.clip();
+        let segment = Segment::from(&self.description.meta[meta]);
         let mut track_entities = Vec::new();
         let parent = commands.spawn_bundle(TransformBundle2D {
             local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
             ..TransformBundle2D::default()
         }).id();
-        for track in self.description.tracks.iter() {
+        for (z, track) in self.description.tracks.iter().enumerate() {
             let this = Name::new(track.name.to_string());
             let mut bundle = SpriteBundle2D::default();
             bundle.sprite.anchor = Anchor::TopLeft;
+            bundle.transform.z_order = z as f32 * 0.1;
             let this = commands.spawn_bundle(bundle).insert(this).id();
             commands.entity(parent).add_child(this);
             track_entities.push(this);
         }
-        let player = AnimationPlayer::new(clip, 1.0, true);
+        let player = AnimationPlayer::new(clip, segment, self.description.fps, true);
         commands.entity(parent).insert(player);
         (parent, track_entities)
     }
 
     /// Accumulate the actions until some frame.
     pub fn accumulated_frame_to(&self, track: &Track, k: usize) -> Frame {
-        let frames_until_k = || track
-            .frames[..=k].iter()
-            .flat_map(|frame| frame.0.iter());
-        Frame([
-            frames_until_k().filter(|act| matches!(act, Action::LoadElement(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Translation(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Scale(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Rotation(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Alpha(_))).last(),
-            frames_until_k().filter(|act| matches!(act, Action::Show(_))).last(),
-        ].into_iter().flatten().cloned().collect())
+        let mut actions = HashMap::new();
+        for action in track.frames[..=k].iter()
+            .flat_map(|frame| frame.0.iter()) {
+            actions.insert(std::mem::discriminant(action), action);
+        }
+        Frame(actions.into_iter().map(|(_, action)| action).cloned().collect())
+    }
+
+    fn push_frame<'a, I>(&self, builder: &mut TrackBuilder, k: usize, frame: I)
+        where I: IntoIterator<Item=&'a Action> {
+        for act in frame.into_iter() {
+            type _Image = _Identity::<Handle<Image>>;
+            use Action::*;
+            match act {
+                LoadElement(Element::Text { .. }) => todo!(),
+                LoadElement(Element::Image { image }) =>
+                    builder.push_keyframe(_Image::default(), k, self.images[image].clone()),
+                &Alpha(alpha) => builder.push_keyframe(_Alpha, k, alpha),
+                &Show(visible) => builder.push_keyframe(_IsVisible, k, visible),
+                &Translation(t) => builder.push_keyframe(_Translation, k, Vec2::from(t)),
+                &Scale(s) => builder.push_keyframe(_Scale, k, Vec2::from(s)),
+                &Rotation(r) => builder.push_keyframe(_Rotation, k, Vec2::from(r)),
+            }
+        }
     }
 
     /// Animation clip for the [`Meta`](crate::animation::Meta) at some index.
-    pub fn clip_for(&self, k: usize) -> Arc<AnimationClip> {
-        self.clips[k].get_or_init(|| {
-            let frame_len = 1.0 / self.description.fps;
-
+    pub fn clip(&self) -> Arc<AnimationClip> {
+        self.clip.get_or_init(|| {
             let mut clip_builder = AnimationClip::builder();
-            let meta = &self.description.meta[k];
-            for (z_order, track) in self.description.tracks.iter().enumerate() {
+            for track in self.description.tracks.iter() {
                 let path = EntityPath::from([Name::new(track.name.clone())]);
-
-                let z_order = z_order as f32 * 0.1;
-
-                let n = (meta.end_frame - meta.start_frame + 1) as usize;
-                let mut translations = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
-                let mut scales = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
-                let mut rotations = CurveBuilder::<Vec<Vec2>>::with_capacity(n);
-                let mut textures = CurveBuilder::<Vec<Handle<Image>>>::with_capacity(n);
-                let mut visibilities = CurveBuilder::<BitVec>::with_capacity(n);
-                let mut alphas = CurveBuilder::<Vec<f32>>::with_capacity(n);
-
-                let frame0 = self.accumulated_frame_to(track, meta.start_frame as usize);
-                for (k, frame) in std::iter::once(&frame0)
-                    .chain(track.frames[(
-                        Bound::Excluded(meta.start_frame as usize),
-                        Bound::Excluded(meta.end_frame as usize)
-                    )].iter())
-                    .chain(std::iter::once(&frame0))
-                    .enumerate() {
-                    for act in frame.0.iter() {
-                        match act {
-                            Action::LoadElement(Element::Text { .. }) => todo!(),
-                            Action::LoadElement(Element::Image { image }) =>
-                                textures.push_keyframe(k, self.images[image].clone()),
-                            &Action::Alpha(alpha) => alphas.push_keyframe(k, alpha),
-                            &Action::Show(visible) => visibilities.push_keyframe(k, visible),
-                            &Action::Translation(t) => translations.push_keyframe(k, Vec2::from(t)),
-                            &Action::Scale(s) => scales.push_keyframe(k, Vec2::from(s)),
-                            &Action::Rotation(r) => rotations.push_keyframe(k, Vec2::from(r)),
-                        }
-                    }
+                let mut builder = TrackBuilder::default();
+                builder.prepare_curve::<BitVec, _>(_IsVisible);
+                for (k, frame) in track.frames.iter().enumerate() {
+                    self.push_frame(&mut builder, k, frame.0.iter());
                 }
-
-                let z_order_curve = ConstCurve::new_boxed(z_order, _ZOrder);
-                for curve in std::iter::once(z_order_curve).chain([
-                    translations.finish(frame_len, _Translation),
-                    scales.finish(frame_len, _Scale),
-                    rotations.finish(frame_len, _Rotation),
-                    textures.finish(frame_len, _Identity::<Handle<Image>>::default()),
-                    visibilities.finish(frame_len, _IsVisible),
-                    alphas.finish(frame_len, optics!(_Color._Alpha)),
-                ].into_iter().flatten()) {
-                    clip_builder.add_dyn_curve(path.clone(), curve);
-                }
+                clip_builder.add_track(path, builder.finish());
             }
 
             Arc::new(clip_builder.build())
@@ -218,8 +197,7 @@ impl AssetLoader for AnimationLoader {
                 images.insert(name, load_context.get_handle(asset_path.get_id()));
                 deps.push(asset_path);
             }
-            let clips = std::iter::repeat_with(OnceCell::new).take(anim.meta.len()).collect();
-            let anim = Animation { description: anim, images, clips };
+            let anim = Animation { description: anim, images, clip: OnceCell::new() };
             load_context.set_default_asset(LoadedAsset::new(anim).with_dependencies(deps));
             Ok(())
         })

@@ -17,14 +17,15 @@
  */
 
 //! librePvZ-animation: animation playing for librePvZ for [`bevy`].
+#![doc = include_str ! ("../README.md")]
 
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
 pub mod transform;
-pub mod reflect;
-pub mod key_frame;
+pub mod curve;
 pub mod clip;
+pub mod player;
 
 use bevy::prelude::*;
 use bevy::transform::TransformSystem;
@@ -41,6 +42,22 @@ pub enum AnimationSystem {
     PlayerSampling,
 }
 
+/// Extend [`App`] with an `register_for_animation` API.
+pub trait AnimationExt {
+    /// Register a [`Component`] for animation.
+    fn register_for_animation<C: Component>(&mut self) -> &mut Self;
+}
+
+impl AnimationExt for App {
+    fn register_for_animation<C: Component>(&mut self) -> &mut Self {
+        self.add_system_to_stage(
+            CoreStage::PostUpdate,
+            player::animate_entities_system::<C>
+                .label(AnimationSystem::PlayerSampling)
+                .before(TransformSystem::TransformPropagate))
+    }
+}
+
 /// Plugin for animation playing.
 #[allow(missing_debug_implementations)]
 pub struct AnimationPlugin;
@@ -53,11 +70,11 @@ impl Plugin for AnimationPlugin {
                 transform::transform_propagate_system
                     .label(TransformSystem::TransformPropagate))
             .add_asset::<clip::AnimationClip>()
-            .add_system(clip::bind_curve_system.label(AnimationSystem::PlayerCurveBind))
-            .add_system(clip::tick_animation_system.label(AnimationSystem::PlayerTicking))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                clip::animate_entities_system
-                    .exclusive_system().at_start());
+            .add_system(player::bind_curve_system.label(AnimationSystem::PlayerCurveBind))
+            .add_system(player::tick_animation_system.label(AnimationSystem::PlayerTicking))
+            .register_for_animation::<Transform2D>()
+            .register_for_animation::<Sprite>()
+            .register_for_animation::<Visibility>()
+            .register_for_animation::<Handle<Image>>();
     }
 }

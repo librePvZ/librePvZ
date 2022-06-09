@@ -61,7 +61,7 @@ pub struct Meta {
     pub name: String,
     /// (inclusive) Start of the frame range this meta data covers.
     pub start_frame: u16,
-    /// (exclusive) End of the frame range this meta data covers.
+    /// (inclusive) End of the frame range this meta data covers.
     pub end_frame: u16,
 }
 

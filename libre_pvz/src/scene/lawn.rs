@@ -20,7 +20,8 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use libre_pvz_animation::clip::AnimationPlayer;
+use libre_pvz_animation::curve::Segment;
+use libre_pvz_animation::player::AnimationPlayer;
 use libre_pvz_resources::animation::Action;
 use crate::animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
 use crate::core::kinematics::{Position, Velocity};
@@ -193,10 +194,10 @@ impl PeashooterPhase {
         };
     }
     fn is_shooting(self) -> bool { matches!(self, PeashooterPhase::Fire1 | PeashooterPhase::Fire2) }
-    fn player_speed(self) -> f32 {
+    fn frame_rate(self) -> f32 {
         match self {
-            PeashooterPhase::Fire1 | PeashooterPhase::Fire2 => REPEATER_SHOOTING_SPEED_FACTOR,
-            PeashooterPhase::Rest => 1.0,
+            PeashooterPhase::Fire1 | PeashooterPhase::Fire2 => REPEATER_SHOOTING_FRAME_RATE,
+            PeashooterPhase::Rest => 12.0,
         }
     }
 }
@@ -207,7 +208,6 @@ struct PeashooterStemTop;
 // const REPEATER_LAUNCH_RATE: f32 = 150.0;
 // const REPEATER_COOL_DOWN: f32 = REPEATER_LAUNCH_RATE / 12.0;
 const REPEATER_SHOOTING_FRAME_RATE: f32 = 45.0;
-const REPEATER_SHOOTING_SPEED_FACTOR: f32 = REPEATER_SHOOTING_FRAME_RATE / 12.0;
 
 const PEA_VELOCITY: f32 = 9.9 * 30.0;
 
@@ -259,8 +259,8 @@ fn peashooter_fire_system(
     mut commands: Commands,
 ) {
     let (parent, mut player, mut phase) = head.single_mut();
-    player.repeat = false;
-    if player.paused {
+    player.set_repeating(false);
+    if player.finished() {
         // we want to keep that line aligned with other assignments
         #[allow(clippy::field_reassign_with_default)]
         if phase.is_shooting() {
@@ -280,6 +280,7 @@ fn peashooter_fire_system(
         let (idle, _) = anim.description.get_meta("anim_head_idle").unwrap();
         phase.goto_next();
         let k = if phase.is_shooting() { shooting } else { idle };
-        *player = AnimationPlayer::new(anim.clip_for(k), phase.player_speed(), false);
+        player.set_segment(Segment::from(&anim.description.meta[k]));
+        player.set_frame_rate(phase.frame_rate());
     }
 }
