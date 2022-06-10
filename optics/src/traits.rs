@@ -18,7 +18,7 @@
 
 //! Traits for polymorphic lens hierarchy.
 //!
-#![doc = include_str ! ("../optics.svg")]
+#![doc = include_str!("../optics.svg")]
 
 use std::convert::Infallible;
 use std::fmt::{Debug, Display};

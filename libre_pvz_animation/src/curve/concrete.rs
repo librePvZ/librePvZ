@@ -25,6 +25,7 @@ use bitvec::prelude::*;
 use derivative::Derivative;
 use optics::traits::{AffineFoldRef, AffineFoldMut};
 use crate::curve::AnyComponent;
+use crate::curve::blend::BlendInfo;
 use super::{Curve, TypedCurve, Segment};
 use super::animatable::Animatable;
 
@@ -121,9 +122,19 @@ impl<S, F, C> Curve for KeyframeCurve<S, F, C>
           + for<'a> AffineFoldMut<'a, S, Error=String> {
     type Component = S;
     fn frame_count(&self) -> usize { *self.keyframe_indices.last().unwrap() as usize }
-    fn apply_sampled(&self, segment: Segment, frame: f32, output: impl AnyComponent<S>) -> Result<(), String> {
+    fn apply_sampled(
+        &self, segment: Segment, frame: f32,
+        blending: Option<BlendInfo>,
+        output: impl AnyComponent<S>,
+    ) -> Result<(), String> {
         if let Some(val) = self.sample(segment, frame) {
-            self.update_field(output, val)?;
+            if let Some(blending) = blending {
+                let old = self.read_field(output.component())?;
+                let val = F::View::interpolate(old, &val, blending.factor());
+                self.update_field(output, val)?;
+            } else {
+                self.update_field(output, val)?;
+            }
         }
         Ok(())
     }

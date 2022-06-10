@@ -17,7 +17,7 @@
  */
 
 //! librePvZ-animation: animation playing for librePvZ for [`bevy`].
-#![doc = include_str ! ("../README.md")]
+#![doc = include_str!("../README.md")]
 
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]

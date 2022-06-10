@@ -21,6 +21,7 @@
 pub mod animatable;
 pub mod concrete;
 pub mod builder;
+pub mod blend;
 
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -30,6 +31,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::prelude::*;
 use derivative::Derivative;
 use optics::traits::*;
+use crate::curve::blend::BlendInfo;
 
 /// A segment in a curve.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -66,6 +68,7 @@ pub trait Curve: Send + Sync + 'static {
     /// Apply the sampled value to the target component as the result.
     fn apply_sampled(
         &self, segment: Segment, frame: f32,
+        blending: Option<BlendInfo>,
         output: impl AnyComponent<Self::Component>,
     ) -> Result<(), String>;
 }
@@ -171,7 +174,11 @@ pub trait AnyCurve: Send + Sync + 'static {
     /// Delegate to [`Curve::frame_count`].
     fn get_frame_count(&self) -> usize;
     /// Delegate to [`Curve::apply_sampled`].
-    fn apply_sampled_any(&self, segment: Segment, frame: f32, output: &mut dyn AnyComponent) -> Result<(), String>;
+    fn apply_sampled_any(
+        &self, segment: Segment, frame: f32,
+        blending: Option<BlendInfo>,
+        output: &mut dyn AnyComponent,
+    ) -> Result<(), String>;
 }
 
 fn attach_binding<C: 'static>(mut entity: EntityCommands, info: CurveBindingInfo) {
@@ -181,9 +188,13 @@ fn attach_binding<C: 'static>(mut entity: EntityCommands, info: CurveBindingInfo
 impl<T: Curve> AnyCurve for T {
     fn descriptor(&self) -> CurveDescriptor { CurveDescriptor::new::<T::Component>() }
     fn get_frame_count(&self) -> usize { self.frame_count() }
-    fn apply_sampled_any(&self, segment: Segment, frame: f32, output: &mut dyn AnyComponent) -> Result<(), String> {
+    fn apply_sampled_any(
+        &self, segment: Segment, frame: f32,
+        blending: Option<BlendInfo>,
+        output: &mut dyn AnyComponent,
+    ) -> Result<(), String> {
         let output = UnwrapAnyComponent::try_from(output)?;
-        self.apply_sampled(segment, frame, output)
+        self.apply_sampled(segment, frame, blending, output)
     }
 }
 
@@ -203,6 +214,10 @@ pub trait TypedCurve: Curve {
     fn sample(&self, segment: Segment, frame: f32) -> Option<Self::Value>;
     /// Get a field accessor for the targeted field.
     fn field_accessor(&self) -> &Self::FieldAccessor;
+    /// Read the current value from the target field.
+    fn read_field<'a>(&self, target: &'a Self::Component) -> Result<&'a Self::Value, String> {
+        self.field_accessor().preview_ref(target)
+    }
     /// Update the field in the component with a new value.
     fn update_field(&self, mut target: impl AnyComponent<Self::Component>, value: Self::Value) -> Result<(), String> {
         let field = self.field_accessor();

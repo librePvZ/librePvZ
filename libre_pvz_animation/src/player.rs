@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use itertools::Itertools;
 use bevy::prelude::*;
-use crate::clip::{EntityPath, AnimationClip};
+use crate::clip::{AnimationClip, EntityPath};
 use crate::curve::{CurveBinding, CurveBindingInfo, Segment};
 
 /// Animation player.
@@ -162,7 +162,7 @@ pub(crate) fn animate_entities_system<C: Component>(
         let frame = player.timer.elapsed_secs() * player.frame_rate;
         let range = binding.info.curve_index_start as usize..binding.info.curve_index_end as usize;
         for curve in &player.clip.curves()[range] {
-            if let Err(err) = curve.apply_sampled_any(player.current_segment, frame, &mut target) {
+            if let Err(err) = curve.apply_sampled_any(player.current_segment, frame, None, &mut target) {
                 warn!("cannot apply sampled curve to target: {err}");
             }
         }
