@@ -56,11 +56,11 @@ pub struct AnimationClip {
 impl AnimationClip {
     /// Get a builder to build an animation clip.
     pub fn builder() -> AnimationClipBuilder { AnimationClipBuilder::new() }
-    /// Get an iterator of [`Curve`]s into this animation clip.
+    /// Get an iterator of [`Curve`](crate::curve::Curve)s into this animation clip.
     pub fn iter(&self) -> std::slice::Iter<(EntityPath, u16, u16)> { self.path_mapping.iter() }
-    /// Get the [`Curve`] at index `k`.
+    /// Get the [`Curve`](crate::curve::Curve) at index `k`.
     pub fn get(&self, k: u16) -> &dyn AnyCurve { self.curves[k as usize].as_ref() }
-    /// Get the [`Curve`]s.
+    /// Get the [`Curve`](crate::curve::Curve)s.
     pub fn curves(&self) -> &[Box<dyn AnyCurve>] { self.curves.as_ref() }
 }
 
@@ -132,7 +132,7 @@ impl Hash for dyn CurveLabel {
     }
 }
 
-/// Builder for animation [`Track`]s, building [`Curve`]s from scratch.
+/// Builder for animation [`Track`]s, building [`Curve`](crate::curve::Curve)s from scratch.
 #[allow(missing_debug_implementations)]
 #[derive(Default)]
 pub struct TrackBuilder {

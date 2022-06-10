@@ -42,7 +42,7 @@ pub trait AnyCurveBuilder {
     fn finish_boxed(self: Box<Self>) -> Option<Box<dyn AnyCurve>>;
 }
 
-/// Convenient builder for [`Curve`]s.
+/// Convenient builder for [`Curve`](crate::curve::Curve)s.
 #[derive(Default)]
 #[allow(missing_debug_implementations)]
 pub struct CurveBuilder<C> {
