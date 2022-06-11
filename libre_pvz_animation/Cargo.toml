@@ -15,6 +15,7 @@ description = "librePvZ animation in Bevy"
 bevy = { version = "0.7.0", default-features = false, features = ["bevy_sprite"] }
 thiserror = "1.0.30"
 derivative = "2.2.0"
+delegate = "0.7.0"
 itertools = "0.10.3"
 bitvec = "1.0.0"
 optics = { path = "../optics" }

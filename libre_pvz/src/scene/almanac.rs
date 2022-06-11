@@ -24,6 +24,7 @@ use bevy::sprite::Anchor;
 use bevy_egui::EguiContext;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
 use libre_pvz_animation::curve::Segment;
+use libre_pvz_animation::player::AnimationStatus;
 use libre_pvz_animation::transform::TransformBundle2D;
 use crate::animation::player::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
@@ -199,7 +200,13 @@ fn init_anim(
         .map(|(k, _)| k)
         .unwrap_or(0);
     stage.last_selected_meta = stage.selected_meta;
-    let (entity, _) = anim.spawn_on(stage.selected_meta, &mut commands);
+    let (entity, _) = anim.spawn_on(&mut commands);
+    commands.entity(entity).insert(AnimationPlayer::new(
+        anim.clip(),
+        Segment::from(&anim.description.meta[stage.selected_meta]),
+        anim.description.fps,
+        true
+    ));
     commands.entity(scaling).add_child(entity);
 }
 
@@ -223,7 +230,7 @@ fn animation_ui(
                 .num_columns(2)
                 .spacing([15.0, 4.0])
                 .show(ui, |ui|
-                    metrics_ui(ui, &mut stage, &diagnostics, anim, player));
+                    metrics_ui(ui, &mut stage, &diagnostics, anim, player.single_status_mut().unwrap()));
         });
 }
 
@@ -231,7 +238,7 @@ fn metrics_ui(
     ui: &mut Ui, stage: &mut Stage,
     diagnostics: &Diagnostics,
     anim: &Animation,
-    player: &mut AnimationPlayer,
+    status: &mut AnimationStatus,
 ) {
     ui.label("FPS:");
     ui.label(format!("{:.2}", diagnostics
@@ -254,27 +261,27 @@ fn metrics_ui(
     ui.end_row();
 
     ui.label("Status:");
-    let mut paused = player.paused();
+    let mut paused = status.paused();
     ui.checkbox(&mut paused, "paused");
-    if paused != player.paused() { if paused { player.pause() } else { player.resume() } }
+    if paused != status.paused() { if paused { status.pause() } else { status.unpause() } }
     ui.end_row();
 
     ui.label("Frame rate:");
     ui.add(Slider::from_get_set(1.0..=50.0, |val| match val {
-        None => player.frame_rate() as f64,
+        None => status.frame_rate() as f64,
         Some(val) => {
-            player.set_frame_rate(val as f32);
+            status.set_frame_rate(val as f32);
             val
         }
     }));
     ui.end_row();
 
     ui.label("Progress:");
-    ui.add_enabled(player.paused(), Slider::from_get_set(
-        0.0..=player.frame_count() as f64, |val| match val {
-            None => player.progress(),
+    ui.add_enabled(status.paused(), Slider::from_get_set(
+        0.0..=status.frame_count() as f64, |val| match val {
+            None => status.progress(),
             Some(val) => {
-                player.set_progress(val);
+                status.set_progress(val);
                 val
             }
         },
@@ -303,6 +310,6 @@ fn respond_to_stage_change(
     if stage.selected_meta != stage.last_selected_meta {
         let mut player = player.get_single_mut().unwrap();
         let anim = animations.get(&stage.animation).unwrap();
-        player.set_segment(Segment::from(&anim.description.meta[stage.selected_meta]))
+        player.single_status_mut().unwrap().set_segment(Segment::from(&anim.description.meta[stage.selected_meta]))
     }
 }

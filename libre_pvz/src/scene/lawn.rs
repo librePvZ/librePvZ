@@ -18,14 +18,17 @@
 
 //! The lawn scene (the battlefield).
 
+use std::time::Duration;
 use bevy::prelude::*;
+use bevy::core::Stopwatch;
 use bevy::sprite::Anchor;
+use libre_pvz_animation::curve::blend::{BlendInfo, BlendMethod};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::player::AnimationPlayer;
 use libre_pvz_resources::animation::Action;
 use crate::animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
 use crate::core::kinematics::{Position, Velocity};
-use crate::core::projectile::VanishingBound;
+use crate::core::projectile::{Projectile, VanishingBound};
 use crate::resources::bevy::Animation;
 use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
@@ -178,7 +181,35 @@ fn update_grid_system(
 #[derive(Copy, Clone, Component)]
 struct PeashooterHead;
 
-#[derive(Copy, Clone, Component)]
+#[derive(Component)]
+struct PeashooterStatus {
+    phase: PeashooterPhase,
+    stopwatch: Stopwatch,
+    just_finished: bool,
+}
+
+impl PeashooterStatus {
+    fn new(phase: PeashooterPhase) -> Self {
+        PeashooterStatus {
+            phase,
+            stopwatch: Stopwatch::new(),
+            just_finished: false,
+        }
+    }
+    fn tick(&mut self, delta: Duration) -> &mut Self {
+        self.stopwatch.tick(delta);
+        let elapsed = self.stopwatch.elapsed();
+        let expected = self.phase.duration();
+        self.just_finished = elapsed > expected;
+        if self.just_finished {
+            self.stopwatch.set_elapsed(elapsed - expected);
+            self.phase.goto_next();
+        }
+        self
+    }
+}
+
+#[derive(Copy, Clone)]
 enum PeashooterPhase {
     Fire1,
     Fire2,
@@ -193,6 +224,13 @@ impl PeashooterPhase {
             PeashooterPhase::Rest => PeashooterPhase::Fire1,
         };
     }
+    fn duration(self) -> Duration {
+        match self {
+            PeashooterPhase::Fire1 => Duration::from_secs_f32(0.2),
+            PeashooterPhase::Fire2 => Duration::from_secs_f32(0.2),
+            PeashooterPhase::Rest => Duration::from_secs_f32(2.0),
+        }
+    }
     fn is_shooting(self) -> bool { matches!(self, PeashooterPhase::Fire1 | PeashooterPhase::Fire2) }
     fn frame_rate(self) -> f32 {
         match self {
@@ -205,8 +243,6 @@ impl PeashooterPhase {
 #[derive(Copy, Clone, Component)]
 struct PeashooterStemTop;
 
-// const REPEATER_LAUNCH_RATE: f32 = 150.0;
-// const REPEATER_COOL_DOWN: f32 = REPEATER_LAUNCH_RATE / 12.0;
 const REPEATER_SHOOTING_FRAME_RATE: f32 = 45.0;
 
 const PEA_VELOCITY: f32 = 9.9 * 30.0;
@@ -229,9 +265,13 @@ fn spawn_peashooter_system(
     let shadow = commands.spawn_bundle(shadow).id();
     commands.entity(plant).add_child(shadow);
     // the stem: anim_idle
-    let (anim_idle, meta_idle) = anim.description.get_meta("anim_idle").unwrap();
-    let (stem, stem_tracks) = anim.spawn_on(anim_idle, &mut commands);
+    let (_, meta_idle) = anim.description.get_meta("anim_idle").unwrap();
+    let (stem, stem_tracks) = anim.spawn_on(&mut commands);
     commands.entity(plant).add_child(stem);
+    commands.entity(stem).insert(AnimationPlayer::new(
+        anim.clip(), meta_idle.into(),
+        anim.description.fps, true,
+    ));
     // head should be attached to 'anim_stem'
     let (track_stem, anim_stem) = anim.description.tracks.iter().zip(stem_tracks)
         .find(|(track, _)| track.name == "anim_stem").unwrap();
@@ -245,25 +285,31 @@ fn spawn_peashooter_system(
     let anchor = commands.spawn_bundle(anchor_trans).insert(PeashooterStemTop).id();
     commands.entity(anim_stem).add_child(anchor);
     // the normal head: anim_head_idle
-    let (anim_head_idle, _) = anim.description.get_meta("anim_head_idle").unwrap();
-    let (head_idle, _) = anim.spawn_on(anim_head_idle, &mut commands);
-    commands.entity(head_idle).insert(PeashooterHead).insert(PeashooterPhase::Rest);
+    let (_, anim_head_idle) = anim.description.get_meta("anim_head_idle").unwrap();
+    let (head_idle, _) = anim.spawn_on(&mut commands);
+    commands.entity(head_idle)
+        .insert(PeashooterHead)
+        .insert(PeashooterStatus::new(PeashooterPhase::Rest))
+        .insert(AnimationPlayer::new(
+            anim.clip(), anim_head_idle.into(),
+            anim.description.fps, true,
+        ));
     commands.entity(anchor).add_child(head_idle);
 }
 
 fn peashooter_fire_system(
-    mut head: Query<(&Parent, &mut AnimationPlayer, &mut PeashooterPhase), With<PeashooterHead>>,
+    time: Res<Time>,
+    mut head: Query<(&Parent, &mut AnimationPlayer, &mut PeashooterStatus), With<PeashooterHead>>,
     stem_top: Query<&GlobalTransform, With<PeashooterStemTop>>,
     lawn_assets: Res<LawnAssets>,
     animations: Res<Assets<Animation>>,
     mut commands: Commands,
 ) {
-    let (parent, mut player, mut phase) = head.single_mut();
-    player.set_repeating(false);
-    if player.finished() {
+    let (parent, mut player, mut status) = head.single_mut();
+    if status.tick(time.delta()).just_finished {
         // we want to keep that line aligned with other assignments
         #[allow(clippy::field_reassign_with_default)]
-        if phase.is_shooting() {
+        if status.phase.is_shooting() {
             let stem_top_trans = stem_top.get(parent.0).unwrap().translation();
             let x0 = stem_top_trans.x + 24.0;
             let y0 = stem_top_trans.y + 33.0;
@@ -273,14 +319,20 @@ fn peashooter_fire_system(
             bundle.texture = lawn_assets.projectile_pea.clone();
             bundle.sprite.anchor = Anchor::TopLeft;
             bundle.transform.z_order = 100.0;
-            commands.spawn_bundle(bundle).insert(p0).insert(vel);
+            commands.spawn_bundle(bundle).insert(p0).insert(vel).insert(Projectile);
         }
         let anim = animations.get(&lawn_assets.peashooter_anim).unwrap();
-        let (shooting, _) = anim.description.get_meta("anim_shooting").unwrap();
-        let (idle, _) = anim.description.get_meta("anim_head_idle").unwrap();
-        phase.goto_next();
-        let k = if phase.is_shooting() { shooting } else { idle };
-        player.set_segment(Segment::from(&anim.description.meta[k]));
-        player.set_frame_rate(phase.frame_rate());
+        let (_, shooting) = anim.description.get_meta("anim_shooting").unwrap();
+        let (_, idle) = anim.description.get_meta("anim_head_idle").unwrap();
+        let segment = if status.phase.is_shooting() { shooting } else { idle };
+        player.play_with_blending(
+            status.phase.frame_rate(),
+            Segment::from(segment),
+            !status.phase.is_shooting(),
+            Some(BlendInfo {
+                duration: Duration::from_secs_f32(0.2),
+                method: BlendMethod::SmoothTanh(1.5),
+            }),
+        );
     }
 }

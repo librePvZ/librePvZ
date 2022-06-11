@@ -30,7 +30,6 @@ use bincode::config::Configuration;
 use bincode::decode_from_slice;
 use optics::concrete::_Identity;
 use once_cell::sync::OnceCell;
-use libre_pvz_animation::player::AnimationPlayer;
 use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
@@ -106,9 +105,7 @@ const HALF_WIDTH: f32 = WIDTH / 2.0;
 
 impl Animation {
     /// Spawn an animation.
-    pub fn spawn_on(&self, meta: usize, commands: &mut Commands) -> (Entity, Vec<Entity>) {
-        let clip = self.clip();
-        let segment = Segment::from(&self.description.meta[meta]);
+    pub fn spawn_on(&self, commands: &mut Commands) -> (Entity, Vec<Entity>) {
         let mut track_entities = Vec::new();
         let parent = commands.spawn_bundle(TransformBundle2D {
             local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
@@ -123,8 +120,6 @@ impl Animation {
             commands.entity(parent).add_child(this);
             track_entities.push(this);
         }
-        let player = AnimationPlayer::new(clip, segment, self.description.fps, true);
-        commands.entity(parent).insert(player);
         (parent, track_entities)
     }
 

@@ -22,33 +22,33 @@ use std::sync::Arc;
 use std::time::Duration;
 use itertools::Itertools;
 use bevy::prelude::*;
+use delegate::delegate;
 use crate::clip::{AnimationClip, EntityPath};
-use crate::curve::{CurveBinding, CurveBindingInfo, Segment};
+use crate::curve::{AnyComponent, AnyCurve, CurveBinding, CurveBindingInfo, Segment};
+use crate::curve::blend::{BlendInfo, BlendMethod};
 
-/// Animation player.
-#[derive(Component)]
-#[allow(missing_debug_implementations)]
-pub struct AnimationPlayer {
+/// Playing status of an animation.
+#[derive(Debug, Clone)]
+pub struct AnimationStatus {
     frame_rate: f32,
-    current_segment: Segment,
+    segment: Segment,
     timer: Timer,
-    clip: Arc<AnimationClip>,
 }
 
-impl AnimationPlayer {
-    /// Create an animation player that plays the specific clip.
-    pub fn new(clip: Arc<AnimationClip>, segment: Segment, frame_rate: f32, repeat: bool) -> Self {
-        let len = if repeat { segment.len_looping() } else { segment.len() };
-        let timer = Timer::new(Duration::from_secs_f32(len as f32 / frame_rate), repeat);
-        AnimationPlayer { frame_rate, current_segment: segment, timer, clip }
+impl AnimationStatus {
+    /// Create a new animation status (initial state).
+    pub fn new(frame_rate: f32, segment: Segment, repeating: bool) -> Self {
+        let len = if repeating { segment.len_looping() } else { segment.len() };
+        let timer = Timer::new(Duration::from_secs_f32(len as f32 / frame_rate), repeating);
+        AnimationStatus { frame_rate, segment, timer }
     }
 
     /// Frame count in one cycle (total frame count if not repeating).
     pub fn frame_count(&self) -> u16 {
         if self.timer.repeating() {
-            self.current_segment.len_looping()
+            self.segment.len_looping()
         } else {
-            self.current_segment.len()
+            self.segment.len()
         }
     }
 
@@ -60,24 +60,33 @@ impl AnimationPlayer {
         self.timer.set_duration(Duration::from_secs_f32(self.frame_count() as f32 / frame_rate));
     }
 
-    /// Returns `true` if the timer is repeating.
-    pub fn repeating(&self) -> bool { self.timer.repeating() }
-    /// Sets whether the animation is repeating or not.
-    pub fn set_repeating(&mut self, repeating: bool) { self.timer.set_repeating(repeating) }
+    delegate! {
+        to self.timer {
+            /// Returns `true` if the timer is repeating.
+            pub fn repeating(&self) -> bool;
+            /// Sets whether the animation is repeating or not.
+            pub fn set_repeating(&mut self, repeating: bool);
 
-    /// Is the animation paused?
-    pub fn paused(&self) -> bool { self.timer.paused() }
-    /// Pause the animation.
-    pub fn pause(&mut self) { self.timer.pause() }
-    /// Resume the animation.
-    pub fn resume(&mut self) { self.timer.unpause() }
+            /// Is the animation paused?
+            pub fn paused(&self) -> bool;
+            /// Pause the animation.
+            pub fn pause(&mut self);
+            /// Resume the animation.
+            pub fn unpause(&mut self);
 
-    /// Reset the animation playing status.
-    pub fn reset(&mut self) { self.timer.reset() }
-    /// Animation finished playing?
-    pub fn finished(&self) -> bool { self.timer.finished() }
-    /// Animation just finished playing after last query?
-    pub fn just_finished(&self) -> bool { self.timer.just_finished() }
+            /// Reset the animation playing status.
+            pub fn reset(&mut self);
+            /// Animation finished playing?
+            pub fn finished(&self) -> bool;
+            /// Animation just finished playing after last query?
+            pub fn just_finished(&self) -> bool;
+
+            /// Tick the time by several seconds.
+            pub fn tick(&mut self, delta: Duration);
+            /// Get elapsed time in seconds.
+            pub fn elapsed_secs(&self) -> f32;
+        }
+    }
 
     /// Progress of this animation (in number of frames).
     pub fn progress(&self) -> f64 {
@@ -90,15 +99,109 @@ impl AnimationPlayer {
 
     /// Set the segment for playing.
     pub fn set_segment(&mut self, segment: Segment) {
-        self.current_segment = segment;
+        self.segment = segment;
         self.reset();
     }
 
-    /// Tick the time by several seconds.
-    pub fn tick(&mut self, delta: Duration) { self.timer.tick(delta); }
+    fn apply(&self, curve: &dyn AnyCurve, blending: Option<(BlendMethod, f32)>, target: &mut dyn AnyComponent) {
+        let frame = self.timer.elapsed_secs() * self.frame_rate;
+        if let Err(err) = curve.apply_sampled_any(self.segment, frame, blending, target) {
+            warn!("cannot apply sampled curve to target: {err}");
+        }
+    }
+}
 
-    /// Get elapsed time in seconds.
-    pub fn elapsed(&self) -> f32 { self.timer.elapsed_secs() }
+#[derive(Debug, Clone)]
+struct BlendLayer {
+    blending: BlendMethod,
+    progress: Timer,
+    next: Box<BlendChain>,
+}
+
+#[derive(Debug, Clone)]
+struct BlendChain {
+    status: AnimationStatus,
+    blending: Option<BlendLayer>,
+}
+
+impl BlendChain {
+    fn new(status: AnimationStatus) -> BlendChain { BlendChain { status, blending: None } }
+    fn tick(&mut self, delta: Duration) {
+        if self.status.timer.paused() { return; }
+        self.status.timer.tick(delta);
+        if let Some(blending) = &mut self.blending {
+            blending.progress.tick(delta);
+            if blending.progress.finished() {
+                self.blending = None;
+            } else {
+                blending.next.tick(delta);
+            }
+        }
+    }
+    fn apply(&self, curve: &dyn AnyCurve, target: &mut dyn AnyComponent) {
+        let mut blending = None;
+        if let Some(next) = &self.blending {
+            next.next.apply(curve, target);
+            blending = Some((next.blending, next.progress.percent()));
+        }
+        self.status.apply(curve, blending, target);
+    }
+}
+
+/// Animation player.
+#[derive(Component)]
+#[allow(missing_debug_implementations)]
+pub struct AnimationPlayer {
+    blend_chain: BlendChain,
+    clip: Arc<AnimationClip>,
+}
+
+impl AnimationPlayer {
+    /// Create an animation player that plays the specific clip.
+    pub fn new(clip: Arc<AnimationClip>, segment: Segment, frame_rate: f32, repeating: bool) -> Self {
+        let status = AnimationStatus::new(frame_rate, segment, repeating);
+        AnimationPlayer { blend_chain: BlendChain::new(status), clip }
+    }
+
+    /// Start playing the specified animation segment without blending.
+    pub fn play(&mut self, frame_rate: f32, segment: Segment, repeating: bool) {
+        self.play_with_blending(frame_rate, segment, repeating, None)
+    }
+    /// Start playing the specified animation segment with possibly blending information.
+    pub fn play_with_blending(
+        &mut self, frame_rate: f32,
+        segment: Segment, repeating: bool,
+        blending: Option<BlendInfo>,
+    ) {
+        let status = AnimationStatus::new(frame_rate, segment, repeating);
+        match blending {
+            None => self.blend_chain = BlendChain::new(status),
+            Some(blending) => {
+                let tail = std::mem::replace(&mut self.blend_chain, BlendChain::new(status));
+                self.blend_chain.blending = Some(BlendLayer {
+                    blending: blending.method,
+                    progress: Timer::new(blending.duration, false),
+                    next: Box::new(tail),
+                });
+            }
+        }
+    }
+
+    /// Return a shared reference to the animation status if there is no blending.
+    pub fn single_status(&self) -> Option<&AnimationStatus> {
+        match self.blend_chain.blending {
+            None => Some(&self.blend_chain.status),
+            Some(_) => None,
+        }
+    }
+
+    /// Return a mutable reference to the animation status if there is no blending.
+    pub fn single_status_mut(&mut self) -> Option<&mut AnimationStatus> {
+        match self.blend_chain.blending {
+            None => Some(&mut self.blend_chain.status),
+            Some(_) => None,
+        }
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -149,7 +252,7 @@ fn locate(
 
 pub(crate) fn tick_animation_system(time: Res<Time>, mut players: Query<&mut AnimationPlayer>) {
     for mut player in players.iter_mut() {
-        player.tick(time.delta());
+        player.blend_chain.tick(time.delta());
     }
 }
 
@@ -159,12 +262,9 @@ pub(crate) fn animate_entities_system<C: Component>(
 ) {
     for (mut target, binding) in entities.iter_mut() {
         let player = players.get(binding.info.player_entity).unwrap();
-        let frame = player.timer.elapsed_secs() * player.frame_rate;
         let range = binding.info.curve_index_start as usize..binding.info.curve_index_end as usize;
         for curve in &player.clip.curves()[range] {
-            if let Err(err) = curve.apply_sampled_any(player.current_segment, frame, None, &mut target) {
-                warn!("cannot apply sampled curve to target: {err}");
-            }
+            player.blend_chain.apply(curve.as_ref(), &mut target);
         }
     }
 }

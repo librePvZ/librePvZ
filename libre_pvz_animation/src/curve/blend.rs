@@ -28,6 +28,7 @@
 //! [smooth-step]: https://math.stackexchange.com/questions/846743/example-of-a-smooth-step-function-that-is-constant-below-0-and-constant-above
 
 use std::ops::{Add, Mul};
+use std::time::Duration;
 
 /// The blend function for use. All functions below transitions from (0, 0) to (1, 1).
 ///
@@ -56,10 +57,10 @@ impl BlendMethod {
     ///
     /// All three blending methods are symmetric with respect to (0.5, 0.5):
     /// ```
-    /// # use libre_pvz_animation::curve::blend::{BlendInfo, BlendMethod};
+    /// # use libre_pvz_animation::curve::blend::BlendMethod;
     /// use BlendMethod::*;
     /// for method in [Linear, Smooth, SmoothTanh(1.5), SmoothTanh(2.0)] {
-    ///     assert_eq!(BlendInfo { method, progress: 0.5 }.factor(), 0.5);
+    ///     assert_eq!(method.factor(0.5), 0.5);
     /// }
     /// ```
     pub fn factor(self, ratio: f32) -> f32 {
@@ -78,20 +79,6 @@ impl BlendMethod {
             }
         }
     }
-}
-
-/// Information about blending.
-#[derive(Debug, Copy, Clone)]
-pub struct BlendInfo {
-    /// Blending function to use.
-    pub method: BlendMethod,
-    /// Progress of transition, as the input for the blending function.
-    pub progress: f32,
-}
-
-impl BlendInfo {
-    /// Factor for blending.
-    pub fn factor(self) -> f32 { self.method.factor(self.progress) }
 
     /// Blend two values using the specified information.
     ///
@@ -105,9 +92,18 @@ impl BlendInfo {
     /// [`Mat2`]: bevy::math::Mat2
     /// [`Mat3`]: bevy::math::Mat3
     /// [`Vec2::lerp`]: bevy::math::Vec2::lerp
-    pub fn blend<T>(self, start: T, end: T) -> T
+    pub fn blend<T>(self, start: T, end: T, progress: f32) -> T
         where T: Add<Output=T> + Mul<f32, Output=T> {
-        let ratio = self.factor();
+        let ratio = self.factor(progress);
         start * (1.0 - ratio) + end * ratio
     }
+}
+
+/// Information about blending.
+#[derive(Debug, Copy, Clone)]
+pub struct BlendInfo {
+    /// Blending function to use.
+    pub method: BlendMethod,
+    /// Duration for transition.
+    pub duration: Duration,
 }

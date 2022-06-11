@@ -31,7 +31,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::prelude::*;
 use derivative::Derivative;
 use optics::traits::*;
-use crate::curve::blend::BlendInfo;
+use crate::curve::blend::BlendMethod;
 
 /// A segment in a curve.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -68,7 +68,7 @@ pub trait Curve: Send + Sync + 'static {
     /// Apply the sampled value to the target component as the result.
     fn apply_sampled(
         &self, segment: Segment, frame: f32,
-        blending: Option<BlendInfo>,
+        blending: Option<(BlendMethod, f32)>,
         output: impl AnyComponent<Self::Component>,
     ) -> Result<(), String>;
 }
@@ -176,7 +176,7 @@ pub trait AnyCurve: Send + Sync + 'static {
     /// Delegate to [`Curve::apply_sampled`].
     fn apply_sampled_any(
         &self, segment: Segment, frame: f32,
-        blending: Option<BlendInfo>,
+        blending: Option<(BlendMethod, f32)>,
         output: &mut dyn AnyComponent,
     ) -> Result<(), String>;
 }
@@ -190,7 +190,7 @@ impl<T: Curve> AnyCurve for T {
     fn get_frame_count(&self) -> usize { self.frame_count() }
     fn apply_sampled_any(
         &self, segment: Segment, frame: f32,
-        blending: Option<BlendInfo>,
+        blending: Option<(BlendMethod, f32)>,
         output: &mut dyn AnyComponent,
     ) -> Result<(), String> {
         let output = UnwrapAnyComponent::try_from(output)?;
