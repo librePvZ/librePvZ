@@ -30,7 +30,7 @@ use log::LevelFilter;
 use serde::{Serialize, Serializer};
 use libre_pvz_resources::animation as packed;
 use crate::reanim::Animation;
-use crate::xml::Xml;
+use crate::xml::Xml as XmlWrapper;
 
 /// Optionally packed animations.
 pub enum MaybePacked {
@@ -40,11 +40,27 @@ pub enum MaybePacked {
     Packed(packed::AnimDesc),
 }
 
+use MaybePacked::*;
+
+impl MaybePacked {
+    /// Is this already packed?
+    pub fn is_packed(&self) -> bool { matches!(self, Packed(_)) }
+
+    /// Force this to be packed, fail if unpacking is requested.
+    pub fn into_packed(self, packed: bool) -> anyhow::Result<MaybePacked> {
+        Ok(match self {
+            Packed(_) if !packed => anyhow::bail!("unpacking not supported"),
+            Plain(anim) if packed => Packed(anim.into()),
+            _ => self,
+        })
+    }
+}
+
 impl Debug for MaybePacked {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            MaybePacked::Plain(anim) => anim.fmt(f),
-            MaybePacked::Packed(anim) => anim.fmt(f),
+            Plain(anim) => anim.fmt(f),
+            Packed(anim) => anim.fmt(f),
         }
     }
 }
@@ -52,8 +68,8 @@ impl Debug for MaybePacked {
 impl Serialize for MaybePacked {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            MaybePacked::Plain(anim) => anim.serialize(serializer),
-            MaybePacked::Packed(anim) => anim.serialize(serializer),
+            Plain(anim) => anim.serialize(serializer),
+            Packed(anim) => anim.serialize(serializer),
         }
     }
 }
@@ -93,48 +109,59 @@ impl From<Verbosity> for LevelFilter {
 pub enum Format {
     /// Internal encoding (Rust `{:#?}` debug pretty printing)
     Internal,
+    /// Original "compiled format": file extension `.reanim.compiled`.
+    Compiled,
     /// Binary encoding using `bincode`. Only support packed format.
     Bin,
     /// XML format as is used in original PvZ game.
     Xml,
-    /// JSON format. Guarded by crate feature `json` (enabled by default).
+    /// JSON format.
     Json,
-    /// YAML format. Guarded by crate feature `yaml` (enabled by default).
+    /// YAML format.
     Yaml,
 }
+
+use Format::*;
 
 impl Display for Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Format::Internal => "internal",
-            Format::Bin => "bin",
-            Format::Xml => "xml",
-            Format::Json => "json",
-            Format::Yaml => "yaml",
+            Internal => "internal",
+            Compiled => "compiled",
+            Bin => "bin",
+            Xml => "xml",
+            Json => "json",
+            Yaml => "yaml",
         })
     }
 }
 
 impl Format {
     /// Infer whether or not the output should be packed.
-    pub fn infer_packed<P: AsRef<Path>>(file: P) -> bool {
-        let file = file.as_ref();
+    pub fn infer_packed<P: AsRef<Path>>(path: P) -> bool {
+        let file = path.as_ref();
         let ext = file.extension().and_then(OsStr::to_str);
         let stem = file.file_stem().and_then(OsStr::to_str);
         ext == Some("anim") || stem.map_or(false, |s| s.ends_with(".packed"))
     }
 
     /// Infer a format from given file name.
-    pub fn infer<P: AsRef<Path>>(file: P) -> Option<Format> {
-        match file.as_ref().extension()?.to_str()? {
-            "txt" => Some(Format::Internal),
-            "bin" => Some(Format::Bin),
-            "anim" => Some(Format::Bin),
-            "reanim" | "xml" => Some(Format::Xml),
-            "json" => Some(Format::Json),
-            "yaml" => Some(Format::Yaml),
+    pub fn infer<P: AsRef<Path>>(path: P) -> Option<Format> {
+        match path.as_ref().extension()?.to_str()? {
+            "txt" => Some(Internal),
+            "compiled" => Some(Compiled),
+            "bin" => Some(Bin),
+            "anim" => Some(Bin),
+            "reanim" | "xml" => Some(Xml),
+            "json" => Some(Json),
+            "yaml" => Some(Yaml),
             _ => None,
         }
+    }
+
+    /// Decide an input/output format for a given (option, path, default) tuple.
+    pub fn decide<P: AsRef<Path>>(spec: Option<Format>, path: Option<P>, default: Format) -> Format {
+        spec.or_else(|| path.and_then(|p| Format::infer(p.as_ref()))).unwrap_or(default)
     }
 }
 
@@ -143,17 +170,23 @@ impl Format {
 pub enum Commands {
     /// Decode `.reanim.compiled` files.
     Decode {
-        /// File name to open.
-        file: PathBuf,
-        /// Use structural format for output.
-        #[clap(short, long)]
-        packed: bool,
-        /// Output format.
-        #[clap(short, long, arg_enum)]
-        format: Option<Format>,
+        /// Input file path.
+        input: PathBuf,
+        /// Input format.
+        #[clap(short = 'I', long, arg_enum)]
+        input_format: Option<Format>,
+        /// Use structural format for input.
+        #[clap(long)]
+        pack_input: bool,
         /// Output file path.
         #[clap(short, long)]
         output: Option<PathBuf>,
+        /// Output format.
+        #[clap(short = 'O', long, arg_enum)]
+        output_format: Option<Format>,
+        /// Use structural format for output.
+        #[clap(long)]
+        pack_output: bool,
     },
 }
 
@@ -184,6 +217,8 @@ fn setup_logger(verbose: LevelFilter) {
         .apply().unwrap();
 }
 
+const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
+
 impl Cli {
     /// Start command line interface.
     pub fn run() -> anyhow::Result<()> {
@@ -194,29 +229,40 @@ impl Cli {
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });
         match args.commands {
-            Commands::Decode { file, packed, format, output } => {
+            Commands::Decode {
+                input, input_format, mut pack_input,
+                output_format, output, mut pack_output,
+            } => {
                 // open input & decode
-                let file = File::open(&file).with_context(|| format!("failed to read file {file:?}"))?;
-                let mut file = BufReader::new(file);
-                let anim = Animation::decompress_and_decode(&mut file)?;
+                pack_input |= Format::infer_packed(&input);
+                let input_format = Format::decide(input_format, Some(&input), Bin);
+                let input = File::open(&input).with_context(|| format!("failed to read file {input:?}"))?;
+                let mut input = BufReader::new(input);
+                let anim = match input_format {
+                    Internal | Xml => anyhow::bail!("unsupported input format: {input_format}"),
+                    Bin => Packed(bincode::decode_from_std_read(&mut input, BINCODE_CONFIG)?),
+                    Compiled => Plain(Animation::decompress_and_decode(&mut input)?),
+                    Json if pack_input => Packed(serde_json::from_reader(&mut input)?),
+                    Yaml if pack_input => Packed(serde_yaml::from_reader(&mut input)?),
+                    Json => Plain(serde_json::from_reader(&mut input)?),
+                    Yaml => Plain(serde_yaml::from_reader(&mut input)?),
+                };
 
                 // infer output format
-                let inferred_format = output.as_ref().and_then(Format::infer);
-                let format = format.or(inferred_format).unwrap_or(Format::Xml);
-                let inferred_packed = output.as_ref().map_or(false, Format::infer_packed);
-                let anim = if packed || inferred_packed {
-                    MaybePacked::Packed(packed::AnimDesc::from(anim))
-                } else {
-                    MaybePacked::Plain(anim)
-                };
+                pack_output |= output.as_ref().map_or(anim.is_packed(), Format::infer_packed);
+                let output_format = Format::decide(
+                    output_format, output.as_ref(),
+                    if pack_output { Internal } else { Xml },
+                );
+                let anim = anim.into_packed(pack_output)?;
 
                 // output file (or stdout)
                 if let Some(output) = output {
                     let context = || format!("failed to open output file {output:?}");
                     let file = File::create(&output).with_context(context)?;
-                    encode(anim, format, file)?;
+                    encode(anim, output_format, file)?;
                 } else {
-                    encode(anim, format, std::io::stdout().lock())?;
+                    encode(anim, output_format, std::io::stdout().lock())?;
                 }
             }
         }
@@ -227,16 +273,16 @@ impl Cli {
 /// Encode the animation into required format.
 pub fn encode(anim: MaybePacked, format: Format, mut output: impl Write) -> anyhow::Result<()> {
     match (format, anim) {
-        (Format::Internal, anim) => writeln!(output, "{anim:#?}")?,
-        (Format::Bin, MaybePacked::Packed(anim)) => {
-            bincode::encode_into_std_write(anim, &mut output, bincode::config::standard())?;
+        (Internal, anim) => writeln!(output, "{anim:#?}")?,
+        (Bin, Packed(anim)) => {
+            bincode::encode_into_std_write(anim, &mut output, BINCODE_CONFIG)?;
         }
-        (Format::Xml, MaybePacked::Plain(anim)) => write!(output, "{}", Xml(anim))?,
-        (Format::Json, anim) => serde_json::to_writer_pretty(output, &anim)?,
-        (Format::Yaml, anim) => serde_yaml::to_writer(output, &anim)?,
-        (format, anim) => log::error!(
-            "format '{format}' does not support 'packed={}'",
-            matches!(anim, MaybePacked::Packed(_))),
+        (Xml, Plain(anim)) => write!(output, "{}", XmlWrapper(anim))?,
+        (Json, anim) => serde_json::to_writer_pretty(output, &anim)?,
+        (Yaml, anim) => serde_yaml::to_writer(output, &anim)?,
+        (format, anim) => {
+            log::error!("format '{format}' does not support 'packed={}'", anim.is_packed());
+        }
     }
     Ok(())
 }
