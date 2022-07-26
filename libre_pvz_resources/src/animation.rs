@@ -19,12 +19,11 @@
 //! Sprite and animation API.
 
 use bincode::{Encode, Decode};
-#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
 /// Animations, originally in `.reanim` format.
 #[derive(Debug, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct AnimDesc {
     /// Frames per second.
     pub fps: f32,
@@ -55,7 +54,7 @@ impl AnimDesc {
 
 /// Meta data for animations.
 #[derive(Debug, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Meta {
     /// Name of this meta data.
     pub name: String,
@@ -67,7 +66,7 @@ pub struct Meta {
 
 /// A series of frames to play consecutively.
 #[derive(Debug, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Track {
     /// Track name for internal recognition.
     pub name: String,
@@ -78,7 +77,7 @@ pub struct Track {
 /// Key frame: show and transform elements.
 /// Transformations are applied sequentially in one frame.
 #[derive(Debug, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Frame(pub Box<[Action]>);
 
 /// 2D vectors.
@@ -89,7 +88,8 @@ pub type Mat2 = [Vec2; 2];
 
 /// Key frame action.
 #[derive(Debug, Clone, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
     /// Load an element to replace the current one on the stage.
     LoadElement(Element),
@@ -107,7 +107,8 @@ pub enum Action {
 
 /// Element on the stage. Only one element is allowed on a single frame.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Element {
     /// Text element.
     Text {

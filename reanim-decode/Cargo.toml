@@ -26,7 +26,7 @@ clap = { version = "3.2.15", optional = true, features = ["derive"] }
 anyhow = { version = "1.0.55", optional = true }
 
 [features]
-cli = ["dep:fern", "dep:clap", "dep:anyhow", "libre_pvz_resources/serde"]
+cli = ["dep:fern", "dep:clap", "dep:anyhow"]
 
 [[bin]]
 name = "reanim-decode"
