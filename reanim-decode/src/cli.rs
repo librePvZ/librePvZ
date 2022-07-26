@@ -24,7 +24,7 @@ use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 use anyhow::Context;
-use clap::{ArgEnum, Parser, Subcommand};
+use clap::{ValueEnum, Parser, Subcommand};
 use fern::colors::{Color::*, ColoredLevelConfig};
 use log::LevelFilter;
 use serde::{Serialize, Serializer};
@@ -79,7 +79,7 @@ impl Serialize for MaybePacked {
 #[clap(author, version, about)]
 pub struct Cli {
     /// Verbosity, for filtering diagnostics messages.
-    #[clap(long, arg_enum, global = true)]
+    #[clap(long, value_enum, global = true)]
     pub verbose: Option<Option<Verbosity>>,
     /// All available subcommands.
     #[clap(subcommand)]
@@ -87,7 +87,7 @@ pub struct Cli {
 }
 
 /// Output format: JSON and YAML supported, guarded by crate features.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ArgEnum)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(missing_docs)]
 pub enum Verbosity { Off, Error, Warn, Info, Debug, Trace }
 
@@ -105,7 +105,7 @@ impl From<Verbosity> for LevelFilter {
 }
 
 /// Output format: JSON and YAML supported, guarded by crate features.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ArgEnum)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum Format {
     /// Internal encoding (Rust `{:#?}` debug pretty printing)
     Internal,
@@ -173,7 +173,7 @@ pub enum Commands {
         /// Input file path.
         input: PathBuf,
         /// Input format.
-        #[clap(short = 'I', long, arg_enum)]
+        #[clap(short = 'I', long, value_enum)]
         input_format: Option<Format>,
         /// Use structural format for input.
         #[clap(long)]
@@ -182,7 +182,7 @@ pub enum Commands {
         #[clap(short, long)]
         output: Option<PathBuf>,
         /// Output format.
-        #[clap(short = 'O', long, arg_enum)]
+        #[clap(short = 'O', long, value_enum)]
         output_format: Option<Format>,
         /// Use structural format for output.
         #[clap(long)]
