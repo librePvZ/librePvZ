@@ -22,6 +22,7 @@
 #![warn(missing_debug_implementations)]
 
 pub mod animation;
+pub mod model;
 
 #[cfg(feature = "bevy")]
 pub mod bevy;
