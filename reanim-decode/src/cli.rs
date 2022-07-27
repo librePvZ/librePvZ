@@ -29,6 +29,7 @@ use fern::colors::{Color::*, ColoredLevelConfig};
 use log::LevelFilter;
 use serde::{Serialize, Serializer};
 use libre_pvz_resources::animation as packed;
+use libre_pvz_resources::model;
 use crate::reanim::Animation;
 use crate::xml::Xml as XmlWrapper;
 
@@ -168,8 +169,22 @@ impl Format {
 /// Subcommands.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Decode `.reanim.compiled` files.
-    Decode {
+    /// Conversion for model files.
+    Model {
+        /// Input file path.
+        input: PathBuf,
+        /// Input format.
+        #[clap(short = 'I', long, value_enum)]
+        input_format: Option<Format>,
+        /// Output file path.
+        #[clap(short, long)]
+        output: Option<PathBuf>,
+        /// Output format.
+        #[clap(short = 'O', long, value_enum)]
+        output_format: Option<Format>,
+    },
+    /// Conversion for animation files.
+    Anim {
         /// Input file path.
         input: PathBuf,
         /// Input format.
@@ -229,13 +244,39 @@ impl Cli {
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });
         match args.commands {
-            Commands::Decode {
+            Commands::Model {
+                input, input_format,
+                output_format, output,
+            } => {
+                // open input & decode
+                let input_format = Format::decide(input_format, Some(&input), Bin);
+                let input = File::open(&input).with_context(|| format!("failed to read file {input:?}"))?;
+                let mut input = BufReader::new(input);
+                let model: model::Model = match input_format {
+                    Internal | Compiled | Xml => anyhow::bail!("unsupported input format: {input_format}"),
+                    Bin => bincode::decode_from_std_read(&mut input, BINCODE_CONFIG)?,
+                    Json => serde_json::from_reader(&mut input)?,
+                    Yaml => serde_yaml::from_reader(&mut input)?,
+                };
+
+                // infer output format
+                let output_format = Format::decide(output_format, output.as_ref(), Internal);
+                // output file (or stdout)
+                if let Some(output) = output {
+                    let context = || format!("failed to open output file {output:?}");
+                    let output = File::create(&output).with_context(context)?;
+                    encode_model(model, output_format, output)?;
+                } else {
+                    encode_model(model, output_format, std::io::stdout().lock())?;
+                }
+            }
+            Commands::Anim {
                 input, input_format, mut pack_input,
                 output_format, output, mut pack_output,
             } => {
                 // open input & decode
                 pack_input |= Format::infer_packed(&input);
-                let input_format = Format::decide(input_format, Some(&input), Bin);
+                let input_format = Format::decide(input_format, Some(&input), Compiled);
                 let input = File::open(&input).with_context(|| format!("failed to read file {input:?}"))?;
                 let mut input = BufReader::new(input);
                 let anim = match input_format {
@@ -259,10 +300,10 @@ impl Cli {
                 // output file (or stdout)
                 if let Some(output) = output {
                     let context = || format!("failed to open output file {output:?}");
-                    let file = File::create(&output).with_context(context)?;
-                    encode(anim, output_format, file)?;
+                    let output = File::create(&output).with_context(context)?;
+                    encode_anim(anim, output_format, output)?;
                 } else {
-                    encode(anim, output_format, std::io::stdout().lock())?;
+                    encode_anim(anim, output_format, std::io::stdout().lock())?;
                 }
             }
         }
@@ -271,7 +312,7 @@ impl Cli {
 }
 
 /// Encode the animation into required format.
-pub fn encode(anim: MaybePacked, format: Format, mut output: impl Write) -> anyhow::Result<()> {
+pub fn encode_anim(anim: MaybePacked, format: Format, mut output: impl Write) -> anyhow::Result<()> {
     match (format, anim) {
         (Internal, anim) => writeln!(output, "{anim:#?}")?,
         (Bin, Packed(anim)) => {
@@ -281,8 +322,20 @@ pub fn encode(anim: MaybePacked, format: Format, mut output: impl Write) -> anyh
         (Json, anim) => serde_json::to_writer_pretty(output, &anim)?,
         (Yaml, anim) => serde_yaml::to_writer(output, &anim)?,
         (format, anim) => {
-            log::error!("format '{format}' does not support 'packed={}'", anim.is_packed());
+            anyhow::bail!("format '{format}' does not support 'packed={}'", anim.is_packed());
         }
+    }
+    Ok(())
+}
+
+/// Encode the model into required format.
+pub fn encode_model(model: model::Model, format: Format, mut output: impl Write) -> anyhow::Result<()> {
+    match format {
+        Compiled | Xml => anyhow::bail!("unsupported output format: '{format}'"),
+        Internal => writeln!(output, "{model:#?}")?,
+        Bin => { bincode::encode_into_std_write(&model, &mut output, BINCODE_CONFIG)?; }
+        Json => serde_json::to_writer_pretty(output, &model)?,
+        Yaml => serde_yaml::to_writer(output, &model)?,
     }
     Ok(())
 }

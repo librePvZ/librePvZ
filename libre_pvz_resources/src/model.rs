@@ -29,7 +29,6 @@ pub struct Model {
     /// Animation, the all-in-one source.
     pub animation: PathBuf,
     /// State machine for this model.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub states: BTreeMap<String, State>,
     /// Attachment models.
     #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
@@ -45,6 +44,7 @@ pub struct State {
     /// This state correspond to this meta range in the animation.
     pub state_meta: String,
     /// Transitions leaving this state.
+    #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
     pub transitions: Box<[StateTransition]>,
 }
 
