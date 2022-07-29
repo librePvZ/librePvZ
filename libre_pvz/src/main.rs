@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// use std::path::{Path, PathBuf};
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use libre_pvz::animation::AnimationPlugin;
@@ -26,8 +27,10 @@ use libre_pvz::scene::lawn::LawnPlugin;
 use libre_pvz_resources::bevy::{AddTwoStageAsset, ResourcesPlugin, TwoStageAssetPlugin};
 
 fn main() {
-    // let anim_name = std::env::args().into_iter().nth(1)
-    //     .unwrap_or_else(|| "Peashooter.anim.bin".to_string());
+    // let anim_name: Box<Path> = match std::env::args_os().into_iter().nth(1) {
+    //     None => AsRef::<Path>::as_ref("Peashooter.anim.bin").into(),
+    //     Some(path) => PathBuf::from(path).into(),
+    // };
 
     App::new()
         .insert_resource(LawnPlugin::window_descriptor())

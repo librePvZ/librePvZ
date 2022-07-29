@@ -20,6 +20,7 @@
 
 use std::sync::Arc;
 use std::fmt::{Debug, Display, Formatter};
+use std::path::{Path, PathBuf};
 use bevy::prelude::*;
 use bevy::asset::{AssetPath, LoadContext, LoadedAsset};
 use bevy::utils::HashMap;
@@ -77,7 +78,7 @@ pub struct Animation {
     /// the animation description.
     pub description: AnimDesc,
     /// all the dependency images.
-    pub images: HashMap<String, Handle<Image>>,
+    pub images: HashMap<PathBuf, Handle<Image>>,
     /// the [`AnimationClip`] generated from description.
     pub clip: OnceCell<Arc<AnimationClip>>,
 }
@@ -166,11 +167,11 @@ impl TwoStageAssetLoader for AnimationLoader {
     type Repr = AnimDesc;
     fn extension(&self) -> &str { "anim" }
     fn post_process(&self, anim: AnimDesc, load_context: &mut LoadContext) -> anyhow::Result<()> {
-        let dep_names = anim.image_files().map(str::to_string).collect::<Vec<_>>();
+        let dep_names = anim.image_files().map(Path::to_path_buf).collect::<Vec<_>>();
         let mut deps = Vec::with_capacity(dep_names.len());
         let mut images = HashMap::with_capacity(dep_names.len());
         for name in dep_names {
-            let asset_path = AssetPath::from(&name).to_owned();
+            let asset_path = AssetPath::from(name.as_path()).to_owned();
             images.insert(name, load_context.get_handle(asset_path.get_id()));
             deps.push(asset_path);
         }

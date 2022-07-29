@@ -18,6 +18,7 @@
 
 //! An (over-)simplified almanac scene.
 
+use std::path::Path;
 use bevy::prelude::*;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
@@ -75,12 +76,12 @@ pub const DESCRIPTION_WIDTH: f32 = WIDTH - 2.0 * DESCRIPTION_TOP_LEFT[0];
 pub struct AlmanacPlugin(AnimName);
 
 #[derive(Debug, Clone)]
-struct AnimName(Box<str>);
+struct AnimName(Box<Path>);
 
 impl AlmanacPlugin {
     /// Create almanac plugin with specified animation name.
-    pub fn new(anim_name: String) -> AlmanacPlugin {
-        AlmanacPlugin(AnimName(anim_name.into_boxed_str()))
+    pub fn new(anim_name: Box<Path>) -> AlmanacPlugin {
+        AlmanacPlugin(AnimName(anim_name))
     }
     /// Mainly for setting the window size.
     pub fn window_descriptor() -> WindowDescriptor {
@@ -205,7 +206,7 @@ fn init_anim(
         anim.clip(),
         Segment::from(&anim.description.meta[stage.selected_meta]),
         anim.description.fps,
-        true
+        true,
     ));
     commands.entity(scaling).add_child(entity);
 }

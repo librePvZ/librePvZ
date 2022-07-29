@@ -18,6 +18,7 @@
 
 //! Sprite and animation API.
 
+use std::path::{Path, PathBuf};
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
 
@@ -35,12 +36,12 @@ pub struct AnimDesc {
 
 impl AnimDesc {
     /// Get an iterator of all the image file names in this animation.
-    pub fn image_files(&self) -> impl Iterator<Item=&str> {
+    pub fn image_files(&self) -> impl Iterator<Item=&Path> {
         self.tracks.iter()
             .flat_map(|track| track.frames.iter())
             .flat_map(|frame| frame.0.iter())
             .filter_map(|trans| match trans {
-                Action::LoadElement(Element::Image { image }) => Some(image.as_str()),
+                Action::LoadElement(Element::Image { image }) => Some(image.as_path()),
                 _ => None,
             })
     }
@@ -115,11 +116,11 @@ pub enum Element {
         /// Text content to display. Characters not in the font are simply ignored.
         text: String,
         /// Font name.
-        font: String,
+        font: PathBuf,
     },
     /// Image element.
     Image {
         /// Image name.
-        image: String,
+        image: PathBuf,
     },
 }

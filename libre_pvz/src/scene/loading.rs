@@ -19,6 +19,7 @@
 //! Asset loading logic (including the failure screen).
 
 use std::marker::PhantomData;
+use std::path::Path;
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::asset::{Asset, LoadState};
@@ -31,7 +32,7 @@ use egui::{Align2, WidgetText};
 #[derive(Debug, Clone)]
 pub struct PendingAsset {
     /// Path to this asset.
-    pub path: Box<str>,
+    pub path: Box<Path>,
     /// Handle to the asset, to be checked for loading status.
     pub handle: HandleUntyped,
 }
@@ -49,16 +50,17 @@ impl<C> PendingAssets<C> {
     /// Create a container for pending assets.
     pub fn new() -> Self { PendingAssets::default() }
     /// Track this handle as pending.
-    pub fn track<T: Asset>(&mut self, path: &str, handle: Handle<T>) -> Handle<T> {
+    pub fn track<T: Asset>(&mut self, path: &Path, handle: Handle<T>) -> Handle<T> {
         self.pending.push(PendingAsset {
-            path: path.to_string().into_boxed_str(),
+            path: path.into(),
             handle: handle.clone_untyped(),
         });
         handle
     }
     /// Load an asset from an asset server, and record it as pending.
-    pub fn load_from<T: Asset>(&mut self, asset_server: &AssetServer, path: &str) -> Handle<T> {
-        self.track(path, asset_server.load(path))
+    pub fn load_from<T, P>(&mut self, asset_server: &AssetServer, path: &P) -> Handle<T>
+        where T: Asset, P: AsRef<Path> + ?Sized {
+        self.track(path.as_ref(), asset_server.load(path.as_ref()))
     }
 }
 
@@ -180,14 +182,14 @@ impl<S: StateData> AssetLoader<S> {
 #[allow(missing_debug_implementations)]
 pub struct Status<S> {
     pending_collection_count: usize,
-    failures: Vec<Box<str>>,
+    failures: Vec<Box<Path>>,
     success_state: S,
     failure_state: S,
 }
 
 impl<S> Status<S> {
     /// Get all the assets that failed loading.
-    pub fn failures(&self) -> impl Iterator<Item=&str> {
+    pub fn failures(&self) -> impl Iterator<Item=&Path> {
         self.failures.iter().map(|s| s.as_ref())
     }
     /// Get a failure message for display.
@@ -308,12 +310,12 @@ fn try_first_k_and_rest<T, E, I: IntoIterator>(
 
 impl AssetFailure {
     /// Construct asset loading failure from names of assets failing to load.
-    pub fn from_names(n: usize, names: impl IntoIterator<Item=impl AsRef<str>>) -> Option<AssetFailure> {
+    pub fn from_names(n: usize, names: impl IntoIterator<Item=impl AsRef<Path>>) -> Option<AssetFailure> {
         use std::fmt::Write;
         let result = try_first_k_and_rest(
             n, names.into_iter(),
             || "Failed to load these assets:\n".to_string(),
-            |msg, name| write!(msg, "• {}", name.as_ref()),
+            |msg, name| write!(msg, "• {}", name.as_ref().display()),
             |msg| writeln!(msg),
             |msg, n| write!(msg, "... and {n} others"),
         );
