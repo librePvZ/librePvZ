@@ -43,7 +43,7 @@ const HEIGHT: f32 = BKG_HEIGHT;
 
 const PLANT_SHADOW: &str = "plantshadow.png";
 const PROJECTILE_PEA: &str = "ProjectilePea.png";
-const PEASHOOTER_ANIM: &str = "Peashooter.anim";
+const PEASHOOTER_ANIM: &str = "Peashooter.anim.bin";
 
 /// Plugin for lawn scene.
 #[derive(Default, Debug, Copy, Clone)]

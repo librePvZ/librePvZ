@@ -2,6 +2,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 ## Unreleased
 
+- add `TwoStageAssetLoader` and related facilities
 - defined `Animation` structure
 - defined `Model` structure
 - support (de)serialization with [`bincode`](https://github.com/bincode-org/bincode)

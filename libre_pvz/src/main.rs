@@ -23,16 +23,17 @@ use libre_pvz::core::kinematics::KinematicsPlugin;
 use libre_pvz::diagnostics::BoundingBoxPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
-use libre_pvz_resources::bevy::ResourcesPlugin;
+use libre_pvz_resources::bevy::{AddTwoStageAsset, ResourcesPlugin, TwoStageAssetPlugin};
 
 fn main() {
     // let anim_name = std::env::args().into_iter().nth(1)
-    //     .unwrap_or_else(|| "Peashooter.anim".to_string());
+    //     .unwrap_or_else(|| "Peashooter.anim.bin".to_string());
 
     App::new()
         .insert_resource(LawnPlugin::window_descriptor())
         // .insert_resource(AlmanacPlugin::window_descriptor())
         .add_plugins(DefaultPlugins)
+        .add_plugin(TwoStageAssetPlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
@@ -40,6 +41,7 @@ fn main() {
         .add_plugin(KinematicsPlugin)
         .add_plugin(LawnPlugin)
         // .add_plugin(AlmanacPlugin::new(anim_name))
+        .freeze_two_stage_asset_loaders()
         .add_startup_system(setup_camera)
         .run();
 }

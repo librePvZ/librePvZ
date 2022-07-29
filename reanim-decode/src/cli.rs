@@ -143,7 +143,7 @@ impl Format {
         let file = path.as_ref();
         let ext = file.extension().and_then(OsStr::to_str);
         let stem = file.file_stem().and_then(OsStr::to_str);
-        ext == Some("anim") || stem.map_or(false, |s| s.ends_with(".packed"))
+        stem.map_or(false, |s| s.ends_with(".anim"))
     }
 
     /// Infer a format from given file name.
@@ -152,10 +152,9 @@ impl Format {
             "txt" => Some(Internal),
             "compiled" => Some(Compiled),
             "bin" => Some(Bin),
-            "anim" => Some(Bin),
             "reanim" | "xml" => Some(Xml),
             "json" => Some(Json),
-            "yaml" => Some(Yaml),
+            "yaml" | "yml" => Some(Yaml),
             _ => None,
         }
     }

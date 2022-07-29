@@ -10,15 +10,15 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 | reanim XML           | `.reanim`          |     | ✅   |
 | reanim JSON          | `.json`            | ✅   | ✅   |
 | reanim YAML          | `.yaml`            | ✅   | ✅   |
-| structural `bincode` | `.anim`            | ✅   | ✅   |
-| structural JSON      | `.packed.json`     | ✅   | ✅   |
-| structural YAML      | `.packed.yaml`     | ✅   | ✅   |
+| structural `bincode` | `.anim.bin`        | ✅   | ✅   |
+| structural JSON      | `.anim.json`       | ✅   | ✅   |
+| structural YAML      | `.anim.yaml`       | ✅   | ✅   |
 
 - model: added animation model description, available in the following formats:
 
-| Format    | Extension |
-|-----------|-----------|
-| `bincode` | `.model`  |
-| JSON      | `.json`   |
-| YAML      | `.yaml`   |
+| Format    | Extension     |
+|-----------|---------------|
+| `bincode` | `.model.bin`  |
+| JSON      | `.model.json` |
+| YAML      | `.model.yaml` |
 

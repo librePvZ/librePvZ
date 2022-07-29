@@ -1773,7 +1773,10 @@ dependencies = [
  "libre_pvz_animation",
  "once_cell",
  "optics",
+ "parking_lot 0.11.2",
  "serde",
+ "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
