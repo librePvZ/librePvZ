@@ -18,9 +18,13 @@
 
 //! Sprite and animation API.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use bevy::prelude::*;
+use bevy::asset::Handle;
+use bevy::text::Font;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
+use crate::cached::Cached;
 
 /// Animations, originally in `.reanim` format.
 #[derive(Debug, Encode, Decode)]
@@ -36,12 +40,12 @@ pub struct AnimDesc {
 
 impl AnimDesc {
     /// Get an iterator of all the image file names in this animation.
-    pub fn image_files(&self) -> impl Iterator<Item=&Path> {
+    pub fn image_files(&self) -> impl Iterator<Item=&Cached<PathBuf, Handle<Image>>> {
         self.tracks.iter()
             .flat_map(|track| track.frames.iter())
             .flat_map(|frame| frame.0.iter())
             .filter_map(|trans| match trans {
-                Action::LoadElement(Element::Image { image }) => Some(image.as_path()),
+                Action::LoadElement(Element::Image { image }) => Some(image),
                 _ => None,
             })
     }
@@ -116,11 +120,11 @@ pub enum Element {
         /// Text content to display. Characters not in the font are simply ignored.
         text: String,
         /// Font name.
-        font: PathBuf,
+        font: Cached<PathBuf, Handle<Font>>,
     },
     /// Image element.
     Image {
         /// Image name.
-        image: PathBuf,
+        image: Cached<PathBuf, Handle<Image>>,
     },
 }

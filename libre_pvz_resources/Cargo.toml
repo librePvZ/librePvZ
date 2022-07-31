@@ -12,22 +12,16 @@ description = "librePvZ game resource management"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+derivative = "2.2.0"
 bincode = { version = "2.0.0-rc.1", features = ["derive"] }
 serde = { version = "1.0.136", features = ["derive"] }
-serde_json = { version = "1.0.79", optional = true }
-serde_yaml = { version = "0.8.23", optional = true }
-bevy = { version = "0.7", default-features = false, features = ["render"], optional = true }
-bitvec = { version = "1.0.0", optional = true }
-once_cell = { version = "1.10.0", optional = true }
-optics = { path = "../optics", optional = true }
-libre_pvz_animation = { path = "../libre_pvz_animation", optional = true }
+serde_json = { version = "1.0.79" }
+serde_yaml = { version = "0.8.23" }
+bevy = { version = "0.7", default-features = false, features = ["render"] }
+bitvec = { version = "1.0.0" }
+once_cell = { version = "1.10.0", features = ["parking_lot"] }
+optics = { path = "../optics" }
+libre_pvz_animation = { path = "../libre_pvz_animation" }
 # below are dependencies already pulled in by bevy
 anyhow = "1.0.55"
 parking_lot = "0.11.2"
-
-[features]
-bevy = [
-    "dep:bevy", "dep:libre_pvz_animation",
-    "dep:bitvec", "dep:optics", "dep:once_cell",
-    "dep:serde_json", "dep:serde_yaml",
-]

@@ -19,10 +19,12 @@
 //! Definition and decoding logic for `.reanim.compiled` files.
 
 use std::io::BufRead;
+use std::path::PathBuf;
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 use libre_pvz_resources::animation as packed;
 use libre_pvz_resources::animation::Element;
+use libre_pvz_resources::cached::Cached;
 use packed::Action;
 use crate::stream::{Decode, Stream, Result};
 
@@ -237,6 +239,7 @@ impl From<Track> for packed::Track {
                 if !image_name_valid {
                     log::error!(target: "pack", "exotic file name: {image}");
                 }
+                let image = Cached::from(PathBuf::from(image));
                 packed.push(Action::LoadElement(Element::Image { image }));
                 has_image = true;
             }
@@ -244,6 +247,7 @@ impl From<Track> for packed::Track {
                 (Some(text), Some(font)) => if has_image {
                     log::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
                 } else {
+                    let font = Cached::from(PathBuf::from(font));
                     packed.push(Action::LoadElement(Element::Text { text, font }));
                 },
                 (Some(text), None) => log::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),

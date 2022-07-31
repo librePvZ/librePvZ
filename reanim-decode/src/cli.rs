@@ -143,7 +143,7 @@ impl Format {
         let file = path.as_ref();
         let ext = file.extension().and_then(OsStr::to_str);
         let stem = file.file_stem().and_then(OsStr::to_str);
-        stem.map_or(false, |s| s.ends_with(".anim"))
+        ext == Some("bin") || stem.map_or(false, |s| s.ends_with(".anim"))
     }
 
     /// Infer a format from given file name.

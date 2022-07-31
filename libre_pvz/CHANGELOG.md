@@ -15,3 +15,4 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 ### Lawn Scene
 
 - show day lawn, set up a grid system on the lawn
+- show a hard-coded Repeater on the lawn

@@ -23,6 +23,5 @@
 
 pub mod animation;
 pub mod model;
-
-#[cfg(feature = "bevy")]
+pub mod cached;
 pub mod bevy;

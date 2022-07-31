@@ -7,6 +7,5 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - defined `Model` structure
 - support (de)serialization with [`bincode`](https://github.com/bincode-org/bincode)
 - implement `serde` (de)serialization for use in JSON/YAML
-
-Feature `bevy`:
-- implement `AssetLoader` for animations
+- implement `TwoStageAssetLoader` for animations
+- add `Cached` mechanism for serializing as names/paths and cache the in-memory shortcut access (integer indices into arrays, or handles into bevy assets)

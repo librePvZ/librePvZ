@@ -1770,6 +1770,7 @@ dependencies = [
  "bevy",
  "bincode",
  "bitvec",
+ "derivative",
  "libre_pvz_animation",
  "once_cell",
  "optics",
@@ -2179,6 +2180,9 @@ name = "once_cell"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
+dependencies = [
+ "parking_lot_core 0.9.3",
+]
 
 [[package]]
 name = "optics"

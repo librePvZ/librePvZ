@@ -20,7 +20,7 @@
 
 use std::sync::Arc;
 use std::fmt::{Debug, Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use bevy::prelude::*;
 use bevy::asset::{AssetPath, LoadContext, LoadedAsset};
 use bevy::utils::HashMap;
@@ -129,8 +129,10 @@ impl Animation {
             use Action::*;
             match act {
                 LoadElement(Element::Text { .. }) => todo!(),
-                LoadElement(Element::Image { image }) =>
-                    builder.push_keyframe(_Image::default(), k, self.images[image].clone()),
+                LoadElement(Element::Image { image }) => {
+                    let image = image.cached.get().unwrap().clone();
+                    builder.push_keyframe(_Image::default(), k, image)
+                }
                 &Alpha(alpha) => builder.push_keyframe(_Alpha, k, alpha),
                 &Show(visible) => builder.push_keyframe(_IsVisible, k, visible),
                 &Translation(t) => builder.push_keyframe(_Translation, k, Vec2::from(t)),
@@ -167,13 +169,13 @@ impl TwoStageAssetLoader for AnimationLoader {
     type Repr = AnimDesc;
     fn extension(&self) -> &str { "anim" }
     fn post_process(&self, anim: AnimDesc, load_context: &mut LoadContext) -> anyhow::Result<()> {
-        let dep_names = anim.image_files().map(Path::to_path_buf).collect::<Vec<_>>();
+        let dep_names = anim.image_files().collect::<Vec<_>>();
         let mut deps = Vec::with_capacity(dep_names.len());
         let mut images = HashMap::with_capacity(dep_names.len());
         for name in dep_names {
-            let asset_path = AssetPath::from(name.as_path()).to_owned();
-            images.insert(name, load_context.get_handle(asset_path.get_id()));
-            deps.push(asset_path);
+            name.init_handle(load_context);
+            images.insert(name.raw_key.clone(), name.cached.get().unwrap().clone());
+            deps.push(AssetPath::from(name.raw_key.as_path()).to_owned());
         }
         let anim = Animation { description: anim, images, clip: OnceCell::new() };
         load_context.set_default_asset(LoadedAsset::new(anim).with_dependencies(deps));

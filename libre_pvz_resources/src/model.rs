@@ -18,7 +18,6 @@
 
 //! Models incorporating animations.
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
@@ -28,8 +27,8 @@ use serde::{Serialize, Deserialize};
 pub struct Model {
     /// Animation, the all-in-one source.
     pub animation: PathBuf,
-    /// State machine for this model.
-    pub states: BTreeMap<String, State>,
+    /// State machine for this model. Sorted by name.
+    pub states: Box<[State]>,
     /// Attachment models.
     #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
     pub attachments: Box<[Attachment]>,
@@ -38,6 +37,8 @@ pub struct Model {
 /// State controls the appearance and behaviours.
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct State {
+    /// Name of this state.
+    pub name: String,
     /// These tracks should be hidden in this state.
     #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
     pub hidden_tracks: Box<[String]>,
