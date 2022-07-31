@@ -84,7 +84,7 @@ impl BlendMethod {
     ///
     /// This function is implemented using multiplication and addition. For vector or matrix types
     /// with dedicated linear interpolation support, such as [`Vec2`], [`Vec3`], [`Mat2`], [`Mat3`],
-    /// etc., one should prefer using [`BlendInfo::factor`] to calculate the factor manually, and
+    /// etc., one should prefer using [`BlendMethod::factor`] to calculate the factor manually, and
     /// use the inherent `lerp` method (e.g. [`Vec2::lerp`]) on those types.
     ///
     /// [`Vec2`]: bevy::math::Vec2
