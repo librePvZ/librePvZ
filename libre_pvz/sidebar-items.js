@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["core","Core subsystems: contributes core functionalities to the game implementation."],["scene","Different scenes of the game."]]});

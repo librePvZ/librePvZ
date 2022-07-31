@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Cookie","A handle to a response from the X11 server."],["CookieWithFds","A handle to a response containing `RawFd` from the X11 server."],["ListFontsWithInfoCookie","A handle to the replies to a `ListFontsWithInfo` request."],["VoidCookie","A handle to a possible error from the X11 server."]]});

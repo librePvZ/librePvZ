@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["clap"] = [];
+implementors["reanim_decode"] = [{"text":"impl <a class=\"trait\" href=\"clap/derive/trait.FromArgMatches.html\" title=\"trait clap::derive::FromArgMatches\">FromArgMatches</a> for <a class=\"struct\" href=\"reanim_decode/cli/struct.Cli.html\" title=\"struct reanim_decode::cli::Cli\">Cli</a>","synthetic":false,"types":["reanim_decode::cli::Cli"]},{"text":"impl <a class=\"trait\" href=\"clap/derive/trait.FromArgMatches.html\" title=\"trait clap::derive::FromArgMatches\">FromArgMatches</a> for <a class=\"enum\" href=\"reanim_decode/cli/enum.Commands.html\" title=\"enum reanim_decode::cli::Commands\">Commands</a>","synthetic":false,"types":["reanim_decode::cli::Commands"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

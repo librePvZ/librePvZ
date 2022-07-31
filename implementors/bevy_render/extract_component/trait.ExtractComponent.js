@@ -1,0 +1,7 @@
+(function() {var implementors = {};
+implementors["bevy"] = [];
+implementors["bevy_core_pipeline"] = [{"text":"impl <a class=\"trait\" href=\"bevy_render/extract_component/trait.ExtractComponent.html\" title=\"trait bevy_render::extract_component::ExtractComponent\">ExtractComponent</a> for <a class=\"struct\" href=\"bevy_core_pipeline/core_2d/struct.Camera2d.html\" title=\"struct bevy_core_pipeline::core_2d::Camera2d\">Camera2d</a>","synthetic":false,"types":["bevy_core_pipeline::core_2d::camera_2d::Camera2d"]},{"text":"impl <a class=\"trait\" href=\"bevy_render/extract_component/trait.ExtractComponent.html\" title=\"trait bevy_render::extract_component::ExtractComponent\">ExtractComponent</a> for <a class=\"struct\" href=\"bevy_core_pipeline/core_3d/struct.Camera3d.html\" title=\"struct bevy_core_pipeline::core_3d::Camera3d\">Camera3d</a>","synthetic":false,"types":["bevy_core_pipeline::core_3d::camera_3d::Camera3d"]}];
+implementors["bevy_internal"] = [];
+implementors["bevy_render"] = [];
+implementors["bevy_ui"] = [{"text":"impl <a class=\"trait\" href=\"bevy_render/extract_component/trait.ExtractComponent.html\" title=\"trait bevy_render::extract_component::ExtractComponent\">ExtractComponent</a> for <a class=\"struct\" href=\"bevy_ui/entity/struct.UiCameraConfig.html\" title=\"struct bevy_ui::entity::UiCameraConfig\">UiCameraConfig</a>","synthetic":false,"types":["bevy_ui::entity::UiCameraConfig"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ReflectComponent","A struct used to operate on reflected [`Component`] of a type."],["ReflectMapEntities",""],["ReflectResource","A struct used to operate on reflected [`Resource`] of a type."]]});

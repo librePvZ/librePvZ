@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Point","A 2-dimensional coordinate."],["Rect","An axis-aligned UI rectangle"],["Size","The width and height of a [`Rect`]"]]});

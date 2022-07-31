@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["projectile_vanish_system","Remove projectiles outside the [`VanishingBound`] to release resources."]],"struct":[["Projectile","Tag component for projectiles."],["VanishingBound","Projectiles outside this bound will vanish."]]});

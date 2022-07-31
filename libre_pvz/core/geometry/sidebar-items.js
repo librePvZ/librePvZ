@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CollideBox","Box for collision detection."]]});

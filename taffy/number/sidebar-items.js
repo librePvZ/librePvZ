@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Number","A [`f32`] that may be undefined"]],"trait":[["MinMax","An extension trait for [`Number`]"],["OrElse","An extension method used for [`Number`]"]]});

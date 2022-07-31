@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["MeasureFunc","A function that can be applied to a `Size<Number>` to obtain a `Size<f32>`"]],"struct":[["Node","An [`Id`]-containing identifier"],["Taffy","A forest of UI `Nodes`, suitable for UI layout"]]});

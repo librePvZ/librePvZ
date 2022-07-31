@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Cached","Raw key storage with cached handle."],["SortedSlice","Raw key storage with cached handle."]],"trait":[["ContainerWithKey","Container of key-value pairs, equipped with a handle type to speed up lookup."],["EntryWithKey","Entries in linear homogeneous collections."]]});

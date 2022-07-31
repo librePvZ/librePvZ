@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Layout","The final result of a layout algorithm for a single `Node`."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["generate_tangents","Generates tangents for the input geometry."]],"trait":[["Geometry","The interface by which mikktspace interacts with your geometry."]]});

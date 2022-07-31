@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`radsort` is a radix sort implementation for sorting by scalar keys (integers, floats, chars, bools)."><meta name="keywords" content="rust, rustlang, rust-lang, radsort"><title>radsort - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../radsort/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../radsort/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Crate radsort</a></h2><div class="sidebar-elems"><div class="block"><ul><li class="version">Version 0.1.0</li><li><a id="all-types" href="all.html">All Items</a></li></div></ul><section><div class="block"><ul><li><a href="#modules">Modules</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div></section><div id="sidebar-vars" data-name="radsort" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../radsort/index.html"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">radsort</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/radsort/lib.rs.html#1-412">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>radsort</code> is a radix sort implementation for sorting by scalar keys
+(integers, floats, chars, bools).</p>
+<p>All built-in scalar types can be used as sorting keys: Booleans, characters,
+integers, and floating point-numbers. To sort by multiple keys, put them in
+a tuple, starting from the most significant key. See <a href="./trait.Key.html"><code>Key</code></a> for a full list
+of supported keys.</p>
+<ul>
+<li>best and worst-case running time is <code>O(n)</code> – see <a href="https://github.com/JakubValtar/radsort/wiki/Benchmarks">benchmarks</a> for more
+detailed performance characteristics</li>
+<li>space complexity is <code>O(n)</code> – direct sort allocates temporary storage the
+size of the slice, for indirect see <a href="./fn.sort_by_cached_key.html"><code>sort_by_cached_key</code></a></li>
+<li>stable, i.e. does not reorder equal elements</li>
+<li>uses <code>#![no_std]</code>, but needs an allocator</li>
+</ul>
+<p>This sort can be several times faster than <code>slice::sort</code> and
+<code>slice::sort_unstable</code>, typically on large slices (hundreds of elements or
+more). It performs worse on short slices and when using wide keys
+(16 bytes). See <a href="https://github.com/JakubValtar/radsort/wiki/Benchmarks">benchmarks</a> to get a better picture of the performance
+characteristics.</p>
+<p><code>radsort</code> is an implementation of LSB radix sort, using counting sort to
+sort the slice by each digit (byte) of the key. As an optimization, the
+slice is sorted only by digits which differ between the keys. See the
+<a href="./unopt/index.html"><code>unopt</code></a> module for more details and functions which don’t use this
+optimization.</p>
+<p>This implementation is based on radix sort by Pierre Terdiman,
+published at
+<a href="http://codercorner.com/RadixSortRevisited.htm">http://codercorner.com/RadixSortRevisited.htm</a>,
+with select optimizations published by Michael Herf at
+<a href="http://stereopsis.com/radix.html">http://stereopsis.com/radix.html</a>.</p>
+<h2 id="floating-point-numbers"><a href="#floating-point-numbers">Floating-point numbers</a></h2>
+<p>Floating-point number keys are effectively sorted according to their partial
+order (see <a href="https://doc.rust-lang.org/std/cmp/trait.PartialOrd.html"><code>PartialOrd</code></a>), with <code>NaN</code> values at the beginning (before the
+negative infinity) and at the end (after the positive infinity), depending
+on the sign bit of each <code>NaN</code>.</p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>Slices of scalar types (integers, floating-point numbers, Booleans, and
+characters) can be sorted directly:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> [<span class="number">2i32</span>, <span class="op">-</span><span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="op">-</span><span class="number">2</span>];
+ 
+<span class="ident">radsort::sort</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data</span>);
+ 
+<span class="macro">assert_eq!</span>(<span class="ident">data</span>, [<span class="op">-</span><span class="number">2</span>, <span class="op">-</span><span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>]);</code></pre></div>
+<p>Use a key extraction function to sort other types:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">friends</span> <span class="op">=</span> [<span class="string">&quot;Punchy&quot;</span>, <span class="string">&quot;Isabelle&quot;</span>, <span class="string">&quot;Sly&quot;</span>, <span class="string">&quot;Puddles&quot;</span>, <span class="string">&quot;Gladys&quot;</span>];
+ 
+<span class="comment">// sort by the length of the string in bytes</span>
+<span class="ident">radsort::sort_by_key</span>(<span class="kw-2">&amp;mut</span> <span class="ident">friends</span>, <span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">len</span>());
+ 
+<span class="macro">assert_eq!</span>(<span class="ident">friends</span>, [<span class="string">&quot;Sly&quot;</span>, <span class="string">&quot;Punchy&quot;</span>, <span class="string">&quot;Gladys&quot;</span>, <span class="string">&quot;Puddles&quot;</span>, <span class="string">&quot;Isabelle&quot;</span>]);</code></pre></div>
+<p>To sort by two or more keys, put them in a tuple, starting with the most
+significant key:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct</span> <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="ident">u8</span>, <span class="ident">inches</span>: <span class="ident">u8</span>, }
+ 
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">heights</span> <span class="op">=</span> [
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">6</span>, <span class="ident">inches</span>: <span class="number">1</span> },
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">5</span>, <span class="ident">inches</span>: <span class="number">9</span> },
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">6</span>, <span class="ident">inches</span>: <span class="number">0</span> },
+];
+ 
+<span class="comment">// sort by feet, if feet are equal, sort by inches</span>
+<span class="ident">radsort::sort_by_key</span>(<span class="kw-2">&amp;mut</span> <span class="ident">heights</span>, <span class="op">|</span><span class="ident">h</span><span class="op">|</span> (<span class="ident">h</span>.<span class="ident">feet</span>, <span class="ident">h</span>.<span class="ident">inches</span>));
+ 
+<span class="macro">assert_eq!</span>(<span class="ident">heights</span>, [
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">5</span>, <span class="ident">inches</span>: <span class="number">9</span> },
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">6</span>, <span class="ident">inches</span>: <span class="number">0</span> },
+    <span class="ident">Height</span> { <span class="ident">feet</span>: <span class="number">6</span>, <span class="ident">inches</span>: <span class="number">1</span> },
+]);</code></pre></div>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="unopt/index.html" title="radsort::unopt mod">unopt</a></div><div class="item-right docblock-short"><p>Sorting functions which don’t use optimizations based on the values
+of the keys. Useful for benchmarks and consistent performance.</p>
+</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Key.html" title="radsort::Key trait">Key</a></div><div class="item-right docblock-short"><p>Types which can be used as sorting keys.</p>
+</div></div></div><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.sort.html" title="radsort::sort fn">sort</a></div><div class="item-right docblock-short"><p>Sorts the slice.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.sort_by_cached_key.html" title="radsort::sort_by_cached_key fn">sort_by_cached_key</a></div><div class="item-right docblock-short"><p>Sorts the slice indirectly, using a key extraction function and caching the keys.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.sort_by_key.html" title="radsort::sort_by_key fn">sort_by_key</a></div><div class="item-right docblock-short"><p>Sorts the slice using a key extraction function.</p>
+</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="radsort" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.1 (e092d0b6b 2022-07-16)" ></div>
+</body></html>

@@ -1,0 +1,6 @@
+(function() {var implementors = {};
+implementors["bevy"] = [];
+implementors["bevy_internal"] = [];
+implementors["bevy_pbr"] = [{"text":"impl <a class=\"trait\" href=\"bevy_render/render_resource/bind_group/trait.AsBindGroup.html\" title=\"trait bevy_render::render_resource::bind_group::AsBindGroup\">AsBindGroup</a> for <a class=\"struct\" href=\"bevy_pbr/struct.StandardMaterial.html\" title=\"struct bevy_pbr::StandardMaterial\">StandardMaterial</a>","synthetic":false,"types":["bevy_pbr::pbr_material::StandardMaterial"]}];
+implementors["bevy_sprite"] = [{"text":"impl <a class=\"trait\" href=\"bevy_render/render_resource/bind_group/trait.AsBindGroup.html\" title=\"trait bevy_render::render_resource::bind_group::AsBindGroup\">AsBindGroup</a> for <a class=\"struct\" href=\"bevy_sprite/struct.ColorMaterial.html\" title=\"struct bevy_sprite::ColorMaterial\">ColorMaterial</a>","synthetic":false,"types":["bevy_sprite::mesh2d::color_material::ColorMaterial"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["derive_shader_type",""]],"macro":[["implement",""]]});
