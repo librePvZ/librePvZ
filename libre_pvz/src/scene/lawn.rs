@@ -20,13 +20,13 @@
 
 use std::time::Duration;
 use bevy::prelude::*;
-use bevy::core::Stopwatch;
+use bevy::time::Stopwatch;
 use bevy::sprite::Anchor;
 use libre_pvz_animation::curve::blend::{BlendInfo, BlendMethod};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::player::AnimationPlayer;
 use libre_pvz_resources::animation::Action;
-use crate::animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
+use crate::animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
 use crate::core::kinematics::{Position, Velocity};
 use crate::core::projectile::{Projectile, VanishingBound};
 use crate::resources::bevy::Animation;
@@ -103,7 +103,7 @@ impl AssetCollection for LawnAssets {
     }
     fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
         if handle.id == self.peashooter_anim.id {
-            let anim = world.resource::<Assets<Animation>>().get(handle).unwrap();
+            let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
             for (path, image) in &anim.images {
                 pending.track(path, image.clone());
             }
@@ -254,7 +254,7 @@ fn spawn_peashooter_system(
 ) {
     let anim = animations.get(&assets.peashooter_anim).unwrap();
     // the whole plant
-    let mut trans = TransformBundle2D::default();
+    let mut trans = SpatialBundle2D::default();
     trans.local.z_order = 10.0;
     let plant = commands.spawn_bundle(trans).insert(GridPos { x: 2, y: 2 }).id();
     // the shadow
@@ -310,7 +310,7 @@ fn peashooter_fire_system(
         // we want to keep that line aligned with other assignments
         #[allow(clippy::field_reassign_with_default)]
         if status.phase.is_shooting() {
-            let stem_top_trans = stem_top.get(parent.0).unwrap().translation();
+            let stem_top_trans = stem_top.get(parent.get()).unwrap().translation();
             let x0 = stem_top_trans.x + 24.0;
             let y0 = stem_top_trans.y + 33.0;
             let p0 = Position(Vec3::new(x0, y0, 0.0));

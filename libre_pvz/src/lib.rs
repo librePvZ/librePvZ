@@ -26,4 +26,4 @@ pub use libre_pvz_animation as animation;
 
 pub mod core;
 pub mod scene;
-pub mod diagnostics;
+// pub mod diagnostics;

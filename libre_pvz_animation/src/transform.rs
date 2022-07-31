@@ -93,15 +93,21 @@ pub struct SpriteBundle2D {
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible.
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible.
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// Similar to [`TransformBundle`], but with a full-fledged [`Transform2D`].
-#[derive(Bundle, Clone, Copy, Debug, Default)]
-pub struct TransformBundle2D {
+#[derive(Bundle, Clone, Debug, Default)]
+pub struct SpatialBundle2D {
     /// The transform of the entity.
     pub local: Transform2D,
     /// The global transform of the entity.
     pub global: GlobalTransform,
+    /// User indication of whether an entity is visible.
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible.
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
@@ -156,7 +162,7 @@ fn propagate_recursive(
         Ok((mut global_transform, transform, transform_changed)) => {
             changed |= transform_changed;
             if changed {
-                let t = parent.compute_affine() * transform.to_affine();
+                let t = parent.affine() * transform.to_affine();
                 *global_transform = GlobalTransform::from(t);
             }
             *global_transform

@@ -1,4 +1,0 @@
-[submodule "bevy"]
-	path = bevy
-	url = https://github.com/ruifengx/bevy
-	shallow = true

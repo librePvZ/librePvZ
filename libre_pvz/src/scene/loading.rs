@@ -219,11 +219,14 @@ fn check_loading_status<S: StateData, T: AssetCollection>(
                 continue;
             }
             LoadState::Loaded => {
-                finished.push(pending_assets.pending.swap_remove(current).handle);
+                let asset = pending_assets.pending.swap_remove(current);
+                debug!("loaded asset: {} (remaining: {})", asset.path.display(), pending_assets.pending.len());
+                finished.push(asset.handle);
             }
             // treat unloaded assets as failures (be strict)
             LoadState::Failed | LoadState::Unloaded => {
                 let asset = pending_assets.pending.swap_remove(current);
+                debug!("failed loading asset: {}", asset.path.display());
                 loading_status.failures.push(asset.path);
             }
         }

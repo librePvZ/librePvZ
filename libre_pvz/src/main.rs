@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use libre_pvz::animation::AnimationPlugin;
 use libre_pvz::core::kinematics::KinematicsPlugin;
-use libre_pvz::diagnostics::BoundingBoxPlugin;
+// use libre_pvz::diagnostics::BoundingBoxPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
 use libre_pvz_resources::bevy::{AddTwoStageAsset, ResourcesPlugin, TwoStageAssetPlugin};
@@ -38,7 +38,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(TwoStageAssetPlugin)
         .add_plugin(EguiPlugin)
-        .add_plugin(BoundingBoxPlugin)
+        // .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugin(ResourcesPlugin)
         .add_plugin(KinematicsPlugin)
@@ -50,5 +50,5 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 }

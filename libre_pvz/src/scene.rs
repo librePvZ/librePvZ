@@ -19,5 +19,5 @@
 //! Different scenes of the game.
 
 pub mod loading;
-pub mod almanac;
+// pub mod almanac;
 pub mod lawn;

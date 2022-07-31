@@ -31,7 +31,7 @@ use optics::concrete::_Identity;
 use once_cell::sync::OnceCell;
 use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
 use libre_pvz_animation::curve::Segment;
-use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, TransformBundle2D};
+use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
 use crate::animation::{AnimDesc, Action, Element, Track, Frame, Meta};
 use super::loader::TwoStageAssetLoader;
 
@@ -96,9 +96,9 @@ impl Animation {
     /// Spawn an animation.
     pub fn spawn_on(&self, commands: &mut Commands) -> (Entity, Vec<Entity>) {
         let mut track_entities = Vec::new();
-        let parent = commands.spawn_bundle(TransformBundle2D {
+        let parent = commands.spawn_bundle(SpatialBundle2D {
             local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
-            ..TransformBundle2D::default()
+            ..SpatialBundle2D::default()
         }).id();
         for (z, track) in self.description.tracks.iter().enumerate() {
             let this = Name::new(track.name.to_string());

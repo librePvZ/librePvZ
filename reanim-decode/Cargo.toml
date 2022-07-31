@@ -13,17 +13,17 @@ description = "decoder for PvZ reanim files"
 
 [dependencies]
 itertools = "0.10.3"
-thiserror = "1.0.30"
-log = "0.4.14"
-flate2 = "1.0.22"
+thiserror = "1.0.31"
+log = "0.4.17"
+flate2 = "1.0.24"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 bincode = "2.0.0-rc.1"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_yaml = { version = "0.8.23" }
-serde_json = { version = "1.0.80" }
-fern = { version = "0.6.0", optional = true, features = ["colored"] }
-clap = { version = "3.2.15", optional = true, features = ["derive"] }
-anyhow = { version = "1.0.55", optional = true }
+serde = { version = "1.0.140", features = ["derive"] }
+serde_yaml = "0.9.2"
+serde_json = "1.0.82"
+fern = { version = "0.6.1", optional = true, features = ["colored"] }
+clap = { version = "3.2.16", optional = true, features = ["derive"] }
+anyhow = { version = "1.0.58", optional = true }
 
 [features]
 cli = ["dep:fern", "dep:clap", "dep:anyhow"]
