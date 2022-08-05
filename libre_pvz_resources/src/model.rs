@@ -21,56 +21,47 @@
 use std::path::PathBuf;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
+use crate::dynamic::DynamicResource;
 
 /// Model: animation together with its association.
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct Model {
     /// Animation, the all-in-one source.
     pub animation: PathBuf,
     /// State machine for this model. Sorted by name.
     pub states: Box<[State]>,
     /// Attachment models.
-    #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
+    #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
     pub attachments: Box<[Attachment]>,
 }
 
 /// State controls the appearance and behaviours.
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct State {
     /// Name of this state.
     pub name: String,
     /// These tracks should be hidden in this state.
-    #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
+    #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
     pub hidden_tracks: Box<[String]>,
     /// This state correspond to this meta range in the animation.
     pub state_meta: String,
     /// Transitions leaving this state.
-    #[serde(default = "defaults::empty_slice", skip_serializing_if = "defaults::is_slice_empty")]
+    #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
     pub transitions: Box<[StateTransition]>,
 }
 
 /// Transition from one state to another.
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct StateTransition {
     /// Triggering condition for this transition. [`None`] means this transition should be
     /// automatically triggered immediately the animation finishes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<Trigger>,
+    pub trigger: Option<DynamicResource>,
     /// Destination for this transition.
     pub dest: String,
     /// Duration in seconds for the blending.
     #[serde(default = "defaults::default_blending")]
     pub blending: f32,
-}
-
-/// Triggering condition, tested repeatedly to determine whether to leave a state.
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub struct Trigger {
-    /// Predicate to test for this triggering condition.
-    pub predicate: String,
-    /// Arguments for the predicate.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub arguments: Option<PathBuf>,
 }
 
 /// Attachment, useful for separating different movable parts in a single entity.
@@ -98,7 +89,6 @@ pub struct PlantMeta {
 mod defaults {
     pub fn one() -> u8 { 1 }
     pub fn is_one(x: &u8) -> bool { *x == 1 }
-    pub fn empty_slice<T>() -> Box<[T]> { Box::new([]) }
     pub fn is_slice_empty<T>(x: &[T]) -> bool { x.is_empty() }
     pub fn default_blending() -> f32 { 0.2 }
 }

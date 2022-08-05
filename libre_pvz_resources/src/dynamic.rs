@@ -20,7 +20,7 @@
 
 use std::any::{Any, TypeId};
 use std::collections::BTreeMap;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 use bevy::prelude::*;
 use bevy::reflect::erased_serde::{
     Serialize as ErasedSerialize,
@@ -168,6 +168,10 @@ impl<T> AnyResource for T
         // hopefully this gets inlined, and the double reference is optimised away
         T::decode(&mut DecoderImpl::new(Proxy(reader), BINCODE_CONFIG)).map(|x| Box::new(x) as _)
     }
+}
+
+impl Debug for dyn AnyResource {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { self.debug(f) }
 }
 
 /// Resource, but without a statically-known type.
