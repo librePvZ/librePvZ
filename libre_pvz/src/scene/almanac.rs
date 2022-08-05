@@ -26,7 +26,7 @@ use bevy_egui::EguiContext;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::player::AnimationStatus;
-use libre_pvz_animation::transform::TransformBundle2D;
+use libre_pvz_animation::transform::SpatialBundle2D;
 use crate::animation::player::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
 use crate::resources::bevy::Animation;
@@ -47,7 +47,7 @@ pub const GROUND_IMAGE: &str = "Almanac_GroundDay.jpg";
 
 /// Rectangle for the preview window.
 /// Note that our y-axis points up.
-pub const WINDOW: Rect<f32> = Rect {
+pub const WINDOW: UiRect<f32> = UiRect {
     left: 63.0,
     top: -22.0,
     right: 252.0,
@@ -135,9 +135,9 @@ impl AssetCollection for Stage {
     }
     fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
         if handle.id == self.animation.id {
-            let anim = world.resource::<Assets<Animation>>().get(handle).unwrap();
-            for (path, image) in &anim.images {
-                pending.track(path, image.clone());
+            let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
+            for image in anim.description.image_files() {
+                pending.track(image.raw_key.as_path(), image.cached.get().unwrap().clone());
             }
         }
     }
@@ -180,14 +180,14 @@ fn init_anim(
     context.ctx_mut().set_visuals(Visuals::light());
     let anim = assets.get(&stage.animation).unwrap();
     let scaling = commands
-        .spawn_bundle(TransformBundle2D {
+        .spawn_bundle(SpatialBundle2D {
             local: Transform2D {
                 scale: Vec2::new(stage.scaling_factor, stage.scaling_factor),
                 translation: Vec2::from(PLANT_CENTER),
                 z_order: 1.0,
                 ..Transform2D::default()
             },
-            ..TransformBundle2D::default()
+            ..SpatialBundle2D::default()
         })
         .insert(Scaling)
         .insert(BoundingBoxRoot {

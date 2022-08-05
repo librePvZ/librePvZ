@@ -136,7 +136,7 @@ fn update_bounding_box_system(
 ) {
     for (this, mut bb, mut path, parent, mut vis) in boxes.iter_mut() {
         if let Ok(root) = roots.get(bb.0) {
-            if let Ok((sprite, texture, parent_vis)) = sprites.get(parent.0) {
+            if let Ok((sprite, texture, parent_vis)) = sprites.get(parent.get()) {
                 let new_visible = root.is_visible && parent_vis.map_or(true, |v| v.is_visible);
                 if vis.is_visible != new_visible {
                     vis.is_visible = new_visible;
