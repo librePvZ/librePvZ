@@ -20,7 +20,6 @@
 
 use std::sync::Arc;
 use std::fmt::{Debug, Display, Formatter};
-use std::path::PathBuf;
 use bevy::prelude::*;
 use bevy::asset::{AssetPath, LoadContext};
 use bevy::utils::HashMap;
@@ -79,8 +78,6 @@ optics::declare_lens_from_field! {
 pub struct Animation {
     /// the animation description.
     pub description: AnimDesc,
-    /// all the dependency images.
-    pub images: HashMap<PathBuf, Handle<Image>>,
     /// the [`AnimationClip`] generated from description.
     pub clip: OnceCell<Arc<AnimationClip>>,
 }
@@ -175,7 +172,7 @@ impl TwoStageAsset for Animation {
             images.insert(name.raw_key.clone(), name.cached.get().unwrap().clone());
             dep_paths.push(AssetPath::from(name.raw_key.as_path()).to_owned());
         }
-        let anim = Animation { description: anim, images, clip: OnceCell::new() };
+        let anim = Animation { description: anim, clip: OnceCell::new() };
         Ok((anim, dep_paths))
     }
 }

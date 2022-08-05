@@ -104,8 +104,8 @@ impl AssetCollection for LawnAssets {
     fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
         if handle.id == self.peashooter_anim.id {
             let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
-            for (path, image) in &anim.images {
-                pending.track(path, image.clone());
+            for image in anim.description.image_files() {
+                pending.track(image.raw_key.as_path(), image.cached.get().unwrap().clone());
             }
         }
     }
