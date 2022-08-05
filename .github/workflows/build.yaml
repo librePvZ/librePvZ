@@ -23,15 +23,13 @@ jobs:
         - os: macos-latest
           readable_os: macOS
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+    - uses: actions/checkout@v3
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
         components: clippy
-    - uses: Swatinem/rust-cache@v1
+    - uses: Swatinem/rust-cache@v2
     - name: Clippy checks
       uses: actions-rs/cargo@v1
       with:
@@ -50,14 +48,12 @@ jobs:
     needs: [test]
     if: github.event_name == 'push'
     steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+    - uses: actions/checkout@v3
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
-    - uses: Swatinem/rust-cache@v1
+    - uses: Swatinem/rust-cache@v2
     - name: Generate documentation
       uses: actions-rs/cargo@v1
       with:
