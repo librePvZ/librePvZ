@@ -64,8 +64,15 @@ impl DynamicRegistry {
         }).ok().expect("DynamicRegistry must not be initialized more than once")
     }
 
+    /// Initialize the global dynamic registry, without a Bevy app.
+    pub fn initialize_without_bevy() {
+        DynamicRegistry::initialize(TypeRegistry::default())
+    }
+
     /// Get the global dynamic registry. Panics if called before initialization of the registry.
-    pub fn global() -> &'static DynamicRegistry { GLOBAL_REGISTRY.get().unwrap() }
+    pub fn global() -> &'static DynamicRegistry {
+        GLOBAL_REGISTRY.get().expect("DynamicRegistry: must initialize before use")
+    }
 
     /// Get the [`ReflectAnyResource`] for the type registered as the given name.
     pub fn resource_by_name(&self, name: &str) -> Option<ReflectAnyResource> {
@@ -215,13 +222,13 @@ impl<'de> Deserialize<'de> for DynamicResource {
                 formatter.write_str("a dynamic resource")
             }
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let name = map.next_key::<&str>()?.ok_or_else(||
+                let name = map.next_key::<String>()?.ok_or_else(||
                     A::Error::custom("type tag for DynamicResource required"))?;
                 let reg = DynamicRegistry::global();
-                let reflect = reg.resource_by_name(name).ok_or_else(|| A::Error::custom(
+                let reflect = reg.resource_by_name(&name).ok_or_else(|| A::Error::custom(
                     format_args!("type {} not registered for dynamic deserialization", name)))?;
                 let result = map.next_value_seed(reflect)?;
-                if map.next_key::<&str>()?.is_none() { Ok(result) } else {
+                if map.next_key::<String>()?.is_none() { Ok(result) } else {
                     Err(A::Error::custom(format_args!("too many entries for DynamicResource '{}'", name)))
                 }
             }

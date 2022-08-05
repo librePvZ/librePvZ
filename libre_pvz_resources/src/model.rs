@@ -19,17 +19,22 @@
 //! Models incorporating animations.
 
 use std::path::PathBuf;
+use bevy::prelude::*;
+use bevy::reflect::TypeUuid;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
+use crate::bevy::Animation;
+use crate::cached::{Cached, EntryWithKey, SortedSlice};
 use crate::dynamic::DynamicResource;
 
 /// Model: animation together with its association.
-#[derive(Debug, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Serialize, Deserialize, TypeUuid)]
+#[uuid = "42c6a0d1-7add-4ef2-abe7-ca4d38252617"]
 pub struct Model {
     /// Animation, the all-in-one source.
-    pub animation: PathBuf,
+    pub animation: Cached<PathBuf, Handle<Animation>>,
     /// State machine for this model. Sorted by name.
-    pub states: Box<[State]>,
+    pub states: SortedSlice<State>,
     /// Attachment models.
     #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
     pub attachments: Box<[Attachment]>,
@@ -50,6 +55,11 @@ pub struct State {
     pub transitions: Box<[StateTransition]>,
 }
 
+impl EntryWithKey for State {
+    type Key = str;
+    fn key(&self) -> &str { &self.name }
+}
+
 /// Transition from one state to another.
 #[derive(Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct StateTransition {
@@ -58,7 +68,7 @@ pub struct StateTransition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger: Option<DynamicResource>,
     /// Destination for this transition.
-    pub dest: String,
+    pub dest: Cached<String, usize>,
     /// Duration in seconds for the blending.
     #[serde(default = "defaults::default_blending")]
     pub blending: f32,
@@ -70,7 +80,7 @@ pub struct Attachment {
     /// Target track to which this model is attached.
     pub target_track: String,
     /// The model to be attached.
-    pub child_model: PathBuf,
+    pub child_model: Cached<PathBuf, Handle<Model>>,
 }
 
 /// Plant meta information.

@@ -123,6 +123,7 @@ pub enum Format {
 }
 
 use Format::*;
+use libre_pvz_resources::dynamic::DynamicRegistry;
 
 impl Display for Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -242,6 +243,7 @@ impl Cli {
             Some(None) => LevelFilter::Info, // default '--verbose'
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });
+        DynamicRegistry::initialize_without_bevy();
         match args.commands {
             Commands::Model {
                 input, input_format,
