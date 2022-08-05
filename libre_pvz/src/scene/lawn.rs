@@ -29,7 +29,7 @@ use libre_pvz_resources::animation::Action;
 use crate::animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
 use crate::core::kinematics::{Position, Velocity};
 use crate::core::projectile::{Projectile, VanishingBound};
-use crate::resources::bevy::Animation;
+use crate::resources::animation::Animation;
 use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
 const BKG_IMAGE: &str = "background1.jpg";

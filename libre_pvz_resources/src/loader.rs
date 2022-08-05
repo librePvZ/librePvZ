@@ -50,7 +50,7 @@ pub struct AssetExtensions {
 ///
 /// ```
 /// # use libre_pvz_resources::asset_ext;
-/// use libre_pvz_resources::bevy::loader::AssetExtensions;
+/// use libre_pvz_resources::loader::AssetExtensions;
 /// assert_eq!(asset_ext!("anim"), AssetExtensions {
 ///     yaml: &["anim.yaml", "anim.yml"],
 ///     json: &["anim.json"],
@@ -60,7 +60,7 @@ pub struct AssetExtensions {
 #[macro_export]
 macro_rules! asset_ext {
     ($ext:literal) => {
-        $crate::bevy::loader::AssetExtensions {
+        $crate::loader::AssetExtensions {
             yaml: &[::std::concat!($ext, ".yaml"), ::std::concat!($ext, ".yml")],
             json: &[::std::concat!($ext, ".json")],
             bin: &[::std::concat!($ext, ".bin")],

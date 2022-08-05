@@ -29,7 +29,7 @@ use libre_pvz_animation::player::AnimationStatus;
 use libre_pvz_animation::transform::SpatialBundle2D;
 use crate::animation::player::AnimationPlayer;
 use crate::animation::transform::{SpriteBundle2D, Transform2D};
-use crate::resources::bevy::Animation;
+use crate::resources::animation::Animation;
 use crate::diagnostics::BoundingBoxRoot;
 use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 

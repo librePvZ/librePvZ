@@ -25,4 +25,18 @@ pub mod dynamic;
 pub mod animation;
 pub mod model;
 pub mod cached;
-pub mod bevy;
+pub mod loader;
+
+use bevy::prelude::*;
+use animation::Animation;
+use loader::AddTwoStageAsset;
+
+/// Resources plugin.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct ResourcesPlugin;
+
+impl Plugin for ResourcesPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_two_stage_asset::<Animation>();
+    }
+}

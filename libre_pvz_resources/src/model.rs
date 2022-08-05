@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
-use crate::bevy::Animation;
+use crate::animation::Animation;
 use crate::cached::{Cached, EntryWithKey, SortedSlice};
 use crate::dynamic::DynamicResource;
 

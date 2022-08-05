@@ -24,7 +24,7 @@ use libre_pvz::core::kinematics::KinematicsPlugin;
 use libre_pvz::diagnostics::BoundingBoxPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
-use libre_pvz_resources::bevy::ResourcesPlugin;
+use libre_pvz_resources::ResourcesPlugin;
 
 fn main() {
     // let anim_name: Box<Path> = match std::env::args_os().into_iter().nth(1) {
