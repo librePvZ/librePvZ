@@ -27,12 +27,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use bevy::asset::{Asset, AssetPath, LoadContext};
 use bevy::prelude::*;
-use bincode::de::{Decode, Decoder};
-use bincode::enc::{Encode, Encoder};
+use bincode::{Encode, Decode};
+use bincode::de::Decoder;
+use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use derivative::Derivative;
 use once_cell::sync::OnceCell;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Deserializer};
 
 /// Raw key storage with cached handle.
 #[derive(Clone)]
@@ -127,6 +128,8 @@ pub trait ContainerWithKey {
 
 /// Raw key storage with cached handle.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Serialize, Encode)]
+#[serde(transparent)]
 pub struct SortedSlice<T>(Box<[T]>);
 
 impl<T> Deref for SortedSlice<T> {
@@ -158,5 +161,19 @@ impl<E: EntryWithKey> ContainerWithKey for SortedSlice<E>
     fn get_by_handle(&self, handle: usize) -> &E { &self[handle] }
     fn get_by_key(&self, key: &E::Key) -> Option<usize> {
         self.binary_search_by(|x| x.key().cmp(key)).ok()
+    }
+}
+
+impl<'de, T> Deserialize<'de> for SortedSlice<T>
+    where T: EntryWithKey + Deserialize<'de>, T::Key: Ord {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Box::<[T]>::deserialize(deserializer).map(SortedSlice::from)
+    }
+}
+
+impl<T> Decode for SortedSlice<T>
+    where T: EntryWithKey + Decode, T::Key: Ord {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        Box::<[T]>::decode(decoder).map(SortedSlice::from)
     }
 }
