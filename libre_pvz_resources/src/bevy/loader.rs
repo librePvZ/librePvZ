@@ -35,7 +35,7 @@ use serde::de::DeserializeOwned;
 pub type StrList = &'static [&'static str];
 
 /// File extensions for two-stage assets. See also [`asset_ext`](crate::asset_ext).
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct AssetExtensions {
     /// File extensions for YAML file storage, e.g., `["anim.yaml", "anim.yml"]`.
     pub yaml: StrList,
