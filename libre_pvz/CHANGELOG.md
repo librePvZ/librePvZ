@@ -4,8 +4,6 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 ### Almanac Scene
 
-> Disabled temporarily in the update to Bevy 0.8. We should migrate the `BoundingBoxPlugin` (and therefore re-enable this scene) as soon as `bevy_prototype_lyon` catches up and release a new version. 
-
 - support previewing animations (default meta track "anim_idle")
 - GUI panels for controlling preview behaviour:
   - show (average) frame rate for diagnostics
