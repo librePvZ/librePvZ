@@ -13,7 +13,7 @@ description = "librePvZ animation in Bevy"
 
 [dependencies]
 bevy = { version = "0.8.0", default-features = false, features = ["bevy_sprite"] }
-thiserror = "1.0.31"
+thiserror = "1.0.32"
 derivative = "2.2.0"
 delegate = "0.7.0"
 itertools = "0.10.3"
