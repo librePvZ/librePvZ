@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use bevy::prelude::*;
-use bevy::asset::{AssetPath, LoadContext, LoadedAsset};
+use bevy::asset::{AssetPath, LoadContext};
 use bevy::utils::HashMap;
 use bevy::reflect::TypeUuid;
 use bevy::sprite::Anchor;
@@ -32,8 +32,10 @@ use once_cell::sync::OnceCell;
 use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
+use crate::asset_ext;
 use crate::animation::{AnimDesc, Action, Element, Track, Frame, Meta};
-use super::loader::TwoStageAssetLoader;
+use crate::bevy::loader::AssetExtensions;
+use super::loader::TwoStageAsset;
 
 optics::declare_lens_from_field! {
     _Color for color as Sprite => Color;
@@ -161,24 +163,19 @@ impl Animation {
     }
 }
 
-/// Asset loader for `.anim` files.
-#[derive(Debug, Default)]
-pub struct AnimationLoader;
-
-impl TwoStageAssetLoader for AnimationLoader {
+impl TwoStageAsset for Animation {
     type Repr = AnimDesc;
-    fn extension(&self) -> &str { "anim" }
-    fn post_process(&self, anim: AnimDesc, load_context: &mut LoadContext) -> anyhow::Result<()> {
-        let dep_names = anim.image_files().collect::<Vec<_>>();
-        let mut deps = Vec::with_capacity(dep_names.len());
-        let mut images = HashMap::with_capacity(dep_names.len());
-        for name in dep_names {
+    const EXTENSIONS: AssetExtensions = asset_ext!("anim");
+    fn post_process(anim: AnimDesc, load_context: &mut LoadContext) -> anyhow::Result<(Animation, Vec<AssetPath<'static>>)> {
+        let deps = anim.image_files().collect::<Vec<_>>();
+        let mut dep_paths = Vec::with_capacity(deps.len());
+        let mut images = HashMap::with_capacity(deps.len());
+        for name in deps {
             name.init_handle(load_context);
             images.insert(name.raw_key.clone(), name.cached.get().unwrap().clone());
-            deps.push(AssetPath::from(name.raw_key.as_path()).to_owned());
+            dep_paths.push(AssetPath::from(name.raw_key.as_path()).to_owned());
         }
         let anim = Animation { description: anim, images, clip: OnceCell::new() };
-        load_context.set_default_asset(LoadedAsset::new(anim).with_dependencies(deps));
-        Ok(())
+        Ok((anim, dep_paths))
     }
 }

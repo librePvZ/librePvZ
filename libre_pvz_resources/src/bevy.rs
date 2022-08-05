@@ -23,10 +23,8 @@ use bevy::prelude::*;
 pub mod loader;
 pub mod animation;
 
-pub use loader::{AddTwoStageAsset, TwoStageAssetPlugin};
+pub use loader::AddTwoStageAsset;
 pub use animation::Animation;
-
-use animation::AnimationLoader;
 
 /// Resources plugin.
 #[derive(Default, Debug, Copy, Clone)]
@@ -34,7 +32,6 @@ pub struct ResourcesPlugin;
 
 impl Plugin for ResourcesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<Animation>()
-            .init_two_stage_asset_loader::<AnimationLoader>();
+        app.add_two_stage_asset::<Animation>();
     }
 }
