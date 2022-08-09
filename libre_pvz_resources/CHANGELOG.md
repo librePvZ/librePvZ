@@ -4,6 +4,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 
 - add `TwoStageAsset` and related facilities
 - add `Cached` mechanism for serializing as names/paths and cache the in-memory shortcut access (integer indices into arrays, or handles into bevy assets)
+- add `AnyResource` and `DynamicResource` for dynamic (de)serialization
 - defined `Animation` structure
 - defined `Model` structure
 - support (de)serialization with [`bincode`](https://github.com/bincode-org/bincode)

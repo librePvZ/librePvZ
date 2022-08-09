@@ -25,7 +25,7 @@ use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
 use crate::animation::Animation;
 use crate::cached::{Cached, EntryWithKey, SortedSlice};
-use crate::dynamic::DynamicResource;
+use crate::dynamic::AnyResource;
 
 /// Model: animation together with its association.
 #[derive(Debug, Encode, Decode, Serialize, Deserialize, TypeUuid)]
@@ -66,7 +66,7 @@ pub struct StateTransition {
     /// Triggering condition for this transition. [`None`] means this transition should be
     /// automatically triggered immediately the animation finishes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<DynamicResource>,
+    pub trigger: Option<Box<dyn AnyResource>>,
     /// Destination for this transition.
     pub dest: Cached<String, usize>,
     /// Duration in seconds for the blending.
