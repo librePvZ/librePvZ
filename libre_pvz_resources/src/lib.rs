@@ -30,23 +30,19 @@ pub mod loader;
 pub mod animation;
 pub mod model;
 
+use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use animation::Animation;
-use loader::AddTwoStageAsset;
 
-use crate::model::*;
+use animation::AnimationPlugin;
+use model::ModelPlugin;
 
-/// Resources plugin.
+/// Resources plugin group.
 #[derive(Default, Debug, Copy, Clone)]
-pub struct ResourcesPlugin;
+pub struct ResourcesPlugins;
 
-impl Plugin for ResourcesPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<MarkerRegistry>()
-            .add_two_stage_asset::<Animation>()
-            .add_event::<StateTransitionEvent>()
-            .add_event::<TransitionTrigger>()
-            .add_two_stage_asset::<Model>()
-            .register_marker::<AutoNullTrigger>("AutoNullTrigger");
+impl PluginGroup for ResourcesPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(AnimationPlugin)
+            .add(ModelPlugin);
     }
 }

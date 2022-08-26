@@ -26,7 +26,7 @@ use libre_pvz::diagnostics::BoundingBoxPlugin;
 use libre_pvz::plant::peashooter::PeashooterPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
-use libre_pvz_resources::ResourcesPlugin;
+use libre_pvz_resources::ResourcesPlugins;
 
 fn main() {
     // let anim_name: Box<Path> = match std::env::args_os().into_iter().nth(1) {
@@ -42,7 +42,7 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
-        .add_plugin(ResourcesPlugin)
+        .add_plugins(ResourcesPlugins)
         .add_plugin(KinematicsPlugin)
         .add_plugin(PeashooterPlugin)
         .add_plugin(LawnPlugin)

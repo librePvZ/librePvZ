@@ -37,7 +37,17 @@ use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
 use crate::asset_ext;
 use crate::cached::{Cached, EntryWithKey, SortedSlice};
-use crate::loader::{AssetExtensions, TwoStageAsset};
+use crate::loader::{AddTwoStageAsset, AssetExtensions, TwoStageAsset};
+
+/// Resources plugin.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct AnimationPlugin;
+
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_two_stage_asset::<Animation>();
+    }
+}
 
 /// Animations, originally in `.reanim` format.
 #[derive(Debug, Encode, Decode)]

@@ -36,7 +36,7 @@ use libre_pvz_animation::player::AnimationPlayer;
 use crate::asset_ext;
 use crate::animation::{Animation, action::_Translation};
 use crate::cached::{Cached, ContainerWithKey, EntryWithKey, SortedSlice};
-use crate::loader::{AssetExtensions, TwoStageAsset};
+use crate::loader::{AddTwoStageAsset, AssetExtensions, TwoStageAsset};
 
 /// Extend the [`App`] for registering marker components.
 pub trait MarkerRegistryExt {
@@ -48,6 +48,43 @@ impl MarkerRegistryExt for App {
     fn register_marker<M: Component + Default>(&mut self, name: &str) -> &mut App {
         self.world.resource_mut::<MarkerRegistry>().register_marker::<M>(name);
         self
+    }
+}
+
+/// Model plugin.
+#[derive(Debug, Copy, Clone)]
+pub struct ModelPlugin;
+
+/// Labels for model-related systems.
+#[derive(Clone, Debug, SystemLabel, PartialEq, Eq, Hash)]
+pub enum ModelSystem {
+    /// Ticks the cool down timers, systems relying on [`CoolDown`] should be
+    /// [`after`](ParallelSystemDescriptorCoercion::after) this label.
+    CoolDownTicking,
+    /// Responds to [`TransitionTrigger`] events, systems writing such events should be
+    /// [`before`](ParallelSystemDescriptorCoercion::before) this label.
+    TransitionTrigger,
+    /// Shows animation for state transitions; responds to [`StateTransitionEvent`] events.
+    /// Systems manually writing such events should be
+    /// [`before`](ParallelSystemDescriptorCoercion::before) this label.
+    TransitionAnimation,
+}
+
+impl Plugin for ModelPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MarkerRegistry>()
+            .add_event::<StateTransitionEvent>()
+            .add_event::<TransitionTrigger>()
+            .add_two_stage_asset::<Model>()
+            .register_marker::<AutoNullTrigger>("AutoNullTrigger")
+            .add_system(cool_down_tick_system
+                .label(ModelSystem::CoolDownTicking))
+            .add_system(apply_null_trigger_system)
+            .add_system(transition_trigger_response_system
+                .label(ModelSystem::TransitionTrigger)
+                .before(ModelSystem::TransitionAnimation))
+            .add_system(state_transition_animation_system
+                .label(ModelSystem::TransitionAnimation));
     }
 }
 
@@ -252,7 +289,7 @@ impl CoolDown {
 }
 
 /// Tick the cool down timer.
-pub fn cool_down_tick_system(mut cool_down: Query<&mut CoolDown>, time: Res<Time>) {
+fn cool_down_tick_system(mut cool_down: Query<&mut CoolDown>, time: Res<Time>) {
     for mut cool_down in &mut cool_down {
         cool_down.stopwatch.tick(time.delta());
     }
@@ -296,7 +333,7 @@ impl<'a> Display for PrettyTrigger<'a> {
 }
 
 /// Respond to [`TransitionTrigger`]s by performing state transitions.
-pub fn transition_trigger_response_system(
+fn transition_trigger_response_system(
     mut instances: Query<&mut ModelState>,
     mut triggers: EventReader<TransitionTrigger>,
     mut transition_events: EventWriter<StateTransitionEvent>,
@@ -332,7 +369,7 @@ pub fn transition_trigger_response_system(
 pub struct AutoNullTrigger;
 
 /// Automatically apply the [`None`] trigger if required.
-pub fn apply_null_trigger_system(
+fn apply_null_trigger_system(
     instances: Query<(Entity, &ModelState), With<AutoNullTrigger>>,
     mut triggers: EventWriter<TransitionTrigger>,
     models: Res<Assets<Model>>,
@@ -365,7 +402,7 @@ pub struct StateTransitionEvent {
 }
 
 /// Reflect the state transition to animation transition.
-pub fn state_transition_animation_system(
+fn state_transition_animation_system(
     mut instances: Query<(&ModelState, &mut AnimationPlayer)>,
     mut events: EventReader<StateTransitionEvent>,
     models: Res<Assets<Model>>,
