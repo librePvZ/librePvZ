@@ -36,7 +36,7 @@ use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
 use libre_pvz_animation::curve::Segment;
 use libre_pvz_animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
 use crate::asset_ext;
-use crate::cached::Cached;
+use crate::cached::{Cached, EntryWithKey, SortedSlice};
 use crate::loader::{AssetExtensions, TwoStageAsset};
 
 /// Animations, originally in `.reanim` format.
@@ -46,7 +46,7 @@ pub struct AnimDesc {
     /// Frames per second.
     pub fps: f32,
     /// Meta data for this animation.
-    pub meta: Box<[Meta]>,
+    pub meta: SortedSlice<Meta>,
     /// Animation tracks.
     pub tracks: Box<[Track]>,
 }
@@ -80,6 +80,11 @@ pub struct Meta {
     pub start_frame: u16,
     /// (inclusive) End of the frame range this meta data covers.
     pub end_frame: u16,
+}
+
+impl EntryWithKey for Meta {
+    type Key = str;
+    fn key(&self) -> &str { &self.name }
 }
 
 /// A series of frames to play consecutively.
@@ -118,6 +123,25 @@ pub enum Action {
     Scale(RawVec2),
     /// Change the rotation.
     Rotation(RawVec2),
+}
+
+/// Optics for [`Action`].
+pub mod action {
+    use super::{Action, Element, RawVec2};
+    optics::declare_prism_from_variant! {
+        /// Prism for [`Action::LoadElement`].
+        pub _LoadElement for LoadElement as Action => Element;
+        /// Prism for [`Action::Alpha`].
+        pub _Alpha for Alpha as Action => f32;
+        /// Prism for [`Action::Show`].
+        pub _Show for Show as Action => bool;
+        /// Prism for [`Action::Translation`].
+        pub _Translation for Translation as Action => RawVec2;
+        /// Prism for [`Action::Scale`].
+        pub _Scale for Scale as Action => RawVec2;
+        /// Prism for [`Action::Rotation`].
+        pub _Rotation for Rotation as Action => RawVec2;
+    }
 }
 
 /// Element on the stage. Only one element is allowed on a single frame.
@@ -196,10 +220,10 @@ const HALF_WIDTH: f32 = WIDTH / 2.0;
 
 impl Animation {
     /// Spawn an animation.
-    pub fn spawn_on(&self, commands: &mut Commands) -> (Entity, Vec<Entity>) {
-        let mut track_entities = Vec::new();
+    pub fn spawn_on(&self, commands: &mut Commands, translation: Vec2,
+                    mut call_back: impl FnMut(usize, &str, Entity)) -> Entity {
         let parent = commands.spawn_bundle(SpatialBundle2D {
-            local: Transform2D::from_translation(Vec2::new(-HALF_WIDTH, HALF_WIDTH)),
+            local: Transform2D::from_translation(translation),
             ..SpatialBundle2D::default()
         }).id();
         for (z, track) in self.description.tracks.iter().enumerate() {
@@ -209,9 +233,14 @@ impl Animation {
             bundle.transform.z_order = z as f32 * 0.1;
             let this = commands.spawn_bundle(bundle).insert(this).id();
             commands.entity(parent).add_child(this);
-            track_entities.push(this);
+            call_back(z, &track.name, this);
         }
-        (parent, track_entities)
+        parent
+    }
+
+    /// Spawn an animation, ignore internal entities.
+    pub fn spawn_on_(&self, commands: &mut Commands) -> Entity {
+        self.spawn_on(commands, Vec2::new(-HALF_WIDTH, HALF_WIDTH), |_, _, _| {})
     }
 
     /// Accumulate the actions until some frame.
@@ -269,10 +298,8 @@ impl TwoStageAsset for Animation {
     fn post_process(anim: AnimDesc, load_context: &mut LoadContext) -> anyhow::Result<(Animation, Vec<AssetPath<'static>>)> {
         let deps = anim.image_files().collect::<Vec<_>>();
         let mut dep_paths = Vec::with_capacity(deps.len());
-        let mut images = HashMap::with_capacity(deps.len());
         for name in deps {
             name.init_handle(load_context);
-            images.insert(name.raw_key.clone(), name.cached.get().unwrap().clone());
             dep_paths.push(AssetPath::from(name.raw_key.as_path()).to_owned());
         }
         let anim = Animation { description: anim, clip: OnceCell::new() };

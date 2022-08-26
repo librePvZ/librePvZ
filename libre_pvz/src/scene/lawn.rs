@@ -18,21 +18,16 @@
 
 //! The lawn scene (the battlefield).
 
-use std::time::Duration;
 use bevy::prelude::*;
-use bevy::time::Stopwatch;
 use bevy::sprite::Anchor;
-use libre_pvz_animation::curve::blend::{BlendInfo, BlendMethod};
-use libre_pvz_animation::curve::Segment;
-use libre_pvz_animation::player::AnimationPlayer;
-use libre_pvz_resources::animation::Action;
+use bevy_asset_loader::prelude::*;
+use libre_pvz_resources::model::{MarkerRegistry, Model};
 use crate::animation::transform::{SpriteBundle2D, Transform2D, SpatialBundle2D};
-use crate::core::kinematics::{Position, Velocity};
-use crate::core::projectile::{Projectile, VanishingBound};
+use crate::core::projectile::VanishingBound;
+use crate::plant::peashooter::PeashooterAssets;
 use crate::resources::animation::Animation;
-use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
+use crate::scene::loading::AssetState;
 
-const BKG_IMAGE: &str = "background1.jpg";
 #[allow(unused)]
 const BKG_WIDTH: f32 = 1400.0;
 const BKG_HEIGHT: f32 = 600.0;
@@ -40,10 +35,6 @@ const BKG_HEIGHT: f32 = 600.0;
 // ensure 16:9 aspect ratio
 const WIDTH: f32 = HEIGHT * 16.0 / 9.0;
 const HEIGHT: f32 = BKG_HEIGHT;
-
-const PLANT_SHADOW: &str = "plantshadow.png";
-const PROJECTILE_PEA: &str = "ProjectilePea.png";
-const PEASHOOTER_ANIM: &str = "Peashooter.anim.bin";
 
 /// Plugin for lawn scene.
 #[derive(Default, Debug, Copy, Clone)]
@@ -66,48 +57,58 @@ impl Plugin for LawnPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GridInfo::default())
             .insert_resource(VanishingBound {
-                top: HEIGHT * 0.75,
-                bottom: -HEIGHT * 0.75,
-                left: -WIDTH * 0.75,
-                right: WIDTH * 0.75,
+                top: HEIGHT * 0.6,
+                bottom: -HEIGHT * 0.6,
+                left: -WIDTH * 0.6,
+                right: WIDTH * 0.6,
                 maximum_height: HEIGHT * 2.0,
             })
-            .attach_loader(AssetLoader::default()
+            .add_loading_state(LoadingState::new(AssetState::AssetLoading)
                 .with_collection::<LawnAssets>()
-                .enable_failure_ui())
+                .with_collection::<PeashooterAssets>()
+                .continue_to_state(AssetState::AssetReady))
+            .add_state(AssetState::AssetLoading)
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(setup_lawn))
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_peashooter_system))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(peashooter_fire_system));
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system));
     }
 }
 
+#[derive(AssetCollection)]
 struct LawnAssets {
+    #[asset(path = "background1.jpg")]
     lawn_background: Handle<Image>,
+    #[asset(path = "plantshadow.png")]
     plant_shadow: Handle<Image>,
-    projectile_pea: Handle<Image>,
-    peashooter_anim: Handle<Animation>,
 }
 
-impl AssetCollection for LawnAssets {
-    fn load(world: &World) -> (Self, PendingAssets<Self>) {
-        let asset_server = world.resource::<AssetServer>();
-        let mut pending = PendingAssets::new();
-        let assets = LawnAssets {
-            lawn_background: pending.load_from(asset_server, BKG_IMAGE),
-            plant_shadow: pending.load_from(asset_server, PLANT_SHADOW),
-            projectile_pea: pending.load_from(asset_server, PROJECTILE_PEA),
-            peashooter_anim: pending.load_from(asset_server, PEASHOOTER_ANIM),
+const PLANT_WIDTH: f32 = 80.0;
+const PLANT_HALF_WIDTH: f32 = PLANT_WIDTH / 2.0;
+const PLANT_TRANSLATION: Vec2 = Vec2::new(-PLANT_HALF_WIDTH, PLANT_HALF_WIDTH);
+
+impl LawnAssets {
+    /// Spawn a plant with shadow from its model.
+    pub fn spawn_plant(&self, model: Handle<Model>,
+                       animations: &Assets<Animation>, models: &Assets<Model>,
+                       markers: &MarkerRegistry, commands: &mut Commands) {
+        // the parent entity for the whole plant
+        let mut trans = SpatialBundle2D::default();
+        trans.local.z_order = 10.0;
+        let parent = commands.spawn_bundle(trans).insert(GridPos { x: 2, y: 2 }).id();
+        // the shadow
+        let mut shadow = SpriteBundle2D::default();
+        shadow.transform.translation.y = -30.0;
+        shadow.transform.z_order = -1.0;
+        shadow.texture = self.plant_shadow.clone();
+        let shadow = commands.spawn_bundle(shadow).id();
+        commands.entity(parent).add_child(shadow);
+        // the main part of the plant
+        let plant = Model::spawn(model, PLANT_TRANSLATION, animations, models, markers, commands);
+        let plant = match plant {
+            Ok(plant) => plant,
+            Err(err) => return error!("failed to spawn plant model: {err}"),
         };
-        (assets, pending)
-    }
-    fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
-        if handle.id == self.peashooter_anim.id {
-            let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
-            for image in anim.description.image_files() {
-                pending.track(image.raw_key.as_path(), image.cached.get().unwrap().clone());
-            }
-        }
+        commands.entity(parent).add_child(plant);
     }
 }
 
@@ -178,161 +179,16 @@ fn update_grid_system(
     }
 }
 
-#[derive(Copy, Clone, Component)]
-struct PeashooterHead;
-
-#[derive(Component)]
-struct PeashooterStatus {
-    phase: PeashooterPhase,
-    stopwatch: Stopwatch,
-    just_finished: bool,
-}
-
-impl PeashooterStatus {
-    fn new(phase: PeashooterPhase) -> Self {
-        PeashooterStatus {
-            phase,
-            stopwatch: Stopwatch::new(),
-            just_finished: false,
-        }
-    }
-    fn tick(&mut self, delta: Duration) -> &mut Self {
-        self.stopwatch.tick(delta);
-        let elapsed = self.stopwatch.elapsed();
-        let expected = self.phase.duration();
-        self.just_finished = elapsed > expected;
-        if self.just_finished {
-            self.stopwatch.set_elapsed(elapsed - expected);
-            self.phase.goto_next();
-        }
-        self
-    }
-}
-
-#[derive(Copy, Clone)]
-enum PeashooterPhase {
-    Fire1,
-    Fire2,
-    Rest,
-}
-
-impl PeashooterPhase {
-    fn goto_next(&mut self) {
-        *self = match *self {
-            PeashooterPhase::Fire1 => PeashooterPhase::Fire2,
-            PeashooterPhase::Fire2 => PeashooterPhase::Rest,
-            PeashooterPhase::Rest => PeashooterPhase::Fire1,
-        };
-    }
-    fn duration(self) -> Duration {
-        match self {
-            PeashooterPhase::Fire1 => Duration::from_secs_f32(0.2),
-            PeashooterPhase::Fire2 => Duration::from_secs_f32(0.2),
-            PeashooterPhase::Rest => Duration::from_secs_f32(2.0),
-        }
-    }
-    fn is_shooting(self) -> bool { matches!(self, PeashooterPhase::Fire1 | PeashooterPhase::Fire2) }
-    fn frame_rate(self) -> f32 {
-        match self {
-            PeashooterPhase::Fire1 | PeashooterPhase::Fire2 => REPEATER_SHOOTING_FRAME_RATE,
-            PeashooterPhase::Rest => 12.0,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Component)]
-struct PeashooterStemTop;
-
-const REPEATER_SHOOTING_FRAME_RATE: f32 = 45.0;
-
-const PEA_VELOCITY: f32 = 9.9 * 30.0;
-
 fn spawn_peashooter_system(
-    assets: Res<LawnAssets>,
-    animations: Res<Assets<Animation>>,
-    mut commands: Commands,
-) {
-    let anim = animations.get(&assets.peashooter_anim).unwrap();
-    // the whole plant
-    let mut trans = SpatialBundle2D::default();
-    trans.local.z_order = 10.0;
-    let plant = commands.spawn_bundle(trans).insert(GridPos { x: 2, y: 2 }).id();
-    // the shadow
-    let mut shadow = SpriteBundle2D::default();
-    shadow.transform.translation.y = -30.0;
-    shadow.transform.z_order = -1.0;
-    shadow.texture = assets.plant_shadow.clone();
-    let shadow = commands.spawn_bundle(shadow).id();
-    commands.entity(plant).add_child(shadow);
-    // the stem: anim_idle
-    let (_, meta_idle) = anim.description.get_meta("anim_idle").unwrap();
-    let (stem, stem_tracks) = anim.spawn_on(&mut commands);
-    commands.entity(plant).add_child(stem);
-    commands.entity(stem).insert(AnimationPlayer::new(
-        anim.clip(), meta_idle.into(),
-        anim.description.fps, true,
-    ));
-    // head should be attached to 'anim_stem'
-    let (track_stem, anim_stem) = anim.description.tracks.iter().zip(stem_tracks)
-        .find(|(track, _)| track.name == "anim_stem").unwrap();
-    // spawn an anchor entity to fix up initial translation of 'anim_stem'
-    let mut anchor_trans = SpriteBundle2D::default();
-    if let Some(&Action::Translation([tx, ty])) = track_stem
-        .frames[meta_idle.start_frame as usize].0.iter()
-        .find(|act| matches!(act, Action::Translation(_))) {
-        anchor_trans.transform.translation = Vec2::new(40.0 - tx, -40.0 - ty);
-    }
-    let anchor = commands.spawn_bundle(anchor_trans).insert(PeashooterStemTop).id();
-    commands.entity(anim_stem).add_child(anchor);
-    // the normal head: anim_head_idle
-    let (_, anim_head_idle) = anim.description.get_meta("anim_head_idle").unwrap();
-    let (head_idle, _) = anim.spawn_on(&mut commands);
-    commands.entity(head_idle)
-        .insert(PeashooterHead)
-        .insert(PeashooterStatus::new(PeashooterPhase::Rest))
-        .insert(AnimationPlayer::new(
-            anim.clip(), anim_head_idle.into(),
-            anim.description.fps, true,
-        ));
-    commands.entity(anchor).add_child(head_idle);
-}
-
-fn peashooter_fire_system(
-    time: Res<Time>,
-    mut head: Query<(&Parent, &mut AnimationPlayer, &mut PeashooterStatus), With<PeashooterHead>>,
-    stem_top: Query<&GlobalTransform, With<PeashooterStemTop>>,
     lawn_assets: Res<LawnAssets>,
+    peashooter_assets: Res<PeashooterAssets>,
     animations: Res<Assets<Animation>>,
+    models: Res<Assets<Model>>,
+    markers: Res<MarkerRegistry>,
     mut commands: Commands,
 ) {
-    let (parent, mut player, mut status) = head.single_mut();
-    if status.tick(time.delta()).just_finished {
-        // we want to keep that line aligned with other assignments
-        #[allow(clippy::field_reassign_with_default)]
-        if status.phase.is_shooting() {
-            let stem_top_trans = stem_top.get(parent.get()).unwrap().translation();
-            let x0 = stem_top_trans.x + 24.0;
-            let y0 = stem_top_trans.y + 33.0;
-            let p0 = Position(Vec3::new(x0, y0, 0.0));
-            let vel = Velocity(Vec3::new(PEA_VELOCITY, 0.0, 0.0));
-            let mut bundle = SpriteBundle2D::default();
-            bundle.texture = lawn_assets.projectile_pea.clone();
-            bundle.sprite.anchor = Anchor::TopLeft;
-            bundle.transform.z_order = 100.0;
-            commands.spawn_bundle(bundle).insert(p0).insert(vel).insert(Projectile);
-        }
-        let anim = animations.get(&lawn_assets.peashooter_anim).unwrap();
-        let (_, shooting) = anim.description.get_meta("anim_shooting").unwrap();
-        let (_, idle) = anim.description.get_meta("anim_head_idle").unwrap();
-        let segment = if status.phase.is_shooting() { shooting } else { idle };
-        player.play_with_blending(
-            status.phase.frame_rate(),
-            Segment::from(segment),
-            !status.phase.is_shooting(),
-            Some(BlendInfo {
-                duration: Duration::from_secs_f32(0.2),
-                method: BlendMethod::SmoothTanh(1.5),
-            }),
-        );
-    }
+    lawn_assets.spawn_plant(
+        peashooter_assets.model.clone(),
+        &animations, &models, &markers, &mut commands,
+    );
 }

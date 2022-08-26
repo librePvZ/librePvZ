@@ -56,14 +56,34 @@ pub struct Cached<K, I> {
 }
 
 impl<K, I> Cached<K, I> {
+    /// Create a new [`Cached`] key.
+    pub const fn new(raw_key: K) -> Self { Cached { raw_key, cached: OnceCell::new() } }
+
+    /// Get handle from a container, and cache the handle for shortcut.
+    /// If the result is a [`Some`], the handle is properly cached.
+    ///
+    /// This is the lazy version of [`Cached::get_handle_or_init`], avoiding fetching the container
+    /// if the handle is already cached. This should be useful when the handle itself is used for
+    /// fast comparison, especially when the container itself is behind e.g. a [`Handle`].
+    pub fn get_handle_or_lazy_init<'a, C>(&self, container: impl FnOnce() -> &'a C) -> Option<I>
+        where C: ContainerWithKey<Handle=I> + 'a, K: Borrow<C::Key>, I: Clone {
+        Some(self.cached.get_or_try_init(|| {
+            container().get_by_key(self.raw_key.borrow()).ok_or(())
+        }).ok()?.clone())
+    }
+
+    /// Get handle from a container, and cache the handle for shortcut.
+    /// If the result is a [`Some`], the handle is properly cached.
+    pub fn get_handle_or_init<C>(&self, container: &C) -> Option<I>
+        where C: ContainerWithKey<Handle=I>, K: Borrow<C::Key>, I: Clone {
+        self.get_handle_or_lazy_init(|| container)
+    }
+
     /// Get from a container, and cache the handle for shortcut.
     /// If the result is a [`Some`], the handle is properly cached.
     pub fn get_or_init<'a, C>(&self, container: &'a C) -> Option<&'a C::Value>
         where C: ContainerWithKey<Handle=I>, K: Borrow<C::Key>, I: Clone {
-        let handle = self.cached.get_or_try_init(|| {
-            container.get_by_key(self.raw_key.borrow()).ok_or(())
-        }).ok()?.clone();
-        Some(container.get_by_handle(handle))
+        Some(container.get_by_handle(self.get_handle_or_init(container)?))
     }
 }
 
@@ -132,6 +152,10 @@ pub trait ContainerWithKey {
 #[serde(transparent)]
 pub struct SortedSlice<T>(Box<[T]>);
 
+impl<T> Default for SortedSlice<T> {
+    fn default() -> Self { SortedSlice(Box::default()) }
+}
+
 impl<T> Deref for SortedSlice<T> {
     type Target = [T];
     fn deref(&self) -> &[T] { self.0.as_ref() }
@@ -143,6 +167,11 @@ impl<T> AsRef<[T]> for SortedSlice<T> {
 
 impl<T> Borrow<[T]> for SortedSlice<T> {
     fn borrow(&self) -> &[T] { self.deref() }
+}
+
+impl<T: EntryWithKey> From<Vec<T>> for SortedSlice<T>
+    where T::Key: Ord {
+    fn from(xs: Vec<T>) -> Self { xs.into_boxed_slice().into() }
 }
 
 impl<T: EntryWithKey> From<Box<[T]>> for SortedSlice<T>

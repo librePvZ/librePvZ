@@ -1,0 +1,10 @@
+animation: Peashooter.anim.bin
+markers:
+  - Peashooter
+states:
+  - name: idle
+    state_meta: anim_idle
+default_state: idle
+attachments:
+  - target_track: anim_stem
+    child_model: Peashooter-head.model.bin

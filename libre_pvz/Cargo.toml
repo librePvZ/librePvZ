@@ -14,8 +14,9 @@ description = "librePvZ game logic"
 [dependencies]
 egui = "0.18.1"
 bevy_egui = "0.15.0"
-# bevy-inspector-egui = "0.11.0"
+bevy-inspector-egui = "0.12.1"
 bevy_prototype_lyon = "0.6.0"
+bevy_asset_loader = "0.12.0"
 derivative = "2.2.0"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }

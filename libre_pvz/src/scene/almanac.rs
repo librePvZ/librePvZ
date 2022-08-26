@@ -201,7 +201,7 @@ fn init_anim(
         .map(|(k, _)| k)
         .unwrap_or(0);
     stage.last_selected_meta = stage.selected_meta;
-    let (entity, _) = anim.spawn_on(&mut commands);
+    let entity = anim.spawn_on_(&mut commands);
     commands.entity(entity).insert(AnimationPlayer::new(
         anim.clip(),
         Segment::from(&anim.description.meta[stage.selected_meta]),

@@ -1,0 +1,17 @@
+animation: Peashooter.anim.bin
+markers:
+  - PeashooterHead
+  - AutoNullTrigger
+states:
+  - name: idle
+    state_meta: anim_head_idle
+    transitions:
+      - trigger: shoot
+        dest: shooting
+  - name: shooting
+    state_meta: anim_shooting
+    frame_rate: 45.0
+    transitions:
+      - dest: idle
+        cool_down: 0.2
+default_state: idle

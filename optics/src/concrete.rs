@@ -528,6 +528,8 @@ macro_rules! optics {
 /// It is also possible to define the normal "field accessor" lenses with this macro, but whenever
 /// possible, one should prefer [`declare_lens_from_field`] for simplicity.
 ///
+/// [`declare_lens_from_field`]: crate::declare_lens_from_field
+///
 /// ```
 /// # use optics::declare_lens;
 /// # use optics::traits::*;
@@ -769,6 +771,8 @@ macro_rules! declare_lens_from_field {
 /// specifies how to construct an instance of that `enum` from this variant, and the latter is only
 /// a marker trait.
 ///
+/// [`declare_affine_traversal`]: crate::declare_affine_traversal
+///
 /// ```
 /// # use optics::declare_prism_from_variant;
 /// # use optics::traits::*;
@@ -924,6 +928,8 @@ macro_rules! declare_affine_traversal {
 }
 
 /// Similar to [`declare_affine_traversal`], but does not define the lens type for you.
+///
+/// [`declare_affine_traversal`]: crate::declare_affine_traversal
 #[macro_export]
 macro_rules! impl_affine_traversal {
     (

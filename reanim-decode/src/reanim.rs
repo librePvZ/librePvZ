@@ -24,7 +24,7 @@ use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 use libre_pvz_resources::animation as packed;
 use libre_pvz_resources::animation::Element;
-use libre_pvz_resources::cached::Cached;
+use libre_pvz_resources::cached::{Cached, SortedSlice};
 use packed::Action;
 use crate::stream::{Decode, Stream, Result};
 
@@ -144,10 +144,9 @@ impl From<Animation> for packed::AnimDesc {
                 Err(track) => tracks.push(track),
             }
         }
-        metas.sort_unstable_by(|x, y| x.name.cmp(&y.name));
         packed::AnimDesc {
             fps: anim.fps,
-            meta: metas.into_boxed_slice(),
+            meta: SortedSlice::from(metas),
             tracks: tracks.into_boxed_slice(),
         }
     }
