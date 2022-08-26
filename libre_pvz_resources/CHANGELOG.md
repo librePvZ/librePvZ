@@ -7,6 +7,7 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - add `AnyResource` and `DynamicResource` for dynamic (de)serialization
 - defined `Animation` structure
 - defined `Model` structure
+- defined macro `cache_known_states` for robust cached translation between state names and state indices
 - support (de)serialization with [`bincode`](https://github.com/bincode-org/bincode)
 - implement `serde` (de)serialization for use in JSON/YAML
 - implement `TwoStageAsset` for animations

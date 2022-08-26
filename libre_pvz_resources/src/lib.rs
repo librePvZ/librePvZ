@@ -30,6 +30,8 @@ pub mod loader;
 pub mod animation;
 pub mod model;
 
+pub use once_cell;
+
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 

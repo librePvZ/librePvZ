@@ -187,6 +187,9 @@ impl AnimationPlayer {
         }
     }
 
+    /// Return a shared reference to the status of the "main" animation.
+    pub fn main_status(&self) -> &AnimationStatus { &self.blend_chain.status }
+
     /// Return a shared reference to the animation status if there is no blending.
     pub fn single_status(&self) -> Option<&AnimationStatus> {
         match self.blend_chain.blending {

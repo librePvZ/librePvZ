@@ -22,6 +22,7 @@ use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::WorldInspectorPlugin;
 use libre_pvz::animation::AnimationPlugin;
 use libre_pvz::core::kinematics::KinematicsPlugin;
+use libre_pvz::core::projectile::ProjectilePlugin;
 use libre_pvz::diagnostics::BoundingBoxPlugin;
 use libre_pvz::plant::peashooter::PeashooterPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
@@ -43,6 +44,7 @@ fn main() {
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugins(ResourcesPlugins)
+        .add_plugin(ProjectilePlugin)
         .add_plugin(KinematicsPlugin)
         .add_plugin(PeashooterPlugin)
         .add_plugin(LawnPlugin)

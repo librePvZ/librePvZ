@@ -5,13 +5,20 @@ markers:
 states:
   - name: idle
     state_meta: anim_head_idle
+    cool_down: 2.0
     transitions:
       - trigger: shoot
-        dest: shooting
-  - name: shooting
+        dest: shooting_1
+  - name: shooting_1
     state_meta: anim_shooting
     frame_rate: 45.0
+    cool_down: 0.16
+    transitions:
+      - dest: shooting_2
+  - name: shooting_2
+    state_meta: anim_shooting
+    frame_rate: 45.0
+    cool_down: 0.2
     transitions:
       - dest: idle
-        cool_down: 0.2
 default_state: idle

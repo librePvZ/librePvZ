@@ -78,7 +78,8 @@ impl Plugin for ModelPlugin {
             .add_two_stage_asset::<Model>()
             .register_marker::<AutoNullTrigger>("AutoNullTrigger")
             .add_system(cool_down_tick_system
-                .label(ModelSystem::CoolDownTicking))
+                .label(ModelSystem::CoolDownTicking)
+                .before(ModelSystem::TransitionTrigger))
             .add_system(apply_null_trigger_system)
             .add_system(transition_trigger_response_system
                 .label(ModelSystem::TransitionTrigger)
@@ -147,6 +148,35 @@ impl EntryWithKey for State {
     fn key(&self) -> &str { &self.name }
 }
 
+/// Generate `StateIndex` and `StateIndex::cache` for cached known states.
+#[macro_export]
+macro_rules! cache_known_states {
+    ($($state: ident),+ $(,)?) => {
+        #[derive(Copy, Clone)]
+        struct StateIndex {
+            $($state: usize),+
+        }
+        mod state_index_impl {
+            use anyhow::Context;
+            use libre_pvz_resources::model::State;
+            use libre_pvz_resources::cached::{SortedSlice, ContainerWithKey};
+            use super::StateIndex;
+            impl StateIndex {
+                pub fn cache(states: &SortedSlice<State>) -> anyhow::Result<StateIndex> {
+                    $(
+                        let $state = {
+                            let cache__state_name = stringify!($state);
+                            states.get_by_key(cache__state_name).with_context(||
+                                format!("expected state '{cache__state_name}' in the model"))?
+                        };
+                    )+
+                    Ok(StateIndex { $($state),+ })
+                }
+            }
+        }
+    }
+}
+
 /// Transition from one state to another.
 #[derive(Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct StateTransition {
@@ -176,6 +206,19 @@ pub struct StateTransition {
 impl EntryWithKey for StateTransition {
     type Key = Option<String>;
     fn key(&self) -> &Option<String> { &self.trigger }
+}
+
+impl SortedSlice<StateTransition> {
+    /// Get the transition index for the given trigger.
+    /// Optimized to special-case the [`None`] trigger.
+    pub fn get_transition_index(&self, trigger: Option<&str>) -> Option<usize> {
+        if trigger.is_none() {
+            // if a `null` transition exists, it must be the first (sorted)
+            self[0].trigger.is_none().then_some(0)
+        } else {
+            self.binary_search_by(|t| t.trigger.as_deref().cmp(&trigger)).ok()
+        }
+    }
 }
 
 /// Attachment, useful for separating different movable parts in a single entity.
@@ -307,6 +350,46 @@ impl ModelState {
     /// Get the parent model of this model state.
     #[inline(always)]
     pub fn model(&self) -> &Handle<Model> { &self.model }
+
+    /// Produce the [`None`] trigger if the cool down is ready and the player finished playing.
+    pub fn trigger_null_if_ready(
+        &self, target_entity: Entity,
+        models: &Assets<Model>,
+        cool_down: &mut CoolDown,
+        player: &AnimationPlayer,
+    ) -> Option<TransitionTrigger> {
+        self.trigger_if_ready_impl(target_entity, models, cool_down, Some(player), None)
+    }
+
+    /// Produce the specified trigger if the cool down is ready.
+    pub fn trigger_if_ready(
+        &self, target_entity: Entity,
+        models: &Assets<Model>,
+        cool_down: &mut CoolDown,
+        trigger: &str,
+    ) -> Option<TransitionTrigger> {
+        self.trigger_if_ready_impl(target_entity, models, cool_down, None, Some(trigger))
+    }
+
+    #[inline]
+    fn trigger_if_ready_impl(
+        &self, target_entity: Entity,
+        models: &Assets<Model>,
+        cool_down: &mut CoolDown,
+        player: Option<&AnimationPlayer>,
+        trigger: Option<&str>,
+    ) -> Option<TransitionTrigger> {
+        let model = models.get(&self.model).unwrap();
+        let current_state = &model.states[self.current_state];
+        let k = current_state.transitions.get_transition_index(trigger)?;
+        let cd = current_state.cool_down.max(current_state.transitions[k].cool_down);
+        if trigger.is_none() && cd.is_zero() && !player.unwrap().main_status().finished() { return None; }
+        cool_down.ready_for(cd).then(|| TransitionTrigger {
+            target_entity,
+            trigger: trigger.map(str::to_string),
+            permissive: false,
+        })
+    }
 }
 
 /// Request to trigger a [`ModelState`] transition.
@@ -370,22 +453,14 @@ pub struct AutoNullTrigger;
 
 /// Automatically apply the [`None`] trigger if required.
 fn apply_null_trigger_system(
-    instances: Query<(Entity, &ModelState), With<AutoNullTrigger>>,
+    mut instances: Query<(Entity, &mut CoolDown, &ModelState, &AnimationPlayer), With<AutoNullTrigger>>,
     mut triggers: EventWriter<TransitionTrigger>,
     models: Res<Assets<Model>>,
 ) {
-    for (instance, state) in &instances {
-        let model = models.get(&state.model).unwrap();
-        let current_state = &model.states[state.current_state];
-        // if a `null` transition exists, it must be the first (sorted)
-        if let Some(t) = current_state.transitions.first() {
-            if t.trigger.is_none() {
-                triggers.send(TransitionTrigger {
-                    target_entity: instance,
-                    trigger: None,
-                    permissive: false,
-                });
-            }
+    for (entity, mut cool_down, state, player) in &mut instances {
+        if let Some(trigger) = state.trigger_null_if_ready(
+            entity, &models, &mut cool_down, player) {
+            triggers.send(trigger);
         }
     }
 }
@@ -444,12 +519,11 @@ impl Model {
         let mut targets = vec![None; this.attachments.len()];
         let main = anim.spawn_on(commands, translation, |n, name, entity| {
             if let Some(k) = this.attachments.get_by_key(name) {
-                info!("visiting attachment '{name}' ...");
                 assert!(targets[k].is_none(), "duplicated track");
                 targets[k] = Some((n, entity));
             }
         });
-        // attach ModelStatus & AnimationPlayer
+        // attach ModelState & AnimationPlayer
         commands.entity(main)
             .insert(ModelState { model, current_state })
             .insert(AnimationPlayer::new(
@@ -476,7 +550,6 @@ impl Model {
                 .frames[meta.start_frame as usize].0.iter()
                 .find_map(|act| _Translation.preview_ref(act).ok().copied())
                 .map_or(Vec2::ZERO, |[tx, ty]| Vec2::new(-tx, -ty));
-            info!("translation = {translation:?}");
             let child = Model::spawn(child, translation, animations, models, markers, commands);
             match child {
                 Ok(child) => { commands.entity(target).add_child(child); }

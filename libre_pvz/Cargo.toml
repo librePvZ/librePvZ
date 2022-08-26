@@ -20,6 +20,8 @@ bevy_asset_loader = "0.12.0"
 derivative = "2.2.0"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }
+# below are dependencies already pulled in by bevy
+anyhow = "1.0.59"
 
 [dependencies.bevy]
 version = "0.8.0"

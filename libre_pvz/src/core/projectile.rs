@@ -22,6 +22,17 @@ use std::ops::RangeInclusive;
 use bevy::prelude::*;
 use crate::core::kinematics::Position;
 
+/// Projectile plugin.
+#[derive(Default, Copy, Clone)]
+#[allow(missing_debug_implementations)]
+pub struct ProjectilePlugin;
+
+impl Plugin for ProjectilePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(projectile_vanish_system);
+    }
+}
+
 /// Tag component for projectiles.
 #[derive(Debug, Copy, Clone, Component)]
 pub struct Projectile;
@@ -48,8 +59,8 @@ impl VanishingBound {
     pub fn horizontal_range(&self) -> RangeInclusive<f32> { self.left..=self.right }
     /// Test if a point is within this bound.
     pub fn contains(&self, p: &Position) -> bool {
-        self.vertical_range().contains(&p.0.x)
-            && self.horizontal_range().contains(&p.0.y)
+        self.horizontal_range().contains(&p.0.x)
+            && self.vertical_range().contains(&p.0.y)
             && p.0.z <= self.maximum_height
     }
 }
