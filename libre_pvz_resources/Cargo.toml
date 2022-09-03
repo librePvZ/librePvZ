@@ -14,15 +14,15 @@ description = "librePvZ game resource management"
 [dependencies]
 derivative = "2.2.0"
 bincode = { version = "2.0.0-rc.1", features = ["derive"] }
-serde = { version = "1.0.142", features = ["derive"] }
-serde_json = "1.0.83"
-serde_yaml = "0.9.4"
-bevy = { version = "0.8.0", default-features = false, features = ["render"] }
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
+serde_yaml = "0.9.11"
+bevy = { version = "0.8.1", default-features = false, features = ["render"] }
 bitvec = "1.0.1"
 itertools = "0.10.3"
-once_cell = { version = "1.13.0", features = ["parking_lot"] }
+once_cell = { version = "1.14.0", features = ["parking_lot"] }
 optics = { path = "../optics" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }
 # below are dependencies already pulled in by bevy
-anyhow = "1.0.59"
+anyhow = "1.0.63"
 parking_lot = "0.12.1"
