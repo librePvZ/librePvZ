@@ -27,8 +27,8 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use bevy::asset::{Asset, AssetPath, LoadContext};
 use bevy::prelude::*;
-use bincode::{Encode, Decode};
-use bincode::de::Decoder;
+use bincode::{Encode, Decode, BorrowDecode};
+use bincode::de::{BorrowDecoder, Decoder};
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use derivative::Derivative;
@@ -38,6 +38,8 @@ use serde::{Serialize, Deserialize, Deserializer};
 /// Raw key storage with cached handle.
 #[derive(Clone)]
 #[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "K: Serialize"))]
+#[serde(bound(deserialize = "K: Deserialize<'de>"))]
 #[serde(transparent)]
 #[derive(Derivative)]
 #[derivative(Default(bound = "K: Default"))]
@@ -88,9 +90,12 @@ impl<K, I> Cached<K, I> {
 }
 
 impl<T: Asset> Cached<PathBuf, Handle<T>> {
+    /// Get as an [`AssetPath`] for use in the asset manager.
+    pub fn asset_path(&self) -> AssetPath { AssetPath::from(self.raw_key.as_path()) }
+
     /// Initialise and cache the handle. Panics if called more than once.
     pub fn init_handle(&self, load_context: &mut LoadContext) {
-        let asset_path = AssetPath::from(self.raw_key.as_path());
+        let asset_path = self.asset_path();
         let handle = load_context.get_handle(asset_path.get_id());
         self.cached.set(handle).unwrap();
     }
@@ -119,6 +124,12 @@ impl<K: Encode, I> Encode for Cached<K, I> {
 impl<K: Decode, I> Decode for Cached<K, I> {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
         Ok(Cached::from(K::decode(decoder)?))
+    }
+}
+
+impl<'de, K: BorrowDecode<'de>, I> BorrowDecode<'de> for Cached<K, I> {
+    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        Ok(Cached::from(K::borrow_decode(decoder)?))
     }
 }
 
@@ -204,5 +215,12 @@ impl<T> Decode for SortedSlice<T>
     where T: EntryWithKey + Decode, T::Key: Ord {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
         Box::<[T]>::decode(decoder).map(SortedSlice::from)
+    }
+}
+
+impl<'de, T> BorrowDecode<'de> for SortedSlice<T>
+    where T: EntryWithKey + BorrowDecode<'de> + 'de, T::Key: Ord {
+    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        Box::<[T]>::borrow_decode(decoder).map(SortedSlice::from)
     }
 }

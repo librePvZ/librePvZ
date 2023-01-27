@@ -19,7 +19,7 @@
 // use std::path::{Path, PathBuf};
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
-use bevy_inspector_egui::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use libre_pvz::animation::AnimationPlugin;
 use libre_pvz::core::kinematics::KinematicsPlugin;
 use libre_pvz::core::projectile::ProjectilePlugin;
@@ -27,7 +27,7 @@ use libre_pvz::diagnostics::BoundingBoxPlugin;
 use libre_pvz::plant::peashooter::PeashooterPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
-use libre_pvz_resources::ResourcesPlugins;
+use libre_pvz::resources::ResourcesPlugins;
 
 fn main() {
     // let anim_name: Box<Path> = match std::env::args_os().into_iter().nth(1) {
@@ -36,11 +36,13 @@ fn main() {
     // };
 
     App::new()
-        .insert_resource(LawnPlugin::window_descriptor())
-        // .insert_resource(AlmanacPlugin::window_descriptor())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: LawnPlugin::window_descriptor(),
+            // window: AlmanacPlugin::window_descriptor(),
+            ..default()
+        }))
         .add_plugin(EguiPlugin)
-        .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(WorldInspectorPlugin)
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugins(ResourcesPlugins)
@@ -54,5 +56,5 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 }

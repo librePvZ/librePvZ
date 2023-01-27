@@ -43,8 +43,9 @@ use model::ModelPlugin;
 pub struct ResourcesPlugins;
 
 impl PluginGroup for ResourcesPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        group.add(AnimationPlugin)
-            .add(ModelPlugin);
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<ResourcesPlugins>()
+            .add(AnimationPlugin)
+            .add(ModelPlugin)
     }
 }

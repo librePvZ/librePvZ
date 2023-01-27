@@ -118,7 +118,7 @@ fn add_bounding_box_system(
                     let mut bb = ShapeBundle2D::build(&bb, white_stroke, trans);
                     bb.visibility.is_visible = is_visible;
                     commands.entity(current).with_children(|builder| {
-                        builder.spawn_bundle(bb).insert(BoundingBox(root, size));
+                        builder.spawn((bb, BoundingBox(root, size)));
                     });
                 }
             }

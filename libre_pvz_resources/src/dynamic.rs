@@ -158,7 +158,7 @@ impl<'a> Reader for Proxy<'a, dyn Reader + 'a> {
     #[inline(always)]
     fn read(&mut self, bytes: &mut [u8]) -> Result<(), DecodeError> { self.0.read(bytes) }
     #[inline(always)]
-    fn peek_read(&self, n: usize) -> Option<&[u8]> { self.0.peek_read(n) }
+    fn peek_read(&mut self, n: usize) -> Option<&[u8]> { self.0.peek_read(n) }
     #[inline(always)]
     fn consume(&mut self, n: usize) { self.0.consume(n) }
 }
@@ -256,12 +256,6 @@ fn encode_any_resource<T, E>(value: &T, encoder: &mut E) -> Result<(), EncodeErr
 impl Encode for dyn AnyResource {
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
         encode_any_resource(self, encoder)
-    }
-}
-
-impl Encode for Box<dyn AnyResource> {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        encode_any_resource(self.as_ref(), encoder)
     }
 }
 

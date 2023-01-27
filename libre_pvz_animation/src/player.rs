@@ -37,18 +37,17 @@ pub struct AnimationStatus {
 
 impl AnimationStatus {
     /// Create a new animation status (initial state).
-    pub fn new(frame_rate: f32, segment: Segment, repeating: bool) -> Self {
-        let len = if repeating { segment.len_looping() } else { segment.len() };
-        let timer = Timer::new(Duration::from_secs_f32(len as f32 / frame_rate), repeating);
+    pub fn new(frame_rate: f32, segment: Segment, mode: TimerMode) -> Self {
+        let len = if let TimerMode::Repeating = mode { segment.len_looping() } else { segment.len() };
+        let timer = Timer::new(Duration::from_secs_f32(len as f32 / frame_rate), mode);
         AnimationStatus { frame_rate, segment, timer }
     }
 
     /// Frame count in one cycle (total frame count if not repeating).
     pub fn frame_count(&self) -> u16 {
-        if self.timer.repeating() {
-            self.segment.len_looping()
-        } else {
-            self.segment.len()
+        match self.timer.mode() {
+            TimerMode::Repeating => self.segment.len_looping(),
+            TimerMode::Once => self.segment.len(),
         }
     }
 
@@ -62,10 +61,10 @@ impl AnimationStatus {
 
     delegate! {
         to self.timer {
-            /// Returns `true` if the timer is repeating.
-            pub fn repeating(&self) -> bool;
+            /// Returns mode (whether it is repeating) for the timer.
+            pub fn mode(&self) -> TimerMode;
             /// Sets whether the animation is repeating or not.
-            pub fn set_repeating(&mut self, repeating: bool);
+            pub fn set_mode(&mut self, mode: TimerMode);
 
             /// Is the animation paused?
             pub fn paused(&self) -> bool;
@@ -158,29 +157,29 @@ pub struct AnimationPlayer {
 
 impl AnimationPlayer {
     /// Create an animation player that plays the specific clip.
-    pub fn new(clip: Arc<AnimationClip>, segment: Segment, frame_rate: f32, repeating: bool) -> Self {
-        let status = AnimationStatus::new(frame_rate, segment, repeating);
+    pub fn new(clip: Arc<AnimationClip>, segment: Segment, frame_rate: f32, mode: TimerMode) -> Self {
+        let status = AnimationStatus::new(frame_rate, segment, mode);
         AnimationPlayer { blend_chain: BlendChain::new(status), clip }
     }
 
     /// Start playing the specified animation segment without blending.
-    pub fn play(&mut self, frame_rate: f32, segment: Segment, repeating: bool) {
-        self.play_with_blending(frame_rate, segment, repeating, None)
+    pub fn play(&mut self, frame_rate: f32, segment: Segment, mode: TimerMode) {
+        self.play_with_blending(frame_rate, segment, mode, None)
     }
     /// Start playing the specified animation segment with possibly blending information.
     pub fn play_with_blending(
         &mut self, frame_rate: f32,
-        segment: Segment, repeating: bool,
+        segment: Segment, mode: TimerMode,
         blending: Option<BlendInfo>,
     ) {
-        let status = AnimationStatus::new(frame_rate, segment, repeating);
+        let status = AnimationStatus::new(frame_rate, segment, mode);
         match blending {
             None => self.blend_chain = BlendChain::new(status),
             Some(blending) => {
                 let tail = std::mem::replace(&mut self.blend_chain, BlendChain::new(status));
                 self.blend_chain.blending = Some(BlendLayer {
                     blending: blending.method,
-                    progress: Timer::new(blending.duration, false),
+                    progress: Timer::new(blending.duration, TimerMode::Once),
                     next: Box::new(tail),
                 });
             }

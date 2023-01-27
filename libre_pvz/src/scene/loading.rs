@@ -38,7 +38,7 @@ pub struct PendingAsset {
 }
 
 /// A series of pending asset for loading.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct PendingAssets<C> {
@@ -65,7 +65,7 @@ impl<C> PendingAssets<C> {
 }
 
 /// Collection of assets.
-pub trait AssetCollection: Sized + Send + Sync + 'static {
+pub trait AssetCollection: Sized + Resource {
     /// Start loading the assets, and return the pending assets for checking.
     fn load(world: &World) -> (Self, PendingAssets<Self>);
     /// Track in addition the dependencies of some asset.
@@ -171,14 +171,15 @@ impl<S: StateData> AssetLoader<S> {
         self.start_loading = self.start_loading.with_system(start_loading::<S, C>);
         self.check_loading = self.check_loading.with_system(
             check_loading_status::<S, C>
-                .chain(track_dependencies::<C>)
-                .chain(update_pending::<S, C>));
+                .pipe(track_dependencies::<C>)
+                .pipe(update_pending::<S, C>));
         self
     }
 }
 
 /// Status for asset loading.
 /// Only present for use if any asset failed loading.
+#[derive(Resource)]
 #[allow(missing_debug_implementations)]
 pub struct Status<S> {
     pending_collection_count: usize,
@@ -234,7 +235,7 @@ fn check_loading_status<S: StateData, T: AssetCollection>(
     finished
 }
 
-fn track_dependencies<T: AssetCollection>(
+fn track_dependencies<T: AssetCollection + Resource>(
     finished: In<Vec<HandleUntyped>>,
     collection: Res<T>,
     world: &World,
@@ -277,7 +278,7 @@ fn finish_loading<S: StateData>(
 }
 
 /// Asset loading failure message.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub struct AssetFailure(pub String);
 
 // init; k * first_k; [0 => {}; 1 => first_k; n => rest(n)]

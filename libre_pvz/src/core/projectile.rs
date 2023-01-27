@@ -38,7 +38,7 @@ impl Plugin for ProjectilePlugin {
 pub struct Projectile;
 
 /// Projectiles outside this bound will vanish.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Resource)]
 pub struct VanishingBound {
     /// Top of this rectangle, larger in value.
     pub top: f32,

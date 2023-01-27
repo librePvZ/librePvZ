@@ -74,7 +74,7 @@ impl Plugin for LawnPlugin {
     }
 }
 
-#[derive(AssetCollection)]
+#[derive(AssetCollection, Resource)]
 struct LawnAssets {
     #[asset(path = "background1.jpg")]
     lawn_background: Handle<Image>,
@@ -94,13 +94,13 @@ impl LawnAssets {
         // the parent entity for the whole plant
         let mut trans = SpatialBundle2D::default();
         trans.local.z_order = 10.0;
-        let parent = commands.spawn_bundle(trans).insert(GridPos { x: 2, y: 2 }).id();
+        let parent = commands.spawn((trans, GridPos { x: 2, y: 2 })).id();
         // the shadow
         let mut shadow = SpriteBundle2D::default();
         shadow.transform.translation.y = -30.0;
         shadow.transform.z_order = -1.0;
         shadow.texture = self.plant_shadow.clone();
-        let shadow = commands.spawn_bundle(shadow).id();
+        let shadow = commands.spawn(shadow).id();
         commands.entity(parent).add_child(shadow);
         // the main part of the plant
         let plant = Model::spawn(model, PLANT_TRANSLATION, animations, models, markers, commands);
@@ -120,7 +120,7 @@ const GRID_Y_COUNT: u8 = 5;
 const GRID_SIZE: f32 = 80.0;
 
 fn setup_lawn(assets: Res<LawnAssets>, mut commands: Commands) {
-    commands.spawn_bundle(SpriteBundle2D {
+    commands.spawn(SpriteBundle2D {
         sprite: Sprite {
             anchor: Anchor::TopLeft,
             ..Sprite::default()
@@ -131,7 +131,7 @@ fn setup_lawn(assets: Res<LawnAssets>, mut commands: Commands) {
     });
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Resource)]
 struct GridInfo {
     top_left: Vec2,
     separator: Vec2,

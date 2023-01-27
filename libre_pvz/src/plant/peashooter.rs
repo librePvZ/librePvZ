@@ -51,7 +51,7 @@ impl Plugin for PeashooterPlugin {
 }
 
 /// Assets for peashooters.
-#[derive(Debug, AssetCollection)]
+#[derive(Debug, AssetCollection, Resource)]
 pub struct PeashooterAssets {
     #[asset(path = "Peashooter.model.bin")]
     pub(crate) model: Handle<Model>,
@@ -126,7 +126,7 @@ fn peashooter_fire_system(
             bundle.texture = assets.projectile_pea.clone();
             bundle.sprite.anchor = Anchor::TopLeft;
             bundle.transform.z_order = 100.0;
-            commands.spawn_bundle(bundle).insert(p0).insert(vel).insert(Projectile);
+            commands.spawn((bundle, p0, vel, Projectile));
         }
     }
 }

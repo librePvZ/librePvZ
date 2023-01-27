@@ -45,9 +45,19 @@ pub const GROUND_SIZE: f32 = 200.0;
 /// Path to the ground image.
 pub const GROUND_IMAGE: &str = "Almanac_GroundDay.jpg";
 
+/// Rectangle metrics.
+#[derive(Debug, Copy, Clone)]
+#[allow(missing_docs)]
+pub struct Rect {
+    pub left: f32,
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+}
+
 /// Rectangle for the preview window.
 /// Note that our y-axis points up.
-pub const WINDOW: UiRect<f32> = UiRect {
+pub const WINDOW: Rect = Rect {
     left: 63.0,
     top: -22.0,
     right: 252.0,
@@ -72,10 +82,10 @@ pub const DESCRIPTION_TOP_LEFT: [f32; 2] = [32.0, 231.0];
 pub const DESCRIPTION_WIDTH: f32 = WIDTH - 2.0 * DESCRIPTION_TOP_LEFT[0];
 
 /// Plugin for almanac scene.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct AlmanacPlugin(AnimName);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 struct AnimName(Box<Path>);
 
 impl AlmanacPlugin {
@@ -108,6 +118,7 @@ impl Plugin for AlmanacPlugin {
     }
 }
 
+#[derive(Resource)]
 struct Stage {
     animation: Handle<Animation>,
     almanac_background: Handle<Image>,
@@ -134,7 +145,7 @@ impl AssetCollection for Stage {
         }, pending)
     }
     fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
-        if handle.id == self.animation.id {
+        if handle.id == self.animation.id() {
             let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
             for image in anim.description.image_files() {
                 pending.track(image.raw_key.as_path(), image.cached.get().unwrap().clone());
@@ -152,7 +163,7 @@ fn init_anim(
     mut context: ResMut<EguiContext>,
     mut commands: Commands,
 ) {
-    let almanac = commands.spawn_bundle(SpriteBundle2D {
+    let almanac = commands.spawn(SpriteBundle2D {
         texture: stage.almanac_background.clone(),
         sprite: Sprite {
             anchor: Anchor::TopLeft,
@@ -165,7 +176,7 @@ fn init_anim(
         },
         ..SpriteBundle2D::default()
     }).id();
-    let ground = commands.spawn_bundle(SpriteBundle2D {
+    let ground = commands.spawn(SpriteBundle2D {
         texture: stage.ground_background.clone(),
         transform: Transform2D {
             z_order: -1.0,
@@ -179,8 +190,8 @@ fn init_anim(
     // light theme fits better to the almanac scene
     context.ctx_mut().set_visuals(Visuals::light());
     let anim = assets.get(&stage.animation).unwrap();
-    let scaling = commands
-        .spawn_bundle(SpatialBundle2D {
+    let scaling = commands.spawn((
+        SpatialBundle2D {
             local: Transform2D {
                 scale: Vec2::new(stage.scaling_factor, stage.scaling_factor),
                 translation: Vec2::from(PLANT_CENTER),
@@ -188,13 +199,13 @@ fn init_anim(
                 ..Transform2D::default()
             },
             ..SpatialBundle2D::default()
-        })
-        .insert(Scaling)
-        .insert(BoundingBoxRoot {
+        },
+        Scaling,
+        BoundingBoxRoot {
             z_order: 100.0,
             is_visible: stage.show_bounding_box,
-        })
-        .id();
+        },
+    )).id();
     commands.entity(almanac).add_child(scaling);
     stage.selected_meta = anim.description
         .get_meta("anim_idle")
@@ -206,7 +217,7 @@ fn init_anim(
         anim.clip(),
         Segment::from(&anim.description.meta[stage.selected_meta]),
         anim.description.fps,
-        true,
+        TimerMode::Repeating,
     ));
     commands.entity(scaling).add_child(entity);
 }
@@ -296,17 +307,19 @@ fn metrics_ui(
 fn respond_to_stage_change(
     stage: Res<Stage>,
     animations: Res<Assets<Animation>>,
-    mut scaling: Query<(&mut Transform2D, &mut BoundingBoxRoot), With<Scaling>>,
+    // mut scaling: Query<(&mut Transform2D, &mut BoundingBoxRoot), With<Scaling>>,
+    mut scaling: Query<&mut Transform2D, With<Scaling>>,
     mut player: Query<&mut AnimationPlayer>,
 ) {
-    let (mut transform, mut bb) = scaling.get_single_mut().unwrap();
+    // let (mut transform, mut bb) = scaling.get_single_mut().unwrap();
+    let mut transform = scaling.get_single_mut().unwrap();
     if transform.scale.x != stage.scaling_factor {
         transform.scale.x = stage.scaling_factor;
         transform.scale.y = stage.scaling_factor;
     }
-    if bb.is_visible != stage.show_bounding_box {
-        bb.is_visible = stage.show_bounding_box;
-    }
+    // if bb.is_visible != stage.show_bounding_box {
+    //     bb.is_visible = stage.show_bounding_box;
+    // }
 
     if stage.selected_meta != stage.last_selected_meta {
         let mut player = player.get_single_mut().unwrap();

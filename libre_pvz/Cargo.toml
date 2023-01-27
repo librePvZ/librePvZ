@@ -12,18 +12,18 @@ description = "librePvZ game logic"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.19.0"
-bevy_egui = "0.16.0"
-bevy-inspector-egui = "0.12.1"
-bevy_prototype_lyon = "0.6.0"
-bevy_asset_loader = "0.12.1"
+egui = "0.20.1"
+bevy_egui = "0.19.0"
+bevy-inspector-egui = "0.17.0"
+bevy_prototype_lyon = "0.7.2"
+bevy_asset_loader = "0.14.1"
 derivative = "2.2.0"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }
 # below are dependencies already pulled in by bevy
-anyhow = "1.0.63"
+anyhow = "1.0.68"
 
 [dependencies.bevy]
-version = "0.8.1"
+version = "0.9.1"
 default-features = false
 features = ["render", "png", "jpeg", "bevy_winit", "x11"]

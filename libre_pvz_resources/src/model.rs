@@ -105,6 +105,21 @@ pub struct Model {
     /// Attachment models.
     #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
     pub attachments: SortedSlice<Attachment>,
+    /// These tracks should be hidden in this model.
+    #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
+    pub hidden_tracks: Box<[String]>,
+}
+
+impl Model {
+    fn track_deps(&self, load_context: &mut LoadContext, dep_paths: &mut Vec<AssetPath>) {
+        self.animation.init_handle(load_context);
+        dep_paths.push(self.animation.asset_path().to_owned());
+        self.attachments.iter().for_each(|attachment| {
+            let child = &attachment.child_model;
+            child.init_handle(load_context);
+            dep_paths.push(AssetPath::from(child.raw_key.as_path()).to_owned());
+        });
+    }
 }
 
 impl TwoStageAsset for Model {
@@ -112,12 +127,7 @@ impl TwoStageAsset for Model {
     const EXTENSIONS: AssetExtensions = asset_ext!("model");
     fn post_process(repr: Model, load_context: &mut LoadContext) -> anyhow::Result<(Self, Vec<AssetPath<'static>>)> {
         let mut dep_paths = Vec::new();
-        repr.animation.init_handle(load_context);
-        dep_paths.push(AssetPath::from(repr.animation.raw_key.as_path()).to_owned());
-        for attachment in repr.attachments.iter() {
-            attachment.child_model.init_handle(load_context);
-            dep_paths.push(AssetPath::from(attachment.child_model.raw_key.as_path()).to_owned());
-        }
+        repr.track_deps(load_context, &mut dep_paths);
         Ok((repr, dep_paths))
     }
 }
@@ -133,9 +143,6 @@ pub struct State {
     /// Cool down time before any state transition can happen.
     #[serde(default, skip_serializing_if = "defaults::is_zero_duration", with = "duration_from_secs")]
     pub cool_down: Duration,
-    /// These tracks should be hidden in this state.
-    #[serde(default, skip_serializing_if = "defaults::is_slice_empty")]
-    pub hidden_tracks: Box<[String]>,
     /// This state correspond to this meta range in the animation.
     pub state_meta: Cached<String, usize>,
     /// Transitions leaving this state.
@@ -152,7 +159,7 @@ impl EntryWithKey for State {
 #[macro_export]
 macro_rules! cache_known_states {
     ($($state: ident),+ $(,)?) => {
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, Resource)]
         struct StateIndex {
             $($state: usize),+
         }
@@ -264,13 +271,14 @@ mod duration_from_secs {
     pub fn serialize<S: Serializer>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error> {
         duration.as_secs_f32().serialize(serializer)
     }
+
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
         Ok(Duration::from_secs_f32(f32::deserialize(deserializer)?))
     }
 }
 
 /// Registry for marker components.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Resource)]
 pub struct MarkerRegistry {
     entries: HashMap<Box<str>, fn(Entity, &mut Commands)>,
 }
@@ -497,7 +505,7 @@ fn state_transition_animation_system(
             method: BlendMethod::SmoothTanh(1.5),
             duration: transition.blending,
         });
-        player.play_with_blending(frame_rate, segment, true, blending);
+        player.play_with_blending(frame_rate, segment, TimerMode::Repeating, blending);
     }
 }
 
@@ -524,12 +532,13 @@ impl Model {
             }
         });
         // attach ModelState & AnimationPlayer
-        commands.entity(main)
-            .insert(ModelState { model, current_state })
-            .insert(AnimationPlayer::new(
+        commands.entity(main).insert((
+            ModelState { model, current_state },
+            AnimationPlayer::new(
                 anim.clip(), meta.into(),
-                anim.description.fps, true,
-            ));
+                anim.description.fps, TimerMode::Repeating,
+            ),
+        ));
         // attach marker component
         for marker in this.markers.iter() {
             markers.attach_marker(marker, main, commands);

@@ -232,7 +232,7 @@ impl Animation {
     /// Spawn an animation.
     pub fn spawn_on(&self, commands: &mut Commands, translation: Vec2,
                     mut call_back: impl FnMut(usize, &str, Entity)) -> Entity {
-        let parent = commands.spawn_bundle(SpatialBundle2D {
+        let parent = commands.spawn(SpatialBundle2D {
             local: Transform2D::from_translation(translation),
             ..SpatialBundle2D::default()
         }).id();
@@ -241,7 +241,7 @@ impl Animation {
             let mut bundle = SpriteBundle2D::default();
             bundle.sprite.anchor = Anchor::TopLeft;
             bundle.transform.z_order = z as f32 * 0.1;
-            let this = commands.spawn_bundle(bundle).insert(this).id();
+            let this = commands.spawn((bundle, this)).id();
             commands.entity(parent).add_child(this);
             call_back(z, &track.name, this);
         }
@@ -310,7 +310,7 @@ impl TwoStageAsset for Animation {
         let mut dep_paths = Vec::with_capacity(deps.len());
         for name in deps {
             name.init_handle(load_context);
-            dep_paths.push(AssetPath::from(name.raw_key.as_path()).to_owned());
+            dep_paths.push(name.asset_path().to_owned());
         }
         let anim = Animation { description: anim, clip: OnceCell::new() };
         Ok((anim, dep_paths))
