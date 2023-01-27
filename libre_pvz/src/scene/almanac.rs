@@ -19,19 +19,21 @@
 //! An (over-)simplified almanac scene.
 
 use std::path::Path;
+use anyhow::Error;
+use bevy::asset::AssetPath;
 use bevy::prelude::*;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
 use bevy_egui::EguiContext;
+use bevy_asset_loader::prelude::*;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
-use libre_pvz_animation::curve::Segment;
-use libre_pvz_animation::player::AnimationStatus;
-use libre_pvz_animation::transform::SpatialBundle2D;
-use crate::animation::player::AnimationPlayer;
-use crate::animation::transform::{SpriteBundle2D, Transform2D};
+use crate::animation::curve::Segment;
+use crate::animation::player::{AnimationStatus, AnimationPlayer};
+use crate::animation::transform::{SpatialBundle2D, SpriteBundle2D, Transform2D};
 use crate::resources::animation::Animation;
 use crate::diagnostics::BoundingBoxRoot;
-use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
+use crate::scene::loading::AssetState;
+// use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
 /// Width of almanac frame.
 pub const WIDTH: f32 = 315.0;
@@ -88,6 +90,18 @@ pub struct AlmanacPlugin(AnimName);
 #[derive(Debug, Clone, Resource)]
 struct AnimName(Box<Path>);
 
+impl DynamicAsset for AnimName {
+    fn load(&self, asset_server: &AssetServer) -> Vec<HandleUntyped> {
+        vec![asset_server.load_untyped(self.0.as_ref())]
+    }
+    fn build(&self, world: &mut World) -> Result<DynamicAssetType, Error> {
+        let asset_server = world.resource::<AssetServer>();
+        let path = AssetPath::from(self.0.as_ref());
+        let handle = asset_server.get_handle_untyped(path);
+        Ok(DynamicAssetType::Single(handle))
+    }
+}
+
 impl AlmanacPlugin {
     /// Create almanac plugin with specified animation name.
     pub fn new(anim_name: Box<Path>) -> AlmanacPlugin {
@@ -109,49 +123,50 @@ impl Plugin for AlmanacPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .insert_resource(self.0.clone())
-            .attach_loader(AssetLoader::default()
-                .with_collection::<Stage>()
-                .enable_failure_ui())
+            .insert_resource(Stage::default())
+            .add_startup_system(setup_main_anim)
+            .add_loading_state(LoadingState::new(AssetState::AssetLoading)
+                .with_collection::<StageAssets>()
+                .continue_to_state(AssetState::AssetReady)
+                .on_failure_continue_to_state(AssetState::LoadFailure))
+            .add_state(AssetState::AssetLoading)
             .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(init_anim))
             .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(animation_ui))
             .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(respond_to_stage_change));
     }
 }
 
+fn setup_main_anim(anim_name: Res<AnimName>, mut dynamic_assets: ResMut<DynamicAssets>) {
+    dynamic_assets.register_asset("main_anim", Box::new(anim_name.clone()));
+}
+
 #[derive(Resource)]
 struct Stage {
-    animation: Handle<Animation>,
-    almanac_background: Handle<Image>,
-    ground_background: Handle<Image>,
     scaling_factor: f32,
     show_bounding_box: bool,
     selected_meta: usize,
     last_selected_meta: usize,
 }
 
-impl AssetCollection for Stage {
-    fn load(world: &World) -> (Self, PendingAssets<Self>) {
-        let anim_name = world.resource::<AnimName>();
-        let asset_server = world.resource::<AssetServer>();
-        let mut pending = PendingAssets::new();
-        (Stage {
-            animation: pending.load_from(asset_server, anim_name.0.as_ref()),
-            almanac_background: pending.load_from(asset_server, ALMANAC_IMAGE),
-            ground_background: pending.load_from(asset_server, GROUND_IMAGE),
+impl Default for Stage {
+    fn default() -> Self {
+        Stage {
             scaling_factor: 1.5,
             show_bounding_box: false,
             selected_meta: 0,
             last_selected_meta: 0,
-        }, pending)
-    }
-    fn track_dep(&self, handle: HandleUntyped, world: &World, pending: &mut PendingAssets<Self>) {
-        if handle.id == self.animation.id() {
-            let anim = world.resource::<Assets<Animation>>().get(&handle.typed_weak()).unwrap();
-            for image in anim.description.image_files() {
-                pending.track(image.raw_key.as_path(), image.cached.get().unwrap().clone());
-            }
         }
     }
+}
+
+#[derive(AssetCollection, Resource)]
+struct StageAssets {
+    #[asset(key = "main_anim")]
+    animation: Handle<Animation>,
+    #[asset(path = "Almanac_PlantCard.png")]
+    almanac_background: Handle<Image>,
+    #[asset(path = "Almanac_GroundDay.jpg")]
+    ground_background: Handle<Image>,
 }
 
 #[derive(Component)]
@@ -159,12 +174,13 @@ struct Scaling;
 
 fn init_anim(
     assets: Res<Assets<Animation>>,
+    stage_assets: Res<StageAssets>,
     mut stage: ResMut<Stage>,
     mut context: ResMut<EguiContext>,
     mut commands: Commands,
 ) {
     let almanac = commands.spawn(SpriteBundle2D {
-        texture: stage.almanac_background.clone(),
+        texture: stage_assets.almanac_background.clone(),
         sprite: Sprite {
             anchor: Anchor::TopLeft,
             ..Sprite::default()
@@ -177,7 +193,7 @@ fn init_anim(
         ..SpriteBundle2D::default()
     }).id();
     let ground = commands.spawn(SpriteBundle2D {
-        texture: stage.ground_background.clone(),
+        texture: stage_assets.ground_background.clone(),
         transform: Transform2D {
             z_order: -1.0,
             translation: Vec2::from(GROUND_CENTER),
@@ -189,7 +205,7 @@ fn init_anim(
 
     // light theme fits better to the almanac scene
     context.ctx_mut().set_visuals(Visuals::light());
-    let anim = assets.get(&stage.animation).unwrap();
+    let anim = assets.get(&stage_assets.animation).unwrap();
     let scaling = commands.spawn((
         SpatialBundle2D {
             local: Transform2D {
@@ -227,9 +243,10 @@ fn animation_ui(
     diagnostics: Res<Diagnostics>,
     animations: Res<Assets<Animation>>,
     mut player: Query<&mut AnimationPlayer>,
+    stage_assets: Res<StageAssets>,
     mut stage: ResMut<Stage>,
 ) {
-    let anim = animations.get(&stage.animation).unwrap();
+    let anim = animations.get(&stage_assets.animation).unwrap();
     let player = &mut player.get_single_mut().unwrap();
     egui::Window::new("Control Panel")
         .resizable(false)
@@ -306,24 +323,23 @@ fn metrics_ui(
 
 fn respond_to_stage_change(
     stage: Res<Stage>,
+    stage_assets: Res<StageAssets>,
     animations: Res<Assets<Animation>>,
-    // mut scaling: Query<(&mut Transform2D, &mut BoundingBoxRoot), With<Scaling>>,
-    mut scaling: Query<&mut Transform2D, With<Scaling>>,
+    mut scaling: Query<(&mut Transform2D, &mut BoundingBoxRoot), With<Scaling>>,
     mut player: Query<&mut AnimationPlayer>,
 ) {
-    // let (mut transform, mut bb) = scaling.get_single_mut().unwrap();
-    let mut transform = scaling.get_single_mut().unwrap();
+    let (mut transform, mut bb) = scaling.get_single_mut().unwrap();
     if transform.scale.x != stage.scaling_factor {
         transform.scale.x = stage.scaling_factor;
         transform.scale.y = stage.scaling_factor;
     }
-    // if bb.is_visible != stage.show_bounding_box {
-    //     bb.is_visible = stage.show_bounding_box;
-    // }
+    if bb.is_visible != stage.show_bounding_box {
+        bb.is_visible = stage.show_bounding_box;
+    }
 
     if stage.selected_meta != stage.last_selected_meta {
         let mut player = player.get_single_mut().unwrap();
-        let anim = animations.get(&stage.animation).unwrap();
+        let anim = animations.get(&stage_assets.animation).unwrap();
         player.single_status_mut().unwrap().set_segment(Segment::from(&anim.description.meta[stage.selected_meta]))
     }
 }
