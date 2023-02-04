@@ -59,14 +59,14 @@ pub struct ModelPlugin;
 #[derive(Clone, Debug, SystemLabel, PartialEq, Eq, Hash)]
 pub enum ModelSystem {
     /// Ticks the cool down timers, systems relying on [`CoolDown`] should be
-    /// [`after`](ParallelSystemDescriptorCoercion::after) this label.
+    /// [`after`](SystemSet::after) this label.
     CoolDownTicking,
     /// Responds to [`TransitionTrigger`] events, systems writing such events should be
-    /// [`before`](ParallelSystemDescriptorCoercion::before) this label.
+    /// [`before`](SystemSet::before) this label.
     TransitionTrigger,
     /// Shows animation for state transitions; responds to [`StateTransitionEvent`] events.
     /// Systems manually writing such events should be
-    /// [`before`](ParallelSystemDescriptorCoercion::before) this label.
+    /// [`before`](SystemSet::before) this label.
     TransitionAnimation,
 }
 
