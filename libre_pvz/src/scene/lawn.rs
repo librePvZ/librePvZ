@@ -165,16 +165,12 @@ impl GridInfo {
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn update_grid_system(
     grid_info: Res<GridInfo>,
-    mut grids: Query<
-        (&GridPos, &mut Transform2D),
-        Or<(Added<GridPos>, Changed<GridPos>)>,
-    >,
+    mut grids: Query<(&GridPos, ChangeTrackers<GridPos>, &mut Transform2D)>,
 ) {
-    if grid_info.is_added() || grid_info.is_changed() {
-        for (pos, mut trans) in grids.iter_mut() {
+    for (pos, changes, mut trans) in grids.iter_mut() {
+        if grid_info.is_changed() || changes.is_changed() {
             trans.translation = grid_info.translation_for(pos);
         }
     }

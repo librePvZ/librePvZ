@@ -75,12 +75,7 @@ pub struct Position(pub Vec3);
 
 /// Coordinate translation from pseudo 3D to 2D.
 #[allow(clippy::type_complexity)]
-pub fn coordinate_translation_system(
-    mut objects: Query<
-        (&Position, &mut Transform2D),
-        Or<(Added<Position>, Changed<Position>)>,
-    >,
-) {
+pub fn coordinate_translation_system(mut objects: Query<(&Position, &mut Transform2D), Changed<Position>>) {
     for (pos, mut trans) in objects.iter_mut() {
         trans.translation.x = pos.0.x;
         trans.translation.y = pos.0.y + pos.0.z;
