@@ -28,4 +28,5 @@ pub mod core;
 pub mod scene;
 pub mod diagnostics;
 
+pub mod seed_bank;
 pub mod plant;

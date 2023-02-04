@@ -16,7 +16,7 @@ egui = "0.20.1"
 bevy_egui = "0.19.0"
 bevy-inspector-egui = "0.17.0"
 bevy_prototype_lyon = "0.7.2"
-bevy_asset_loader = "0.14.1"
+bevy_asset_loader = { version = "0.14.1", features = ["2d"] }
 derivative = "2.2.0"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }

@@ -17,3 +17,4 @@ This project adheres to [Cargo's Semantic Versioning](https://doc.rust-lang.org/
 - show day lawn, set up a grid system on the lawn
 - defined Peashooter using the Model resource
 - show a hard-coded Repeater on the lawn
+- display a hard-coded seed bank on the screen

@@ -28,6 +28,7 @@ use libre_pvz::plant::peashooter::PeashooterPlugin;
 // use libre_pvz::scene::almanac::AlmanacPlugin;
 use libre_pvz::scene::lawn::LawnPlugin;
 use libre_pvz::resources::ResourcesPlugins;
+use libre_pvz::seed_bank::SeedBankPlugin;
 
 fn main() {
     // let anim_name: Box<Path> = match std::env::args_os().into_iter().nth(1) {
@@ -37,7 +38,13 @@ fn main() {
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: LawnPlugin::window_descriptor(),
+            window: WindowDescriptor {
+                // Using `Overflow::Hidden` to clip [`ImageBundle`]s is not working properly.
+                // Should be fixed by bevyengine/bevy#7142, temporary workaround found here:
+                // https://github.com/bevyengine/bevy/issues/4057#issuecomment-1375898792
+                scale_factor_override: Some(1.0),
+                ..LawnPlugin::window_descriptor()
+            },
             // window: AlmanacPlugin::window_descriptor(),
             ..default()
         }))
@@ -50,6 +57,7 @@ fn main() {
         .add_plugin(KinematicsPlugin)
         .add_plugin(PeashooterPlugin)
         .add_plugin(LawnPlugin)
+        .add_plugin(SeedBankPlugin)
         // .add_plugin(AlmanacPlugin::new(anim_name))
         .add_startup_system(setup_camera)
         .run();
