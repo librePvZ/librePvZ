@@ -49,7 +49,6 @@ fn main() {
             ..default()
         }))
         .add_plugin(EguiPlugin)
-        .add_plugin(WorldInspectorPlugin)
         .add_plugin(BoundingBoxPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugins(ResourcesPlugins)
@@ -59,6 +58,7 @@ fn main() {
         .add_plugin(LawnPlugin)
         .add_plugin(SeedBankPlugin)
         // .add_plugin(AlmanacPlugin::new(anim_name))
+        .add_plugin(WorldInspectorPlugin)
         .add_startup_system(setup_camera)
         .run();
 }
