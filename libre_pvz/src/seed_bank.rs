@@ -18,6 +18,7 @@
 
 //! Seed bank and seed packets.
 
+use std::ops::Deref;
 use bevy::prelude::*;
 use bevy::asset::Handle;
 use bevy::sprite::TextureAtlas;
@@ -60,7 +61,8 @@ impl Plugin for SeedBankPlugin {
                 .with_collection::<SeedBankAssets>()
                 .continue_to_state(AssetState::AssetReady)
                 .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_seed_bank));
+            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_seed_bank))
+            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_seed_bank));
     }
 }
 
@@ -69,18 +71,6 @@ impl Plugin for SeedBankPlugin {
 pub struct SeedBank {
     packet_number: usize,
 }
-
-/// Marker for the first part of the background of the seed bank.
-#[derive(Debug, Clone, Component)]
-pub struct SeedBankBackgroundHead;
-
-/// Marker for the middle parts of the background of the seed bank.
-#[derive(Debug, Copy, Clone, Component)]
-pub struct SeedBankBackgroundMiddle;
-
-/// Marker for the last part of the background of the seed bank.
-#[derive(Debug, Copy, Clone, Component)]
-pub struct SeedBankBackgroundTail;
 
 /// Marker of the rectangular area for seed packets in a seed bank.
 #[derive(Debug, Copy, Clone, Component)]
@@ -115,6 +105,29 @@ impl Default for GridInfo {
     }
 }
 
+impl GridInfo {
+    fn packet_area_width(&self, packet_count: usize) -> f32 {
+        packet_count as f32 * (self.packet_size.x + self.separator)
+    }
+
+    fn extension_offset(&self, packet_count: usize) -> f32 {
+        assert!(packet_count <= self.extension_packet_count);
+        let left_cut = self.natural_packet_count - packet_count;
+        let left_cut_width = left_cut as f32 * (self.packet_size.x + self.separator);
+        self.padding_top_left.x + left_cut_width
+    }
+
+    fn extension_width(&self, packet_count: usize) -> f32 {
+        self.bank_size.x - self.extension_offset(packet_count)
+    }
+
+    fn background_at(&self, index: usize) -> f32 {
+        assert_ne!(index, 0);
+        self.padding_top_left.x + self.packet_area_width(self.natural_packet_count)
+            + (index - 1) as f32 * self.packet_area_width(self.extension_packet_count)
+    }
+}
+
 /// Seed packet content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SeedPacket {
@@ -144,7 +157,6 @@ fn spawn_seed_bank(
     mut commands: Commands,
 ) {
     let bank = commands.spawn((
-        Name::new("SeedBank"),
         SeedBank { packet_number: 10 },
         NodeBundle {
             style: Style {
@@ -158,80 +170,10 @@ fn spawn_seed_bank(
             ..default()
         },
     )).id();
-    let bank_size = Size {
-        width: Val::Px(grid_info.bank_size.x),
-        height: Val::Px(grid_info.bank_size.y),
-    };
-    let head = commands.spawn((
-        Name::new("SeedBankHead"),
-        SeedBankBackgroundHead,
-        ImageBundle {
-            image: UiImage(seed_bank_assets.seed_bank_background.clone()),
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    ..default()
-                },
-                size: bank_size,
-                ..default()
-            },
-            ..default()
-        },
-    )).id();
-    let tail_offset = {
-        let base = grid_info.padding_top_left.x;
-        let delta = grid_info.natural_packet_count;
-        let offset = (grid_info.packet_size.x + grid_info.separator) * (delta as f32);
-        base + offset
-    };
-    let tail_internal_offset = {
-        let base = grid_info.padding_top_left.x;
-        let delta = grid_info.natural_packet_count - (10 - grid_info.natural_packet_count);
-        let offset = (grid_info.packet_size.x + grid_info.separator) * (delta as f32);
-        base + offset
-    };
-    // using a `NodeBundle` to clip the image
-    // TODO: transition to the improved TextureAtlas API expected in Bevy 0.10
-    let tail_container = commands.spawn(NodeBundle {
-        style: Style {
-            overflow: Overflow::Hidden,
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                left: Val::Px(tail_offset),
-                ..default()
-            },
-            size: Size {
-                width: Val::Px(grid_info.bank_size.x - tail_internal_offset),
-                height: Val::Px(grid_info.bank_size.y),
-            },
-            ..default()
-        },
-        ..default()
-    }).id();
-    let tail = commands.spawn((
-        Name::new("SeedBankTail"),
-        SeedBankBackgroundTail,
-        ImageBundle {
-            image: UiImage(seed_bank_assets.seed_bank_background.clone()),
-            style: Style {
-                position: UiRect {
-                    left: Val::Px(-tail_internal_offset),
-                    ..default()
-                },
-                size: bank_size,
-                min_size: bank_size,
-                max_size: bank_size,
-                ..default()
-            },
-            ..default()
-        },
-    )).id();
-    commands.entity(bank).add_child(head).add_child(tail_container);
-    commands.entity(tail_container).add_child(tail);
     let container = commands.spawn(NodeBundle {
         background_color: Color::NONE.into(),
+        // `BackgroundIndex` uses `u8` internally, 129 guarantees foreground
+        z_index: ZIndex::Local(129),
         style: Style {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
@@ -265,4 +207,126 @@ fn spawn_seed_bank(
             SeedPacketIndex(i),
         ));
     });
+}
+
+#[derive(Copy, Clone, Component)]
+struct Clipped;
+
+#[derive(Copy, Clone, Component)]
+struct BackgroundIndex(u8);
+
+fn update_seed_bank(
+    seed_bank_assets: Res<SeedBankAssets>,
+    grid_info: Res<GridInfo>,
+    seed_bank: Query<(Entity, &SeedBank, &Children), Changed<SeedBank>>,
+    mut background: Query<(Entity, &Children, &mut Style, &mut ZIndex, &BackgroundIndex), Without<Clipped>>,
+    mut extension: Query<&mut Style, With<Clipped>>,
+    mut commands: Commands,
+) {
+    for (bank_entity, seed_bank, children) in &seed_bank {
+        let remaining = seed_bank.packet_number.saturating_sub(grid_info.natural_packet_count);
+        let complete_extensions = remaining / grid_info.extension_packet_count;
+        let remaining_packets = remaining % grid_info.extension_packet_count;
+        let background_expected = complete_extensions + 1 + if remaining_packets != 0 { 1 } else { 0 };
+
+        let mut background_count = 0;
+        for child in children {
+            let Ok(child) = background.get_mut(*child) else { continue; };
+            let (this, children, mut style, mut z_index, &BackgroundIndex(index)) = child;
+            if index as usize >= background_expected {
+                commands.entity(this).despawn_recursive();
+                continue;
+            }
+            background_count += 1;
+            *z_index = ZIndex::Local(index as i32);
+            if index == 0 { continue; }
+            style.position.left = Val::Px(grid_info.background_at(index as usize));
+            let complete = index as usize <= complete_extensions;
+            let packet_count = if complete {
+                grid_info.extension_packet_count
+            } else {
+                remaining_packets
+            };
+            style.size.width = Val::Px(grid_info.extension_width(packet_count));
+            let &[clipped] = children.deref() else { unreachable!() };
+            let mut clipped = extension.get_mut(clipped).unwrap();
+            clipped.position.left = Val::Px(-grid_info.extension_offset(packet_count));
+        }
+
+        let bank_size = Size {
+            width: Val::Px(grid_info.bank_size.x),
+            height: Val::Px(grid_info.bank_size.y),
+        };
+        if background_count == 0 {
+            let background = commands.spawn((
+                BackgroundIndex(0),
+                ImageBundle {
+                    image: UiImage(seed_bank_assets.seed_bank_background.clone()),
+                    z_index: ZIndex::Local(0),
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            left: Val::Px(0.0),
+                            top: Val::Px(0.0),
+                            ..default()
+                        },
+                        size: bank_size,
+                        min_size: bank_size,
+                        max_size: bank_size,
+                        ..default()
+                    },
+                    ..default()
+                },
+            )).id();
+            commands.entity(bank_entity).add_child(background);
+            background_count += 1;
+        }
+        for index in background_count..background_expected {
+            let complete = index as usize <= complete_extensions;
+            let packet_count = if complete {
+                grid_info.extension_packet_count
+            } else {
+                remaining_packets
+            };
+            let container = commands.spawn((
+                BackgroundIndex(index.try_into().unwrap()),
+                NodeBundle {
+                    z_index: ZIndex::Local(index as i32),
+                    style: Style {
+                        overflow: Overflow::Hidden,
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            left: Val::Px(grid_info.background_at(index as usize)),
+                            ..default()
+                        },
+                        size: Size {
+                            width: Val::Px(grid_info.extension_width(packet_count)),
+                            height: Val::Px(grid_info.bank_size.y),
+                        },
+                        ..default()
+                    },
+                    ..default()
+                },
+            )).id();
+            let image = commands.spawn((
+                Clipped,
+                ImageBundle {
+                    image: UiImage(seed_bank_assets.seed_bank_background.clone()),
+                    style: Style {
+                        position: UiRect {
+                            left: Val::Px(-grid_info.extension_offset(packet_count)),
+                            ..default()
+                        },
+                        size: bank_size,
+                        min_size: bank_size,
+                        max_size: bank_size,
+                        ..default()
+                    },
+                    ..default()
+                },
+            )).id();
+            commands.entity(bank_entity).add_child(container);
+            commands.entity(container).add_child(image);
+        }
+    }
 }
