@@ -87,6 +87,7 @@ struct GridInfo {
     packet_size: Vec2,
     natural_packet_count: usize,
     extension_packet_count: usize,
+    extension_left_padding: f32,
     padding_top_left: Vec2,
     separator: f32,
 }
@@ -99,6 +100,7 @@ impl Default for GridInfo {
             packet_size: Vec2::new(50.0, 70.0),
             natural_packet_count: 7,
             extension_packet_count: 6,
+            extension_left_padding: 4.0,
             padding_top_left: Vec2::new(79.0, 7.0),
             separator: 1.0,
         }
@@ -114,7 +116,7 @@ impl GridInfo {
         assert!(packet_count <= self.extension_packet_count);
         let left_cut = self.natural_packet_count - packet_count;
         let left_cut_width = left_cut as f32 * (self.packet_size.x + self.separator);
-        self.padding_top_left.x + left_cut_width
+        self.padding_top_left.x + left_cut_width - self.extension_left_padding
     }
 
     fn extension_width(&self, packet_count: usize) -> f32 {
@@ -125,6 +127,7 @@ impl GridInfo {
         assert_ne!(index, 0);
         self.padding_top_left.x + self.packet_area_width(self.natural_packet_count)
             + (index - 1) as f32 * self.packet_area_width(self.extension_packet_count)
+            - self.extension_left_padding
     }
 }
 
