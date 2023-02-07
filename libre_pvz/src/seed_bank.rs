@@ -85,11 +85,11 @@ struct GridInfo {
     position: Vec2,
     bank_size: Vec2,
     packet_size: Vec2,
+    packet_separator: f32,
+    seed_area_top_left: Vec2,
     natural_packet_count: usize,
     extension_packet_count: usize,
     extension_left_padding: f32,
-    padding_top_left: Vec2,
-    separator: f32,
 }
 
 impl Default for GridInfo {
@@ -98,25 +98,25 @@ impl Default for GridInfo {
             position: Vec2::new(230.0, 0.0),
             bank_size: Vec2::new(446.0, 87.0),
             packet_size: Vec2::new(50.0, 70.0),
+            packet_separator: 1.0,
+            seed_area_top_left: Vec2::new(79.0, 7.0),
             natural_packet_count: 7,
             extension_packet_count: 6,
             extension_left_padding: 4.0,
-            padding_top_left: Vec2::new(79.0, 7.0),
-            separator: 1.0,
         }
     }
 }
 
 impl GridInfo {
     fn packet_area_width(&self, packet_count: usize) -> f32 {
-        packet_count as f32 * (self.packet_size.x + self.separator)
+        packet_count as f32 * (self.packet_size.x + self.packet_separator)
     }
 
     fn extension_offset(&self, packet_count: usize) -> f32 {
         assert!(packet_count <= self.extension_packet_count);
         let left_cut = self.natural_packet_count - packet_count;
-        let left_cut_width = left_cut as f32 * (self.packet_size.x + self.separator);
-        self.padding_top_left.x + left_cut_width - self.extension_left_padding
+        let left_cut_width = left_cut as f32 * (self.packet_size.x + self.packet_separator);
+        self.seed_area_top_left.x + left_cut_width - self.extension_left_padding
     }
 
     fn extension_width(&self, packet_count: usize) -> f32 {
@@ -125,7 +125,7 @@ impl GridInfo {
 
     fn background_at(&self, index: usize) -> f32 {
         assert_ne!(index, 0);
-        self.padding_top_left.x + self.packet_area_width(self.natural_packet_count)
+        self.seed_area_top_left.x + self.packet_area_width(self.natural_packet_count)
             + (index - 1) as f32 * self.packet_area_width(self.extension_packet_count)
             - self.extension_left_padding
     }
@@ -181,8 +181,8 @@ fn spawn_seed_bank(
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
             position: UiRect {
-                left: Val::Px(grid_info.padding_top_left.x),
-                top: Val::Px(grid_info.padding_top_left.y),
+                left: Val::Px(grid_info.seed_area_top_left.x),
+                top: Val::Px(grid_info.seed_area_top_left.y),
                 ..default()
             },
             ..default()
@@ -196,7 +196,7 @@ fn spawn_seed_bank(
                 image: UiImage(seed_bank_assets.seed_packet_large.clone()),
                 style: Style {
                     margin: UiRect {
-                        right: Val::Px(grid_info.separator),
+                        right: Val::Px(grid_info.packet_separator),
                         ..default()
                     },
                     size: Size {
