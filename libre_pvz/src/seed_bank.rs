@@ -285,7 +285,7 @@ fn update_seed_bank(
             background_count += 1;
         }
         for index in background_count..background_expected {
-            let complete = index as usize <= complete_extensions;
+            let complete = index <= complete_extensions;
             let packet_count = if complete {
                 grid_info.extension_packet_count
             } else {
@@ -299,7 +299,7 @@ fn update_seed_bank(
                         overflow: Overflow::Hidden,
                         position_type: PositionType::Absolute,
                         position: UiRect {
-                            left: Val::Px(grid_info.background_at(index as usize)),
+                            left: Val::Px(grid_info.background_at(index)),
                             ..default()
                         },
                         size: Size {
