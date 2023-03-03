@@ -16,11 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use log::error;
 use reanim_decode::cli::Cli;
 
 fn main() {
     if let Err(err) = Cli::run() {
-        error!("{err}");
+        tracing::error!("{err}");
     }
 }

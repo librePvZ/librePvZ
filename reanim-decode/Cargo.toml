@@ -14,19 +14,19 @@ description = "decoder for PvZ reanim files"
 [dependencies]
 itertools = "0.10.5"
 thiserror = "1.0.38"
-log = "0.4.17"
 flate2 = "1.0.25"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 bincode = "2.0.0-rc.2"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_yaml = "0.9.17"
 serde_json = "1.0.91"
-fern = { version = "0.6.1", optional = true, features = ["colored"] }
+tracing = { version = "0.1.37", optional = true }
+tracing-subscriber = { version = "0.3.16", optional = true }
 clap = { version = "4.1.4", optional = true, features = ["derive"] }
 anyhow = { version = "1.0.68", optional = true }
 
 [features]
-cli = ["dep:fern", "dep:clap", "dep:anyhow"]
+cli = ["dep:tracing", "dep:tracing-subscriber", "dep:clap", "dep:anyhow"]
 
 [[bin]]
 name = "reanim-decode"

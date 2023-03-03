@@ -143,7 +143,7 @@ impl PlainData for Magic {
 pub trait Stream: Read {
     /// Decode a [`PlainData`] at the start of this stream.
     fn read_data<T: PlainData>(&mut self) -> Result<T> {
-        log::trace!("reading plain data '{}'", T::TYPE_NAME);
+        tracing::trace!("reading plain data '{}'", T::TYPE_NAME);
         // to work around current limitations around min_const_generics
         let mut buffer = vec![0_u8; T::SIZE_IN_BYTES];
         self.read_exact(&mut buffer).map_err(|err| IncompleteData(T::TYPE_NAME, err))?;
@@ -158,7 +158,7 @@ pub trait Stream: Read {
 
     /// Decode a series of `N` [`Decode`] at the start of this stream.
     fn read_n<T: Decode>(&mut self, n: usize) -> Result<Vec<T>> {
-        log::trace!("reading {n} consecutive elements");
+        tracing::trace!("reading {n} consecutive elements");
         std::iter::repeat_with(|| T::decode(self)).take(n).collect()
     }
 
@@ -171,7 +171,7 @@ pub trait Stream: Read {
     /// Decode a length `n`, and then a string of length `n`.
     fn read_string(&mut self) -> Result<String> {
         let length = self.read_data::<u32>()?;
-        log::trace!("reading string of length {length}");
+        tracing::trace!("reading string of length {length}");
         let mut buffer = vec![0_u8; length as usize];
         self.read_exact(&mut buffer).map_err(|err| IncompleteData("String", err))?;
         String::from_utf8(buffer).map_err(Into::into)
@@ -180,7 +180,7 @@ pub trait Stream: Read {
     /// Decode and assert a 32bit magic.
     fn check_magic<M: Into<Magic>>(&mut self, magic: M) -> Result<()> {
         let magic = magic.into();
-        log::trace!("checking magic {magic}");
+        tracing::trace!("checking magic {magic}");
         let val = self.read_data::<Magic>()?;
         if magic == val { Ok(()) } else {
             Err(MagicMismatch {
@@ -196,9 +196,9 @@ pub trait Stream: Read {
         self.read_exact(&mut buffer).map_err(|err| IncompleteData("padding", err))?;
         if !buffer.iter().all(|x| *x == 0) {
             let buffer = buffer.iter().format(" ");
-            log::info!("dropped {n} bytes of padding [{hint}]: {buffer:02X}");
+            tracing::info!("dropped {n} bytes of padding [{hint}]: {buffer:02X}");
         } else {
-            log::trace!("dropped {n} bytes of zero padding [{hint}]");
+            tracing::trace!("dropped {n} bytes of zero padding [{hint}]");
         }
         Ok(())
     }

@@ -52,7 +52,7 @@ impl Animation {
 
 impl Decode for Animation {
     fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Animation> {
-        log::debug!("decoding Animation (XML root node)");
+        tracing::debug!("decoding Animation (XML root node)");
         s.check_magic(0xB3_93_B4_C0)?;
         s.drop_padding("after-magic", 4)?;
         let track_count = s.read_data::<u32>()? as usize;
@@ -111,7 +111,7 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
                 last_key_frame = k;
                 current_visible = visible;
             } else {
-                log::warn!(target: "pack", "redundant 'show' in track '{}' frame {k}", track.name);
+                tracing::warn!(target: "pack", "redundant 'show' in track '{}' frame {k}", track.name);
             }
         }
     }
@@ -121,15 +121,15 @@ fn track_to_meta(track: packed::Track) -> Result<packed::Meta, packed::Track> {
     }
     // only one range is allowed
     if let [(start_frame, end_frame)] = ranges[..] {
-        let on_err = |n: usize| log::error!(target: "pack", "frame index ({n}) overflow in a meta track");
+        let on_err = |n: usize| tracing::error!(target: "pack", "frame index ({n}) overflow in a meta track");
         let start_frame = narrow!(start_frame, on_err, track);
         let end_frame = narrow!(end_frame - 1, on_err, track);
         if ignored_count > 0 {
-            log::warn!(target: "pack", "ignored {ignored_count} transform/alpha in meta track {}", track.name);
+            tracing::warn!(target: "pack", "ignored {ignored_count} transform/alpha in meta track {}", track.name);
         }
         Ok(packed::Meta { name: track.name, start_frame, end_frame })
     } else {
-        log::warn!(target: "pack", "discontinuous meta track {}: found ranges {ranges:?}", track.name);
+        tracing::warn!(target: "pack", "discontinuous meta track {}: found ranges {ranges:?}", track.name);
         Err(track)
     }
 }
@@ -164,7 +164,7 @@ pub struct Track {
 impl Track {
     fn decode_with_frame_count<S: Stream + ?Sized>(s: &mut S, n: usize) -> Result<Self> {
         let name = s.read_string()?;
-        log::debug!("decoding Track '{name}' of length {n} (XML tag <track>)");
+        tracing::debug!("decoding Track '{name}' of length {n} (XML tag <track>)");
         s.check_magic(0x2C)?;
         let transforms = s.read_n::<Transform>(n)?;
         let elements = s.read_n::<Elements>(n)?;
@@ -219,7 +219,7 @@ impl From<Track> for packed::Track {
             if let Some(f) = f {
                 packed.push(Action::Show(f >= 0.0));
                 if ![0.0, -1.0].contains(&f) {
-                    log::warn!(target: "pack", "non-standard <f> node with value {f}");
+                    tracing::warn!(target: "pack", "non-standard <f> node with value {f}");
                 }
             }
             // elements: text OR image
@@ -236,7 +236,7 @@ impl From<Track> for packed::Track {
                     }
                 }
                 if !image_name_valid {
-                    log::error!(target: "pack", "exotic file name: {image}");
+                    tracing::error!(target: "pack", "exotic file name: {image}");
                 }
                 let image = Cached::from(PathBuf::from(image));
                 packed.push(Action::LoadElement(Element::Image { image }));
@@ -244,13 +244,13 @@ impl From<Track> for packed::Track {
             }
             match (text, font) {
                 (Some(text), Some(font)) => if has_image {
-                    log::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
+                    tracing::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
                 } else {
                     let font = Cached::from(PathBuf::from(font));
                     packed.push(Action::LoadElement(Element::Text { text, font }));
                 },
-                (Some(text), None) => log::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),
-                (None, Some(font)) => log::warn!(target: "pack", "dropped <font>{font}</font> without <text>"),
+                (Some(text), None) => tracing::warn!(target: "pack", "dropped <text>{text}</text> without <font>"),
+                (None, Some(font)) => tracing::warn!(target: "pack", "dropped <font>{font}</font> without <text>"),
                 _ => {}
             }
             frames.push(packed::Frame(packed.into_boxed_slice()))
@@ -283,7 +283,7 @@ pub struct Transform {
 
 impl Decode for Transform {
     fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Transform> {
-        log::debug!("decoding Transform (XML tag <t>)");
+        tracing::debug!("decoding Transform (XML tag <t>)");
         let x = s.read_optional::<f32>()?;
         let y = s.read_optional::<f32>()?;
         let kx = s.read_optional::<f32>()?;

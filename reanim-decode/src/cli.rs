@@ -25,8 +25,7 @@ use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 use clap::{ValueEnum, Parser, Subcommand};
-use fern::colors::{Color::*, ColoredLevelConfig};
-use log::LevelFilter;
+use tracing_subscriber::filter::LevelFilter;
 use serde::{Serialize, Serializer};
 use libre_pvz_resources::animation as packed;
 use libre_pvz_resources::model;
@@ -95,12 +94,12 @@ pub enum Verbosity { Off, Error, Warn, Info, Debug, Trace }
 impl From<Verbosity> for LevelFilter {
     fn from(verb: Verbosity) -> Self {
         match verb {
-            Verbosity::Off => LevelFilter::Off,
-            Verbosity::Error => LevelFilter::Error,
-            Verbosity::Warn => LevelFilter::Warn,
-            Verbosity::Info => LevelFilter::Info,
-            Verbosity::Debug => LevelFilter::Debug,
-            Verbosity::Trace => LevelFilter::Trace,
+            Verbosity::Off => LevelFilter::OFF,
+            Verbosity::Error => LevelFilter::ERROR,
+            Verbosity::Warn => LevelFilter::WARN,
+            Verbosity::Info => LevelFilter::INFO,
+            Verbosity::Debug => LevelFilter::DEBUG,
+            Verbosity::Trace => LevelFilter::TRACE,
         }
     }
 }
@@ -205,31 +204,12 @@ pub enum Commands {
     },
 }
 
-const COLOURS: ColoredLevelConfig = ColoredLevelConfig {
-    error: BrightRed,
-    warn: BrightYellow,
-    info: BrightCyan,
-    debug: BrightBlue,
-    trace: Cyan,
-};
-
-fn trim_crate_name(target: &str) -> &str {
-    const CRATE_PREFIX: &str = "reanim_decode::";
-    target.strip_prefix(CRATE_PREFIX).unwrap_or(target)
-}
-
 fn setup_logger(verbose: LevelFilter) {
-    fern::Dispatch::new()
-        .format(|out, message, record|
-            out.finish(format_args!(
-                "{}: {}: {}",
-                trim_crate_name(record.target()),
-                COLOURS.color(record.level()),
-                message,
-            )))
-        .level(verbose)
-        .chain(std::io::stderr())
-        .apply().unwrap();
+    tracing_subscriber::fmt::Subscriber::builder()
+        .with_target(true)
+        .without_time()
+        .with_max_level(verbose)
+        .init()
 }
 
 const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
@@ -239,8 +219,8 @@ impl Cli {
     pub fn run() -> anyhow::Result<()> {
         let args = Cli::parse();
         setup_logger(match args.verbose {
-            None => LevelFilter::Warn, // no '--verbose', only errors
-            Some(None) => LevelFilter::Info, // default '--verbose'
+            None => LevelFilter::WARN, // no '--verbose', only errors
+            Some(None) => LevelFilter::INFO, // default '--verbose'
             Some(Some(verbose)) => verbose.into(), // explicit '--verbose'
         });
         DynamicRegistry::initialize_without_bevy();
