@@ -102,8 +102,6 @@ impl DynamicRegistry {
 /// using the [`standard`](bincode::config::standard) configuration, and cannot be changed at
 /// runtime, due to the current design of [`bincode`] API.
 pub trait AnyResource: Reflect + ErasedSerialize + Send + Sync + 'static {
-    /// Convert into an owned [`Reflect`] trait object.
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
     /// Convert to a [`Reflect`] trait object.
     fn as_reflect(&self) -> &dyn Reflect;
     /// Convert to a mutable [`Reflect`] trait object.
@@ -165,7 +163,6 @@ impl<'a> Reader for Proxy<'a, dyn Reader + 'a> {
 
 impl<T> AnyResource for T
     where T: Reflect + Serialize + DeserializeOwned + Encode + Decode + Send + Sync + 'static {
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { self }
     fn as_reflect(&self) -> &dyn Reflect { self }
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { self }
     fn erased_deserialize(src: &mut dyn ErasedDeserializer) -> Result<Box<dyn AnyResource>, Error> where Self: Sized {
