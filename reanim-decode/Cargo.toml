@@ -21,13 +21,13 @@ bincode = "2.0.0-rc.2"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_yaml = "0.9.17"
 serde_json = "1.0.93"
-tracing = { version = "0.1.37", optional = true }
+tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", optional = true }
 clap = { version = "4.1.8", optional = true, features = ["derive"] }
 anyhow = { version = "1.0.69", optional = true }
 
 [features]
-cli = ["dep:tracing", "dep:tracing-subscriber", "dep:clap", "dep:anyhow"]
+cli = ["dep:tracing-subscriber", "dep:clap", "dep:anyhow"]
 
 [[bin]]
 name = "reanim-decode"
