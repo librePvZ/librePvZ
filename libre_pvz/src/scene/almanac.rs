@@ -279,9 +279,9 @@ fn metrics_ui(
     ui.label("Animation:");
     stage.last_selected_meta = stage.selected_meta;
     ComboBox::from_label("(meta)")
-        .selected_text(&anim.description.meta[stage.selected_meta].name)
+        .selected_text(anim.description.meta[stage.selected_meta].name.as_ref())
         .show_ui(ui, |ui| for (k, meta) in anim.description.meta.iter().enumerate() {
-            ui.selectable_value(&mut stage.selected_meta, k, &meta.name);
+            ui.selectable_value(&mut stage.selected_meta, k, meta.name.as_ref());
         });
     ui.end_row();
 

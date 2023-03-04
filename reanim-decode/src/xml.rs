@@ -49,7 +49,7 @@ trait Field {
     fn write_field(&self, f: &mut Formatter<'_>, label: &str) -> std::fmt::Result;
 }
 
-impl<T: DisplayXml> Field for T {
+impl<T: DisplayXml + ?Sized> Field for T {
     fn write_field(&self, f: &mut Formatter<'_>, label: &str) -> std::fmt::Result {
         write!(f, "<{label}>{}</{label}>", Xml(self))
     }
@@ -76,7 +76,7 @@ macro_rules! impl_display_xml {
 impl_display_xml! {
     u8, u16, u32, u64, u128,
     i8, i16, i32, i64, i128,
-    f32, f64, String,
+    f32, f64, str, String,
 }
 
 impl DisplayXml for Animation {

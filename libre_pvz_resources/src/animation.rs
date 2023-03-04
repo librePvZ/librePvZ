@@ -75,7 +75,7 @@ impl AnimDesc {
 
     /// Get a meta track by name.
     pub fn get_meta(&self, name: &str) -> Option<(usize, &Meta)> {
-        let k = self.meta.binary_search_by_key(&name, |meta| meta.name.as_str()).ok()?;
+        let k = self.meta.binary_search_by_key(&name, |meta| meta.name.as_ref()).ok()?;
         Some((k, &self.meta[k]))
     }
 }
@@ -85,7 +85,7 @@ impl AnimDesc {
 #[derive(Serialize, Deserialize)]
 pub struct Meta {
     /// Name of this meta data.
-    pub name: String,
+    pub name: Box<str>,
     /// (inclusive) Start of the frame range this meta data covers.
     pub start_frame: u16,
     /// (inclusive) End of the frame range this meta data covers.
@@ -102,7 +102,7 @@ impl EntryWithKey for Meta {
 #[derive(Serialize, Deserialize)]
 pub struct Track {
     /// Track name for internal recognition.
-    pub name: String,
+    pub name: Box<str>,
     /// Frame list, grouped into segments internally.
     pub frames: Box<[Frame]>,
 }
@@ -162,7 +162,7 @@ pub enum Element {
     /// Text element.
     Text {
         /// Text content to display. Characters not in the font are simply ignored.
-        text: String,
+        text: Box<str>,
         /// Font name.
         font: Cached<PathBuf, Handle<Font>>,
     },
@@ -283,12 +283,12 @@ impl Animation {
         }
     }
 
-    /// Animation clip for the [`Meta`](crate::animation::Meta) at some index.
+    /// Animation clip for the [`Meta`](Meta) at some index.
     pub fn clip(&self) -> Arc<AnimationClip> {
         self.clip.get_or_init(|| {
             let mut clip_builder = AnimationClip::builder();
             for track in self.description.tracks.iter() {
-                let path = EntityPath::from([Name::new(track.name.clone())]);
+                let path = EntityPath::from([Name::new(track.name.to_string())]);
                 let mut builder = TrackBuilder::default();
                 builder.prepare_curve::<BitVec, _>(_IsVisible);
                 for (k, frame) in track.frames.iter().enumerate() {
