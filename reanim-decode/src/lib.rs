@@ -21,8 +21,7 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
-mod decode;
-
+pub mod stream;
 pub mod reanim;
 pub mod xml;
 

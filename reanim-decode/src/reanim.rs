@@ -17,52 +17,57 @@
  */
 
 //! Definition and decoding logic for `.reanim.compiled` files.
-//!
-//! # Notes for Source Code
-//! Fields marked with `#[br(temp)]` are removed from `struct` definition. We use normal comments
-//! instead of doc comments for them. This way, if a `#[br(temp)]` is missing, we get a warning
-//! from `rustdoc`.
 
-use std::io::{BufRead, Seek};
+use std::io::BufRead;
 use std::path::PathBuf;
-use binrw::{binread, BinRead, BinResult};
 use flate2::bufread::ZlibDecoder;
 use serde::{Serialize, Deserialize};
 use libre_pvz_resources::animation as packed;
 use libre_pvz_resources::animation::Element;
 use libre_pvz_resources::cached::{Cached, SortedSlice};
 use packed::Action;
-use crate::decode::{TrivialSeek, ArgVec, LenString, optional_f32, optional_string};
+use crate::stream::{Decode, Stream, Result};
 
 /// Animation in a `.reanim` file.
-#[binread]
-#[br(little)]
-#[br(magic = 0xB3_93_B4_C0_u32)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Animation {
-    // number of tracks in this animation.
-    #[br(temp, pad_before = 4, pad_after = 4)]
-    track_count: u32,
     /// Frames per second, typically 12.
     pub fps: f32,
-    // number of frames in each track.
-    #[br(temp, magic = 0x0C_u32, count = track_count)]
-    frame_counts: Vec<FrameCount>,
     /// All tracks in this animation.
-    #[br(args_raw = std::mem::take(& mut frame_counts), map = ArgVec::into_boxed_slice)]
     pub tracks: Box<[Track]>,
 }
 
 impl Animation {
     /// Decode a `.reanim` or `.reanim.compiled` file.
     /// Performs decompression before decoding if necessary.
-    pub fn decompress_and_decode<R: BufRead + Seek>(s: &mut R) -> BinResult<Animation> {
+    pub fn decompress_and_decode<R: Stream + BufRead + ?Sized>(s: &mut R) -> Result<Animation> {
         if let Ok([0xD4, 0xFE, 0xAD, 0xDE, ..]) = s.fill_buf() {
             s.consume(8);
-            Animation::read(&mut TrivialSeek::new(ZlibDecoder::new(s)))
+            Animation::decode(&mut ZlibDecoder::new(s))
         } else {
-            Animation::read(s)
+            Animation::decode(s)
         }
+    }
+}
+
+impl Decode for Animation {
+    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Animation> {
+        tracing::debug!("decoding Animation (XML root node)");
+        s.check_magic(0xB3_93_B4_C0)?;
+        s.drop_padding("after-magic", 4)?;
+        let track_count = s.read_data::<u32>()? as usize;
+        let fps = s.read_data::<f32>()?;
+        s.drop_padding("prop", 4)?;
+        s.check_magic(0x0C)?;
+        let mut tracks = Vec::with_capacity(track_count);
+        let frame_counts = std::iter::repeat_with(|| {
+            s.drop_padding("frame", 8)?;
+            s.read_data::<u32>()
+        }).take(track_count).collect::<Result<Vec<_>>>()?;
+        for frame_count in frame_counts {
+            tracks.push(Track::decode_with_frame_count(s, frame_count as usize)?);
+        }
+        Ok(Animation { fps, tracks: tracks.into_boxed_slice() })
     }
 }
 
@@ -147,38 +152,28 @@ impl From<Animation> for packed::AnimDesc {
     }
 }
 
-#[derive(Copy, Clone, BinRead)]
-struct FrameCount(#[br(pad_before = 8)] u32);
-
-impl From<FrameCount> for u32 {
-    fn from(n: FrameCount) -> u32 { n.0 }
-}
-
 /// A single track in an [`Animation`].
-#[binread]
 #[derive(Debug, Serialize, Deserialize)]
-#[br(import_raw(frame_count: u32))]
 pub struct Track {
     /// Name of this track for internal use.
-    #[br(map = LenString::into_boxed_str)]
-    pub name: Box<str>,
-    #[br(magic = 0x2C_u32)]
-    // Transforms in each frame.
-    #[br(temp, count = frame_count, postprocess_now)]
-    transforms: Vec<Transform>,
-    // Elements in each frame.
-    #[br(temp, count = frame_count, postprocess_now)]
-    elements: Vec<Elements>,
+    pub name: String,
     /// Frames, possibly grouped into several parts.
-    #[br(calc = zip_frames(transforms, elements))]
     pub frames: Box<[Frame]>,
 }
 
-fn zip_frames(transforms: Vec<Transform>, elements: Vec<Elements>) -> Box<[Frame]> {
-    transforms.into_iter()
-        .zip(elements.into_iter())
-        .map(|(transform, elements)| Frame { transform, elements })
-        .collect()
+impl Track {
+    fn decode_with_frame_count<S: Stream + ?Sized>(s: &mut S, n: usize) -> Result<Self> {
+        let name = s.read_string()?;
+        tracing::debug!("decoding Track '{name}' of length {n} (XML tag <track>)");
+        s.check_magic(0x2C)?;
+        let transforms = s.read_n::<Transform>(n)?;
+        let elements = s.read_n::<Elements>(n)?;
+        let frames = transforms.into_iter()
+            .zip(elements.into_iter())
+            .map(|(transform, elements)| Frame { transform, elements })
+            .collect();
+        Ok(Track { name, frames })
+    }
 }
 
 impl From<Track> for packed::Track {
@@ -251,7 +246,6 @@ impl From<Track> for packed::Track {
                 (Some(text), Some(font)) => if has_image {
                     tracing::warn!(target: "pack", "dropped <text>{text}</text> in favour of <i>");
                 } else {
-                    let text = text.into_boxed_str();
                     let font = Cached::from(PathBuf::from(font));
                     packed.push(Action::LoadElement(Element::Text { text, font }));
                 },
@@ -266,49 +260,65 @@ impl From<Track> for packed::Track {
 }
 
 /// A transformation.
-#[derive(Debug, BinRead, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Transform {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub x: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub y: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub kx: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub ky: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub sx: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub sy: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
     pub f: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_f32)]
-    #[br(pad_after = 12)]
     pub a: Option<f32>,
 }
 
+impl Decode for Transform {
+    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Transform> {
+        tracing::debug!("decoding Transform (XML tag <t>)");
+        let x = s.read_optional::<f32>()?;
+        let y = s.read_optional::<f32>()?;
+        let kx = s.read_optional::<f32>()?;
+        let ky = s.read_optional::<f32>()?;
+        let sx = s.read_optional::<f32>()?;
+        let sy = s.read_optional::<f32>()?;
+        let f = s.read_optional::<f32>()?;
+        let a = s.read_optional::<f32>()?;
+        s.drop_padding("transform", 12)?;
+        Ok(Transform { x, y, kx, ky, sx, sy, f, a })
+    }
+}
+
 /// An element in a [`Frame`].
-#[derive(Debug, BinRead, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Elements {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_string)]
     pub image: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_string)]
     pub font: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[br(map = optional_string)]
     pub text: Option<String>,
+}
+
+impl Decode for Elements {
+    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Elements> {
+        fn opt(s: String) -> Option<String> {
+            if s.is_empty() { None } else { Some(s) }
+        }
+        let image_name = opt(s.read_string()?);
+        let font_name = opt(s.read_string()?);
+        let text = opt(s.read_string()?);
+        Ok(Elements { image: image_name, font: font_name, text })
+    }
 }
 
 /// A frame in a [`Track`], consist of (optional) image, text, and transformation.
