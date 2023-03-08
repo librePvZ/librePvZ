@@ -21,6 +21,7 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
+#[macro_use]
 pub mod stream;
 pub mod reanim;
 pub mod xml;

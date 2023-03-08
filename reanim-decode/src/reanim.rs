@@ -26,7 +26,7 @@ use libre_pvz_resources::animation as packed;
 use libre_pvz_resources::animation::Element;
 use libre_pvz_resources::cached::{Cached, SortedSlice};
 use packed::Action;
-use crate::stream::{Decode, Stream, Result};
+use crate::stream::{Decode, DecodeExt, Stream, Result};
 
 /// Animation in a `.reanim` file.
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,8 +50,9 @@ impl Animation {
     }
 }
 
-impl Decode for Animation {
-    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Animation> {
+declare_no_args!(Animation);
+impl Decode<()> for Animation {
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, _args: ()) -> Result<Animation> {
         tracing::debug!("decoding Animation (XML root node)");
         s.check_magic(0xB3_93_B4_C0)?;
         s.drop_padding("after-magic", 4)?;
@@ -65,7 +66,7 @@ impl Decode for Animation {
             s.read_data::<u32>()
         }).take(track_count).collect::<Result<Vec<_>>>()?;
         for frame_count in frame_counts {
-            tracks.push(Track::decode_with_frame_count(s, frame_count as usize)?);
+            tracks.push(Track::decode_with(s, frame_count as usize)?);
         }
         Ok(Animation { fps, tracks: tracks.into_boxed_slice() })
     }
@@ -161,8 +162,9 @@ pub struct Track {
     pub frames: Box<[Frame]>,
 }
 
-impl Track {
-    fn decode_with_frame_count<S: Stream + ?Sized>(s: &mut S, n: usize) -> Result<Self> {
+declare_no_args!(Track);
+impl Decode<usize> for Track {
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, n: usize) -> Result<Self> {
         let name = s.read_string()?;
         tracing::debug!("decoding Track '{name}' of length {n} (XML tag <track>)");
         s.check_magic(0x2C)?;
@@ -281,8 +283,9 @@ pub struct Transform {
     pub a: Option<f32>,
 }
 
-impl Decode for Transform {
-    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Transform> {
+declare_no_args!(Transform);
+impl Decode<()> for Transform {
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, _args: ()) -> Result<Transform> {
         tracing::debug!("decoding Transform (XML tag <t>)");
         let x = s.read_optional::<f32>()?;
         let y = s.read_optional::<f32>()?;
@@ -309,8 +312,9 @@ pub struct Elements {
     pub text: Option<String>,
 }
 
-impl Decode for Elements {
-    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Elements> {
+declare_no_args!(Elements);
+impl Decode<()> for Elements {
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, _args: ()) -> Result<Elements> {
         fn opt(s: String) -> Option<String> {
             if s.is_empty() { None } else { Some(s) }
         }

@@ -157,13 +157,13 @@ pub trait Stream: Read {
     }
 
     /// Decode a series of `N` [`Decode`] at the start of this stream.
-    fn read_n<T: Decode>(&mut self, n: usize) -> Result<Vec<T>> {
+    fn read_n<T: Decode<()>>(&mut self, n: usize) -> Result<Vec<T>> {
         tracing::trace!("reading {n} consecutive elements");
         std::iter::repeat_with(|| T::decode(self)).take(n).collect()
     }
 
     /// Decode a length `n`, and an array of `n` [`Decode`] at the start of this stream.
-    fn read_array<T: Decode>(&mut self) -> Result<Vec<T>> {
+    fn read_array<T: Decode<()>>(&mut self) -> Result<Vec<T>> {
         let length = self.read_data::<u32>()?;
         self.read_n(length as usize)
     }
@@ -204,14 +204,55 @@ pub trait Stream: Read {
     }
 }
 
-impl<S: Read> Stream for S {}
+impl<S: Read + ?Sized> Stream for S {}
 
-/// Common entry for decoding binary data.
-pub trait Decode: Sized {
-    /// Decode complex data at current position in the [`Stream`].
-    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Self>;
+/// Interface for named arguments in a [`Decode`].
+pub trait NamedArgs {
+    /// Builder type for the arguments.
+    type ArgsBuilder;
+    /// Create a new argument builder.
+    fn args_builder() -> Self::ArgsBuilder;
 }
 
-impl<T: PlainData> Decode for T {
-    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Self> { s.read_data::<T>() }
+/// Trivial [`NamedArgs::ArgsBuilder`].
+#[derive(Debug, Copy, Clone)]
+pub struct NoArgs;
+
+impl NoArgs {
+    /// Finish building the arguments, which is nothing here.
+    pub fn finish(self) {}
+}
+
+macro_rules! declare_no_args {
+    ($t:ty) => {
+        impl crate::stream::NamedArgs for $t {
+            type ArgsBuilder = crate::stream::NoArgs;
+            fn args_builder() -> Self::ArgsBuilder { crate::stream::NoArgs }
+        }
+    }
+}
+
+/// Common entry for decoding binary data.
+pub trait Decode<Args>: NamedArgs + Sized {
+    /// Decode complex data at current position in the [`Stream`].
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, args: Args) -> Result<Self>;
+}
+
+/// Convenience methods for [`Decode`] without arguments.
+pub trait DecodeExt: Decode<()> {
+    /// Decode complex data at current position in the [`Stream`], with default arguments.
+    fn decode<S: Stream + ?Sized>(s: &mut S) -> Result<Self> {
+        Self::decode_with(s, ())
+    }
+}
+
+impl<T: Decode<()>> DecodeExt for T {}
+
+impl<T: PlainData> NamedArgs for T {
+    type ArgsBuilder = NoArgs;
+    fn args_builder() -> NoArgs { NoArgs }
+}
+
+impl<T: PlainData> Decode<()> for T {
+    fn decode_with<S: Stream + ?Sized>(s: &mut S, _args: ()) -> Result<Self> { s.read_data::<T>() }
 }
