@@ -24,7 +24,7 @@ use bevy::asset::AssetPath;
 use bevy::prelude::*;
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
-use bevy_egui::EguiContext;
+use bevy_egui::EguiContexts;
 use bevy_asset_loader::prelude::*;
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
 use crate::animation::curve::Segment;
@@ -33,7 +33,6 @@ use crate::animation::transform::{SpatialBundle2D, SpriteBundle2D, Transform2D};
 use crate::resources::animation::Animation;
 use crate::diagnostics::BoundingBoxRoot;
 use crate::scene::loading::AssetState;
-// use crate::scene::loading::{AssetCollection, AssetLoader, AssetLoaderExt, AssetState, PendingAssets};
 
 /// Width of almanac frame.
 pub const WIDTH: f32 = 315.0;
@@ -108,13 +107,12 @@ impl AlmanacPlugin {
         AlmanacPlugin(AnimName(anim_name))
     }
     /// Mainly for setting the window size.
-    pub fn window_descriptor() -> WindowDescriptor {
-        WindowDescriptor {
-            width: WIDTH,
-            height: HEIGHT,
+    pub fn window() -> Window {
+        Window {
+            resolution: (WIDTH, HEIGHT).into(),
             title: "librePvZ".to_string(),
             resizable: false,
-            ..WindowDescriptor::default()
+            ..Window::default()
         }
     }
 }
@@ -126,13 +124,12 @@ impl Plugin for AlmanacPlugin {
             .insert_resource(Stage::default())
             .add_startup_system(setup_main_anim)
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
-                .with_collection::<StageAssets>()
                 .continue_to_state(AssetState::AssetReady)
                 .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_state(AssetState::AssetLoading)
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(init_anim))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(animation_ui))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(respond_to_stage_change));
+            .add_collection_to_loading_state::<_, StageAssets>(AssetState::AssetLoading)
+            .add_system(init_anim.in_schedule(OnEnter(AssetState::AssetReady)))
+            .add_system(animation_ui.in_set(OnUpdate(AssetState::AssetReady)))
+            .add_system(respond_to_stage_change.in_set(OnUpdate(AssetState::AssetReady)));
     }
 }
 
@@ -176,7 +173,7 @@ fn init_anim(
     assets: Res<Assets<Animation>>,
     stage_assets: Res<StageAssets>,
     mut stage: ResMut<Stage>,
-    mut context: ResMut<EguiContext>,
+    mut context: EguiContexts,
     mut commands: Commands,
 ) {
     let almanac = commands.spawn(SpriteBundle2D {
@@ -239,7 +236,7 @@ fn init_anim(
 }
 
 fn animation_ui(
-    mut context: ResMut<EguiContext>,
+    mut context: EguiContexts,
     diagnostics: Res<Diagnostics>,
     animations: Res<Assets<Animation>>,
     mut player: Query<&mut AnimationPlayer>,

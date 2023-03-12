@@ -17,7 +17,7 @@
  */
 
 //! librePvZ-animation: animation playing for librePvZ for [`bevy`].
-#![doc = include_str!("../README.md")]
+#![doc = include_str ! ("../README.md")]
 
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
@@ -32,7 +32,7 @@ use bevy::transform::TransformSystem;
 use crate::transform::Transform2D;
 
 /// Labels for animation systems.
-#[derive(Clone, Debug, SystemLabel, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, SystemSet, PartialEq, Eq, Hash)]
 pub enum AnimationSystem {
     /// Ticking the time in animation players.
     PlayerTicking,
@@ -50,11 +50,7 @@ pub trait AnimationExt {
 
 impl AnimationExt for App {
     fn register_for_animation<C: Component>(&mut self) -> &mut Self {
-        self.add_system_to_stage(
-            CoreStage::PostUpdate,
-            player::animate_entities_system::<C>
-                .label(AnimationSystem::PlayerSampling)
-                .before(TransformSystem::TransformPropagate))
+        self.add_system(player::animate_entities_system::<C>.in_set(AnimationSystem::PlayerSampling))
     }
 }
 
@@ -65,13 +61,15 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform2D>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                transform::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate))
             .add_asset::<clip::AnimationClip>()
-            .add_system(player::bind_curve_system.label(AnimationSystem::PlayerCurveBind))
-            .add_system(player::tick_animation_system.label(AnimationSystem::PlayerTicking))
+            .add_system(transform::transform_propagate_system.in_set(TransformSystem::TransformPropagate))
+            .add_system(player::bind_curve_system.in_set(AnimationSystem::PlayerCurveBind))
+            .add_system(player::tick_animation_system.in_set(AnimationSystem::PlayerTicking))
+            .configure_sets((
+                AnimationSystem::PlayerTicking,
+                AnimationSystem::PlayerCurveBind,
+                AnimationSystem::PlayerSampling.before(TransformSystem::TransformPropagate),
+            ).in_base_set(CoreSet::PostUpdate))
             .register_for_animation::<Transform2D>()
             .register_for_animation::<Sprite>()
             .register_for_animation::<Visibility>()

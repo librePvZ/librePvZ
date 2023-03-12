@@ -39,12 +39,9 @@ impl Plugin for PeashooterPlugin {
     fn build(&self, app: &mut App) {
         app.register_marker::<Peashooter>("Peashooter")
             .register_marker::<PeashooterHead>("PeashooterHead")
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady)
-                .with_system(initialize_state_index_system))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady)
-                .with_system(peashooter_fire_system))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady)
-                .with_system(peashooter_force_shooting_system)
+            .add_system(initialize_state_index_system.in_schedule(OnEnter(AssetState::AssetReady)))
+            .add_system(peashooter_fire_system.in_set(OnUpdate(AssetState::AssetReady)))
+            .add_system(peashooter_force_shooting_system.in_set(OnUpdate(AssetState::AssetReady))
                 .before(ModelSystem::TransitionTrigger)
                 .after(ModelSystem::CoolDownTicking));
     }

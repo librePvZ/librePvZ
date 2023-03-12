@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use bevy::sprite::{Anchor, Mesh2dHandle};
 use bevy::transform::TransformSystem;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::render::Shape;
+use bevy_prototype_lyon::render::ShapeMaterial;
 use libre_pvz_animation::transform::Transform2D;
 
 /// Plugin for displaying bounding boxes for 2D sprite graphics.
@@ -30,7 +30,7 @@ use libre_pvz_animation::transform::Transform2D;
 pub struct BoundingBoxPlugin;
 
 /// Labels for the bounding box systems.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, SystemLabel)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, SystemSet)]
 pub enum BoundingBoxSystem {
     /// Set up for newly-[`Added`] [`BoundingBoxRoot`]s.
     AddBoundingBox,
@@ -41,16 +41,12 @@ pub enum BoundingBoxSystem {
 impl Plugin for BoundingBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ShapePlugin)
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                add_bounding_box_system
-                    .label(BoundingBoxSystem::AddBoundingBox)
-                    .before(TransformSystem::TransformPropagate))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_bounding_box_system
-                    .label(BoundingBoxSystem::UpdateBoundingBox)
-                    .before(TransformSystem::TransformPropagate));
+            .configure_sets((
+                BoundingBoxSystem::AddBoundingBox,
+                BoundingBoxSystem::UpdateBoundingBox,
+            ).in_base_set(CoreSet::PostUpdate).before(TransformSystem::TransformPropagate))
+            .add_system(add_bounding_box_system.in_set(BoundingBoxSystem::AddBoundingBox))
+            .add_system(update_bounding_box_system.in_set(BoundingBoxSystem::UpdateBoundingBox));
     }
 }
 
@@ -71,9 +67,8 @@ pub struct BoundingBox(Entity, Vec2);
 #[derive(Bundle)]
 struct ShapeBundle2D {
     path: Path,
-    mode: DrawMode,
-    shape: Shape,
     mesh2d: Mesh2dHandle,
+    material: Handle<ShapeMaterial>,
     transform: Transform2D,
     global_transform: GlobalTransform,
     visibility: Visibility,
@@ -81,12 +76,11 @@ struct ShapeBundle2D {
 }
 
 impl ShapeBundle2D {
-    fn build(shape: &impl Geometry, mode: DrawMode, transform: Transform2D) -> Self {
+    fn build(shape: &impl Geometry, transform: Transform2D) -> Self {
         Self {
             path: ShapePath::build_as(shape),
-            mode,
-            shape: Shape,
             mesh2d: Mesh2dHandle::default(),
+            material: Handle::default(),
             transform,
             global_transform: GlobalTransform::default(),
             visibility: Visibility::default(),
@@ -104,7 +98,7 @@ fn add_bounding_box_system(
 ) {
     for (root, &BoundingBoxRoot { z_order, is_visible }) in roots.iter() {
         let mut pending = vec![root];
-        let white_stroke = DrawMode::Stroke(StrokeMode::new(Color::ANTIQUE_WHITE, 0.5));
+        let white_stroke = Stroke::new(Color::ANTIQUE_WHITE, 0.5);
         let trans = Transform2D { z_order, ..Transform2D::default() };
         while let Some(current) = pending.pop() {
             if let Ok(children) = children.get(current) {
@@ -115,10 +109,10 @@ fn add_bounding_box_system(
                     .and_then(|texture| images.get(texture))
                     .map(|image| image.size())) {
                     let bb = rectangle(size, &sprite.anchor);
-                    let mut bb = ShapeBundle2D::build(&bb, white_stroke, trans);
-                    bb.visibility.is_visible = is_visible;
+                    let mut bb = ShapeBundle2D::build(&bb, trans);
+                    bb.visibility = if is_visible { Visibility::Inherited } else { Visibility::Hidden };
                     commands.entity(current).with_children(|builder| {
-                        builder.spawn((bb, BoundingBox(root, size)));
+                        builder.spawn((bb, white_stroke, BoundingBox(root, size)));
                     });
                 }
             }
@@ -130,17 +124,14 @@ fn add_bounding_box_system(
 fn update_bounding_box_system(
     roots: Query<&BoundingBoxRoot>,
     mut boxes: Query<(Entity, &mut BoundingBox, &mut Path, &Parent, &mut Visibility)>,
-    sprites: Query<(&Sprite, Option<&Handle<Image>>, Option<&Visibility>), Without<BoundingBox>>,
+    sprites: Query<(&Sprite, Option<&Handle<Image>>), Without<BoundingBox>>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
 ) {
     for (this, mut bb, mut path, parent, mut vis) in boxes.iter_mut() {
         if let Ok(root) = roots.get(bb.0) {
-            if let Ok((sprite, texture, parent_vis)) = sprites.get(parent.get()) {
-                let new_visible = root.is_visible && parent_vis.map_or(true, |v| v.is_visible);
-                if vis.is_visible != new_visible {
-                    vis.is_visible = new_visible;
-                }
+            if let Ok((sprite, texture)) = sprites.get(parent.get()) {
+                vis.set_if_neq(if root.is_visible { Visibility::Inherited } else { Visibility::Hidden });
                 if let Some(size) = sprite.custom_size.or_else(|| texture
                     .and_then(|texture| images.get(texture))
                     .map(|image| image.size())) {

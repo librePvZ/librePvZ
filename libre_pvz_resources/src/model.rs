@@ -56,17 +56,16 @@ impl MarkerRegistryExt for App {
 pub struct ModelPlugin;
 
 /// Labels for model-related systems.
-#[derive(Clone, Debug, SystemLabel, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, SystemSet, PartialEq, Eq, Hash)]
 pub enum ModelSystem {
     /// Ticks the cool down timers, systems relying on [`CoolDown`] should be
-    /// [`after`](SystemSet::after) this label.
+    /// [`after`](IntoSystemSetConfig::after) this.
     CoolDownTicking,
     /// Responds to [`TransitionTrigger`] events, systems writing such events should be
-    /// [`before`](SystemSet::before) this label.
+    /// [`before`](IntoSystemSetConfig::before) this.
     TransitionTrigger,
     /// Shows animation for state transitions; responds to [`StateTransitionEvent`] events.
-    /// Systems manually writing such events should be
-    /// [`before`](SystemSet::before) this label.
+    /// Systems manually writing such events should be [`before`](IntoSystemSetConfig::before) this.
     TransitionAnimation,
 }
 
@@ -77,15 +76,15 @@ impl Plugin for ModelPlugin {
             .add_event::<TransitionTrigger>()
             .add_two_stage_asset::<Model>()
             .register_marker::<AutoNullTrigger>("AutoNullTrigger")
-            .add_system(cool_down_tick_system
-                .label(ModelSystem::CoolDownTicking)
-                .before(ModelSystem::TransitionTrigger))
+            .configure_sets((
+                ModelSystem::CoolDownTicking,
+                ModelSystem::TransitionTrigger,
+                ModelSystem::TransitionAnimation,
+            ).chain())
             .add_system(apply_null_trigger_system)
-            .add_system(transition_trigger_response_system
-                .label(ModelSystem::TransitionTrigger)
-                .before(ModelSystem::TransitionAnimation))
-            .add_system(state_transition_animation_system
-                .label(ModelSystem::TransitionAnimation));
+            .add_system(cool_down_tick_system.in_set(ModelSystem::CoolDownTicking))
+            .add_system(transition_trigger_response_system.in_set(ModelSystem::TransitionTrigger))
+            .add_system(state_transition_animation_system.in_set(ModelSystem::TransitionAnimation));
     }
 }
 

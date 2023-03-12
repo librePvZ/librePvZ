@@ -42,13 +42,12 @@ pub struct LawnPlugin;
 
 impl LawnPlugin {
     /// Mainly for setting the window size.
-    pub fn window_descriptor() -> WindowDescriptor {
-        WindowDescriptor {
-            width: WIDTH,
-            height: HEIGHT,
+    pub fn window() -> Window {
+        Window {
+            resolution: (WIDTH, HEIGHT).into(),
             title: "librePvZ".to_string(),
             resizable: false,
-            ..WindowDescriptor::default()
+            ..Window::default()
         }
     }
 }
@@ -64,14 +63,13 @@ impl Plugin for LawnPlugin {
                 maximum_height: HEIGHT * 2.0,
             })
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
-                .with_collection::<LawnAssets>()
-                .with_collection::<PeashooterAssets>()
                 .continue_to_state(AssetState::AssetReady)
                 .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_state(AssetState::AssetLoading)
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(setup_lawn))
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_peashooter_system))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_grid_system));
+            .add_collection_to_loading_state::<_, LawnAssets>(AssetState::AssetLoading)
+            .add_collection_to_loading_state::<_, PeashooterAssets>(AssetState::AssetLoading)
+            .add_system(setup_lawn.in_schedule(OnEnter(AssetState::AssetReady)))
+            .add_system(spawn_peashooter_system.in_schedule(OnEnter(AssetState::AssetReady)))
+            .add_system(update_grid_system.in_set(OnUpdate(AssetState::AssetReady)));
     }
 }
 
@@ -167,11 +165,11 @@ impl GridInfo {
 
 fn update_grid_system(
     grid_info: Res<GridInfo>,
-    mut grids: Query<(&GridPos, ChangeTrackers<GridPos>, &mut Transform2D)>,
+    mut grids: Query<(Ref<GridPos>, &mut Transform2D)>,
 ) {
-    for (pos, changes, mut trans) in grids.iter_mut() {
-        if grid_info.is_changed() || changes.is_changed() {
-            trans.translation = grid_info.translation_for(pos);
+    for (pos, mut trans) in grids.iter_mut() {
+        if grid_info.is_changed() || pos.is_changed() {
+            trans.translation = grid_info.translation_for(&pos);
         }
     }
 }

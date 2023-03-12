@@ -29,7 +29,6 @@ use bevy::reflect::TypeUuid;
 use bevy::sprite::Anchor;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
-use bitvec::prelude::*;
 use optics::concrete::_Identity;
 use once_cell::sync::OnceCell;
 use libre_pvz_animation::clip::{AnimationClip, EntityPath, TrackBuilder};
@@ -63,7 +62,7 @@ pub struct AnimDesc {
 
 impl AnimDesc {
     /// Get an iterator of all the image file names in this animation.
-    pub fn image_files(&self) -> impl Iterator<Item=&Cached<PathBuf, Handle<Image>>> {
+    pub fn image_files(&self) -> impl Iterator<Item = &Cached<PathBuf, Handle<Image>>> {
         self.tracks.iter()
             .flat_map(|track| track.frames.iter())
             .flat_map(|frame| frame.0.iter())
@@ -182,7 +181,8 @@ optics::declare_lens! {
     (color) => match color {
         Color::Rgba { alpha, .. } |
         Color::RgbaLinear { alpha, .. } |
-        Color::Hsla { alpha, .. } => alpha,
+        Color::Hsla { alpha, .. } |
+        Color::Lcha { alpha, .. } => alpha,
     }
 }
 
@@ -196,10 +196,6 @@ impl Display for _Alpha {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("alpha")
     }
-}
-
-optics::declare_lens_from_field! {
-    _IsVisible for is_visible as Visibility => bool;
 }
 
 optics::declare_lens_from_field! {
@@ -264,9 +260,11 @@ impl Animation {
     }
 
     fn push_frame<'a, I>(&self, builder: &mut TrackBuilder, k: usize, frame: I)
-        where I: IntoIterator<Item=&'a Action> {
+        where I: IntoIterator<Item = &'a Action> {
         for act in frame.into_iter() {
-            type _Image = _Identity::<Handle<Image>>;
+            type _Image = _Identity<Handle<Image>>;
+            type _IsVisible = _Identity<Visibility>;
+            let vis = |vis| if vis { Visibility::Inherited } else { Visibility::Hidden };
             use Action::*;
             match act {
                 LoadElement(Element::Text { .. }) => todo!(),
@@ -275,7 +273,7 @@ impl Animation {
                     builder.push_keyframe(_Image::default(), k, image)
                 }
                 &Alpha(alpha) => builder.push_keyframe(_Alpha, k, alpha),
-                &Show(visible) => builder.push_keyframe(_IsVisible, k, visible),
+                &Show(visible) => builder.push_keyframe(_IsVisible::default(), k, vis(visible)),
                 &Translation(t) => builder.push_keyframe(_Translation, k, Vec2::from(t)),
                 &Scale(s) => builder.push_keyframe(_Scale, k, Vec2::from(s)),
                 &Rotation(r) => builder.push_keyframe(_Rotation, k, Vec2::from(r)),
@@ -283,14 +281,13 @@ impl Animation {
         }
     }
 
-    /// Animation clip for the [`Meta`](crate::animation::Meta) at some index.
+    /// Animation clip for the [`Meta`] at some index.
     pub fn clip(&self) -> Arc<AnimationClip> {
         self.clip.get_or_init(|| {
             let mut clip_builder = AnimationClip::builder();
             for track in self.description.tracks.iter() {
                 let path = EntityPath::from([Name::new(track.name.clone())]);
                 let mut builder = TrackBuilder::default();
-                builder.prepare_curve::<BitVec, _>(_IsVisible);
                 for (k, frame) in track.frames.iter().enumerate() {
                     self.push_frame(&mut builder, k, frame.0.iter());
                 }

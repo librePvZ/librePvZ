@@ -45,7 +45,7 @@ pub trait CurveContentBorrow<'a>: CurveContentStatic {
     fn curve_content_get(&'a self, k: usize) -> Self::KeyframeRef;
 }
 
-/// Provides linear random access to keyframe contents in a [`Curve`](super::Curve).
+/// Provides linear random access to keyframe contents in a [`Curve`].
 /// See also [`CurveContentStatic`] and [`CurveContentBorrow`].
 pub trait CurveContent: for<'a> CurveContentBorrow<'a> {}
 
@@ -115,11 +115,11 @@ impl<S, F, C: CurveContent> KeyframeCurve<S, F, C> {
 }
 
 impl<S, F, C> Curve for KeyframeCurve<S, F, C>
-    where S: 'static, C: CurveContent<Keyframe=F::View>,
+    where S: 'static, C: CurveContent<Keyframe = F::View>,
           F::View: PartialEq + Animatable + Sized + Send + Sync + 'static,
           F: Send + Sync + 'static
-          + for<'a> AffineFoldRef<'a, S, Error=String>
-          + for<'a> AffineFoldMut<'a, S, Error=String> {
+          + for<'a> AffineFoldRef<'a, S, Error = String>
+          + for<'a> AffineFoldMut<'a, S, Error = String> {
     type Component = S;
     fn frame_count(&self) -> usize { *self.keyframe_indices.last().unwrap() as usize }
     fn apply_sampled(
@@ -141,11 +141,11 @@ impl<S, F, C> Curve for KeyframeCurve<S, F, C>
 }
 
 impl<S, F, C> TypedCurve for KeyframeCurve<S, F, C>
-    where S: 'static, C: CurveContent<Keyframe=F::View>,
+    where S: 'static, C: CurveContent<Keyframe = F::View>,
           F::View: PartialEq + Animatable + Sized + Send + Sync + 'static,
           F: Send + Sync + 'static
-          + for<'a> AffineFoldRef<'a, S, Error=String>
-          + for<'a> AffineFoldMut<'a, S, Error=String> {
+          + for<'a> AffineFoldRef<'a, S, Error = String>
+          + for<'a> AffineFoldMut<'a, S, Error = String> {
     type Value = F::View;
     type FieldAccessor = F;
     fn sample(&self, segment: Segment, frame: f32) -> Option<F::View> {

@@ -31,6 +31,10 @@ impl Animatable for bool {
     fn interpolate(a: &bool, _b: &bool, _time: f32) -> bool { *a }
 }
 
+impl Animatable for Visibility {
+    fn interpolate(a: &Visibility, _b: &Visibility, _time: f32) -> Visibility { *a }
+}
+
 impl Animatable for f32 {
     fn interpolate(a: &f32, b: &f32, time: f32) -> f32 {
         a * (1_f32 - time) + b * time

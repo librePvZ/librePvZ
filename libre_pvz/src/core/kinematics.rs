@@ -40,26 +40,20 @@ pub struct KinematicsPlugin;
 impl Plugin for KinematicsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                coordinate_translation_system
-                    .label(KineticsSystem::CoordinateTranslation)
-                    .before(TransformSystem::TransformPropagate))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                movement_system
-                    .label(KineticsSystem::Movement)
-                    .before(KineticsSystem::CoordinateTranslation))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                acceleration_system
-                    .label(KineticsSystem::Acceleration)
-                    .before(KineticsSystem::Movement));
+            .configure_sets((
+                KineticsSystem::Acceleration,
+                KineticsSystem::Movement,
+                KineticsSystem::CoordinateTranslation
+                    .before(TransformSystem::TransformPropagate),
+            ).in_base_set(CoreSet::PostUpdate).chain())
+            .add_system(coordinate_translation_system.in_set(KineticsSystem::CoordinateTranslation))
+            .add_system(movement_system.in_set(KineticsSystem::Movement))
+            .add_system(acceleration_system.in_set(KineticsSystem::Acceleration));
     }
 }
 
 /// System label for kinetics systems.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, SystemLabel)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, SystemSet)]
 pub enum KineticsSystem {
     /// Update velocity from acceleration.
     Acceleration,

@@ -58,11 +58,11 @@ impl Plugin for SeedBankPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(GridInfo::default())
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
-                .with_collection::<SeedBankAssets>()
                 .continue_to_state(AssetState::AssetReady)
                 .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_system_set(SystemSet::on_enter(AssetState::AssetReady).with_system(spawn_seed_bank))
-            .add_system_set(SystemSet::on_update(AssetState::AssetReady).with_system(update_seed_bank));
+            .add_collection_to_loading_state::<_, SeedBankAssets>(AssetState::AssetLoading)
+            .add_system(spawn_seed_bank.in_schedule(OnEnter(AssetState::AssetReady)))
+            .add_system(update_seed_bank.in_set(OnUpdate(AssetState::AssetReady)));
     }
 }
 
@@ -193,7 +193,7 @@ fn spawn_seed_bank(
     commands.entity(container).with_children(|parent| for i in 0..10 {
         parent.spawn((
             ImageBundle {
-                image: UiImage(seed_bank_assets.seed_packet_large.clone()),
+                image: UiImage::new(seed_bank_assets.seed_packet_large.clone()),
                 style: Style {
                     margin: UiRect {
                         right: Val::Px(grid_info.packet_separator),
@@ -264,7 +264,7 @@ fn update_seed_bank(
             let background = commands.spawn((
                 BackgroundIndex(0),
                 ImageBundle {
-                    image: UiImage(seed_bank_assets.seed_bank_background.clone()),
+                    image: UiImage::new(seed_bank_assets.seed_bank_background.clone()),
                     z_index: ZIndex::Local(0),
                     style: Style {
                         position_type: PositionType::Absolute,
@@ -314,7 +314,7 @@ fn update_seed_bank(
             let image = commands.spawn((
                 Clipped,
                 ImageBundle {
-                    image: UiImage(seed_bank_assets.seed_bank_background.clone()),
+                    image: UiImage::new(seed_bank_assets.seed_bank_background.clone()),
                     style: Style {
                         position: UiRect {
                             left: Val::Px(-grid_info.extension_offset(packet_count)),
