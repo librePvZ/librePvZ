@@ -24,24 +24,17 @@ jobs:
           readable_os: macOS
     steps:
     - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        override: true
         components: clippy
     - uses: Swatinem/rust-cache@v2
+    - name: Install ALSA and udev libraries (Linux)
+      run: sudo apt update && sudo apt install -y --no-install-recommends libasound2-dev libudev-dev
+      if: matrix.os == 'ubuntu-latest'
     - name: Clippy checks
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        # currently warnings in local Bevy fork
-        args: --all-features
-        # args: -- -D warnings
+      run: cargo clippy --all-features -- -D warnings
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --all-features
+      run: cargo test --all-features
   doc:
     name: Documentation
     runs-on: ubuntu-latest
@@ -49,16 +42,12 @@ jobs:
     if: github.event_name == 'push'
     steps:
     - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+    - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
+    - name: Install ALSA and udev libraries (Linux)
+      run: sudo apt update && sudo apt install -y --no-install-recommends libasound2-dev libudev-dev
     - name: Generate documentation
-      uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: --all-features
+      run: cargo doc --all-features
     - name: Copy documentation index page
       run: cp .github/pages/index.html ${{ env.DOC_PATH }}
     - name: Deploy documentation
