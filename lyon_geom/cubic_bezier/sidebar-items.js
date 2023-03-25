@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["CubicBezierSegment","A 2d curve segment defined by four points: the beginning of the segment, two control points and the end of the segment."],["Flattened",""]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Arc","An elliptic arc curve segment."],["ArcFlags","Flag parameters for arcs as described by the SVG specification."],["Flattened","Flattening iterator for arcs."],["SvgArc","An elliptic arc curve segment using the SVG’s end-point notation."]]};

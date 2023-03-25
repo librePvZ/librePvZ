@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["RawFdContainer","A simple wrapper around RawFd that closes the fd on drop."]]};

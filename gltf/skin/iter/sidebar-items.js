@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Joints","An `Iterator` that visits the joints of a `Skin`."]]};

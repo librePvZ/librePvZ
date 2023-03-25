@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["asset_collection","Trait definition for types that represent a collection of assets"],["dynamic_asset","Types and infrastructure to load and use dynamic assets"],["loading_state","A game state responsible for loading assets"],["prelude","Most commonly used types"]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["projectile_vanish_system","Remove projectiles outside the [`VanishingBound`] to release resources."]],"struct":[["Projectile","Tag component for projectiles."],["ProjectilePlugin","Projectile plugin."],["VanishingBound","Projectiles outside this bound will vanish."]]};

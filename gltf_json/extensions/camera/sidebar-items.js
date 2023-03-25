@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Camera","A camera’s projection."],["Orthographic","Values for an orthographic camera."],["Perspective","Values for a perspective camera."]]};

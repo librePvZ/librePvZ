@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["pretty_type_name","Returns a shorter version of [`std::any::type_name`]"],["pretty_type_name_str","same as [pretty_type_name], but works strings"]]};

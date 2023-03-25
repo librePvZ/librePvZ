@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Mesh","A set of primitives to be rendered."],["Primitive","Geometry to be rendered with the given material."]]};

@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Taffy"><meta name="keywords" content="rust, rustlang, rust-lang, taffy"><title>taffy - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../taffy/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../taffy/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate taffy</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 0.3.7</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#functions">Functions</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">taffy</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../src/taffy/lib.rs.html#1-44">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="taffy"><a href="#taffy">Taffy</a></h2>
+<p><a href="https://github.com/DioxusLabs/taffy/actions/workflows/ci.yml"><img src="https://github.com/DioxusLabs/taffy/actions/workflows/ci.yml/badge.svg" alt="GitHub CI" /></a>
+<a href="https://crates.io/crates/taffy"><img src="https://img.shields.io/crates/v/taffy.svg" alt="crates.io" /></a>
+<a href="https://docs.rs/taffy"><img src="https://img.shields.io/docsrs/taffy" alt="docs.rs" /></a></p>
+<p>Taffy is a flexible, high-performance, cross-platform UI layout library written in <a href="https://www.rust-lang.org">Rust</a>.</p>
+<p>It currently implements the <strong>Flexbox</strong> and <strong>CSS Grid</strong> layout algorithms. Support for other paradigms is planned. For more information on this and other future development plans see the <a href="https://github.com/DioxusLabs/taffy/issues/345">roadmap issue</a>.</p>
+<p>This crate is a collaborative, cross-team project, and is designed to be used as a dependency for other UI and GUI libraries.
+Right now, it powers:</p>
+<ul>
+<li><a href="https://dioxuslabs.com/">Dioxus</a>: a React-like library for building fast, portable, and beautiful user interfaces with Rust</li>
+<li><a href="https://bevyengine.org/">Bevy</a>: an ergonomic, ECS-first Rust game engine</li>
+</ul>
+<h3 id="usage"><a href="#usage">Usage</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>taffy::prelude::<span class="kw-2">*</span>;
+
+<span class="comment">// First create an instance of Taffy
+</span><span class="kw">let </span><span class="kw-2">mut </span>taffy = Taffy::new();
+
+<span class="comment">// Create a tree of nodes using `taffy.new_leaf` and `taffy.new_with_children`.
+// These functions both return a node id which can be used to refer to that node
+// The Style struct is used to specify styling information
+</span><span class="kw">let </span>header_node = taffy
+    .new_leaf(
+        Style {
+            size: Size { width: points(<span class="number">800.0</span>), height: points(<span class="number">100.0</span>) },
+            ..Default::default()
+        },
+    ).unwrap();
+
+<span class="kw">let </span>body_node = taffy
+    .new_leaf(
+        Style {
+            size: Size { width: points(<span class="number">800.0</span>), height: auto() },
+            flex_grow: <span class="number">1.0</span>,
+            ..Default::default()
+        },
+    ).unwrap();
+
+<span class="kw">let </span>root_node = taffy
+    .new_with_children(
+        Style {
+            flex_direction: FlexDirection::Column,
+            size: Size { width: points(<span class="number">800.0</span>), height: points(<span class="number">600.0</span>) },
+            ..Default::default()
+        },
+        <span class="kw-2">&amp;</span>[header_node, body_node],
+    )
+    .unwrap();
+
+<span class="comment">// Call compute_layout on the root of your tree to run the layout algorithm
+</span>taffy.compute_layout(root_node, Size::MAX_CONTENT).unwrap();
+
+<span class="comment">// Inspect the computed layout using taffy.layout
+</span><span class="macro">assert_eq!</span>(taffy.layout(root_node).unwrap().size.width, <span class="number">800.0</span>);
+<span class="macro">assert_eq!</span>(taffy.layout(root_node).unwrap().size.height, <span class="number">600.0</span>);
+<span class="macro">assert_eq!</span>(taffy.layout(header_node).unwrap().size.width, <span class="number">800.0</span>);
+<span class="macro">assert_eq!</span>(taffy.layout(header_node).unwrap().size.height, <span class="number">100.0</span>);
+<span class="macro">assert_eq!</span>(taffy.layout(body_node).unwrap().size.width, <span class="number">800.0</span>);
+<span class="macro">assert_eq!</span>(taffy.layout(body_node).unwrap().size.height, <span class="number">500.0</span>); <span class="comment">// This value was not set explicitly, but was computed by Taffy
+</span></code></pre></div>
+<h3 id="learning-resources"><a href="#learning-resources">Learning Resources</a></h3>
+<p>Taffy implements the Flexbox and CSS Grid specifications faithfully, so documentation designed for the web should translate cleanly to Taffy’s implementation. For reference documentation on individual style properties we recommend the MDN documentation (for example <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/width">this page</a> on the <code>width</code> property). Such pages can usually be found by searching for “MDN property-name” using a search engine.</p>
+<p>If you are interested in guide-level documentation on CSS layout, then we recommend the following resources:</p>
+<h4 id="flexbox"><a href="#flexbox">Flexbox</a></h4>
+<ul>
+<li><a href="https://flexboxfroggy.com/">Flexbox Froggy</a>. This is an interactive tutorial/game that allows you to learn the essential parts of Flebox in a fun engaging way.</li>
+<li><a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox</a> by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.</li>
+</ul>
+<h4 id="css-grid"><a href="#css-grid">CSS Grid</a></h4>
+<ul>
+<li><a href="https://cssgridgarden.com/">CSS Grid Garden</a>. This is an interactive tutorial/game that allows you to learn the essential parts of CSS Grid in a fun engaging way.</li>
+<li><a href="https://css-tricks.com/snippets/css/complete-guide-grid/">A Complete Guide To CSS Grid</a> by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.</li>
+</ul>
+<h3 id="benchmarks-vs-yoga"><a href="#benchmarks-vs-yoga">Benchmarks (vs. Yoga)</a></h3>
+<ul>
+<li>Run on a 2021 MacBook Pro with M1 Pro processor using <a href="https://github.com/bheisler/criterion.rs">criterion</a></li>
+<li>The benchmarks measure layout computation only. They do not measure tree creation.</li>
+<li>Yoga benchmarks were run via the <a href="https://github.com/bschwind/yoga-rs">yoga</a> crate (Rust bindings)</li>
+<li>Most popular websites seem to have between 3,000 and 10,000 nodes (although they also require text layout, which neither yoga nor taffy implement).</li>
+</ul>
+<p>Note that the table below contains multiple different units (milliseconds vs. microseconds)</p>
+<div><table><thead><tr><th>Benchmark</th><th>Node Count</th><th>Depth</th><th>Yoga (<a href="https://github.com/facebook/yoga/commit/ba27f9d1ecfa7518019845b84b035d3d4a2a6658">ba27f9d</a>)</th><th>Taffy (<a href="https://github.com/DioxusLabs/taffy/commit/71027a8de03b343e120852b84bb7dca9fb4651c5">71027a8</a>)</th></tr></thead><tbody>
+<tr><td>yoga ‘huge nested’</td><td>1,000</td><td>3</td><td>364.60 µs</td><td>329.04 µs</td></tr>
+<tr><td>yoga ‘huge nested’</td><td>10,000</td><td>4</td><td>4.1988 ms</td><td>4.3486 ms</td></tr>
+<tr><td>yoga ‘huge nested’</td><td>100,000</td><td>5</td><td>45.804 ms</td><td>38.559 ms</td></tr>
+<tr><td>big trees (wide)</td><td>1,000</td><td>1</td><td>737.77 µs</td><td>505.99 µs</td></tr>
+<tr><td>big trees (wide)</td><td>10,000</td><td>1</td><td>7.1007 ms</td><td>8.3395 ms</td></tr>
+<tr><td>big trees (wide)</td><td>100,000</td><td>1</td><td>135.78 ms</td><td>247.42 ms</td></tr>
+<tr><td>big trees (deep)</td><td>4,000</td><td>12</td><td>2.2333 ms</td><td>1.7400 ms</td></tr>
+<tr><td>big trees (deep)</td><td>10,000</td><td>14</td><td>5.9477 ms</td><td>4.4445 ms</td></tr>
+<tr><td>big trees (deep)</td><td>100,000</td><td>17</td><td>76.755 ms</td><td>63.778 ms</td></tr>
+<tr><td>super deep</td><td>1,000</td><td>1,000</td><td>555.32 µs</td><td>472.85 µs</td></tr>
+</tbody></table>
+</div><h3 id="contributions"><a href="#contributions">Contributions</a></h3>
+<p><a href="https://github.com/DioxusLabs/taffy/blob/main/CONTRIBUTING.md">Contributions welcome</a>:
+if you’d like to use, improve or build <code>taffy</code>, feel free to join the conversation, open an <a href="https://github.com/DioxusLabs/taffy/issues">issue</a> or submit a <a href="https://github.com/DioxusLabs/taffy/pulls">PR</a>.
+If you have questions about how to use <code>taffy</code>, open a <a href="https://github.com/DioxusLabs/taffy/discussions">discussion</a> so we can answer your questions in a way that others can find.</p>
+</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><div class="item-table"><div class="item-row"><div class="item-left import-item" id="reexport.Taffy"><code>pub use crate::node::<a class="struct" href="node/struct.Taffy.html" title="struct taffy::node::Taffy">Taffy</a>;</code></div></div></div><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="axis/index.html" title="taffy::axis mod">axis</a></div><div class="item-right docblock-short">Axis enums representing CSS Grid axis</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="error/index.html" title="taffy::error mod">error</a></div><div class="item-right docblock-short">The Error types produced by Taffy.</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="geometry/index.html" title="taffy::geometry mod">geometry</a></div><div class="item-right docblock-short">Geometric primitives useful for layout</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="layout/index.html" title="taffy::layout mod">layout</a></div><div class="item-right docblock-short">Final and cached data structures that represent the high-level UI layout</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="math/index.html" title="taffy::math mod">math</a></div><div class="item-right docblock-short">Contains numerical helper traits and functions</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="node/index.html" title="taffy::node mod">node</a></div><div class="item-right docblock-short">UI <a href="node/type.Node.html" title="Node"><code>Node</code></a> types and related data structures.</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="prelude/index.html" title="taffy::prelude mod">prelude</a></div><div class="item-right docblock-short">Commonly used types</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="style/index.html" title="taffy::style mod">style</a></div><div class="item-right docblock-short">A representation of <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">CSS layout properties</a> in Rust, used for flexbox layout</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="style_helpers/index.html" title="taffy::style_helpers mod">style_helpers</a></div><div class="item-right docblock-short">Helper functions which it make it easier to create instances of types in the <code>style</code> and <code>geometry</code> modules.</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="tree/index.html" title="taffy::tree mod">tree</a></div><div class="item-right docblock-short">The baseline requirements of any UI Tree so Taffy can efficiently calculate the layout</div></div></div><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.compute_layout.html" title="taffy::compute_layout fn">compute_layout</a></div><div class="item-right docblock-short">Updates the stored layout of the provided <code>node</code> and its children</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="taffy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.1 (8460ca823 2023-03-20)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

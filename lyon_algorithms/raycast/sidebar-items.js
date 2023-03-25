@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["raycast_path","Find the closest collision between a ray and the path."]],"struct":[["Hit",""],["Ray",""]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Table","A Color Bitmap Data Table."]]};

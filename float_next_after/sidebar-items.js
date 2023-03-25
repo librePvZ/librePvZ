@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["NextAfter","Returns the next representable float value in the direction of y"]]};

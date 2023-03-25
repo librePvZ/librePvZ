@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["ConnectAddress","A possible address for an X11 server."]],"fn":[["parse_display","Parse an X11 display string."]],"struct":[["ParsedDisplay","A parsed X11 display string."]]};

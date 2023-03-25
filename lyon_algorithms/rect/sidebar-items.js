@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["to_axis_aligned_rectangle","If the input path represents an axis-aligned rectangle, return it."]],"struct":[["ToRectangleOptions",""]]};

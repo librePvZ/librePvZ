@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["ui_for_asset","Display a given asset by handle and asset [`TypeId`]"],["ui_for_assets","Display all assets of the given asset [`TypeId`]"],["ui_for_resource","Display the resource with the given [`TypeId`]"]]};

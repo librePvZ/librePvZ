@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["SelectionMode","Kind of selection modifier"]],"fn":[["hierarchy_ui","Display UI of the entity hierarchy."]],"struct":[["Hierarchy",""],["SelectedEntities","Collection of currently selected entities"]]};

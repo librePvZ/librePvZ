@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["_Alpha","Prism for [`Action::Alpha`]."],["_LoadElement","Prism for [`Action::LoadElement`]."],["_Rotation","Prism for [`Action::Rotation`]."],["_Scale","Prism for [`Action::Scale`]."],["_Show","Prism for [`Action::Show`]."],["_Translation","Prism for [`Action::Translation`]."]]};

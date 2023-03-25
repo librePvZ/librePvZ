@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["queue","Builds a new queue. It consists of an input and an output."]],"struct":[["SourcesQueueInput","The input of the queue."],["SourcesQueueOutput","The output of the queue. Implements `Source`."]]};

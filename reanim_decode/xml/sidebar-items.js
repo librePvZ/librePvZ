@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Xml","Wrapper for formatting using [`DisplayXml`]."]],"trait":[["DisplayXml","Display in XML format."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["PropertyIterator","Iterator implementation used by GetPropertyReply."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["EGUI_SHADER_HANDLE","Egui shader."]],"struct":[["EguiNode","Egui render node."],["EguiPipeline","Egui render pipeline."],["EguiPipelineKey","Key for specialized pipeline."]]};

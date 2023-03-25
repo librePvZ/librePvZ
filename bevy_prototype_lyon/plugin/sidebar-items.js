@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["BuildShapes","[`SystemLabel`] for the system that builds the meshes for newly-added or changed shapes. Resides in `PostUpdate`."],["ShapePlugin","A plugin that provides resources and a system to draw shapes in Bevy with less boilerplate."]]};

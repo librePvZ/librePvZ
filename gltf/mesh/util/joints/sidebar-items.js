@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["CastingIter","Casting iterator for `Joints`."],["U16","Type which describes how to cast any joint into u16."]],"trait":[["Cast","Trait for types which describe casting behaviour."]]};

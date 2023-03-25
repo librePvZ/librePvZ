@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["hdr","Decoding of Radiance HDR Images"],["jpeg","Decoding and Encoding of JPEG Images"],["png","Decoding and Encoding of PNG Images"]]};

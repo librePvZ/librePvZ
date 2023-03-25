@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Flattened","A flattening iterator for quadratic bézier segments."],["FlattenedT","A flattening iterator for quadratic bézier segments."],["FlatteningParameters",""],["QuadraticBezierSegment","A 2d curve segment defined by three points: the beginning of the segment, a control point and the end of the segment."]]};

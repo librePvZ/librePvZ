@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Asset","Metadata about the glTF asset."]]};

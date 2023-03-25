@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["get_auth","Get the authentication information necessary for connecting to the given display."]],"struct":[["Family","A family describes how to interpret some bytes as an address in an `AuthEntry`."]]};

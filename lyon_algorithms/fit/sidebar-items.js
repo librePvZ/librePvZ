@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["FitStyle","The strategy to use when fitting (stretching, overflow, etc.)"]],"fn":[["fit_box","Computes a transform that fits a rectangle into another one."],["fit_path","Fits a path into a rectangle."]]};

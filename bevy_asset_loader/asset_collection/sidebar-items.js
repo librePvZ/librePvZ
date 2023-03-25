@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":[["AssetCollection","Derive macro for [`AssetCollection`]"]],"trait":[["AssetCollection","Trait to mark a struct as a collection of assets"],["AssetCollectionApp","Extension trait for `App` enabling initialisation of asset collections"],["AssetCollectionWorld","Extension trait for `World` enabling initialisation of asset collections"]]};

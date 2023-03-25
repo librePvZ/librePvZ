@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["SeedPacket","Seed packet content."]],"struct":[["SeedBank","Description of a seed bank."],["SeedBankAssets","Assets for the seed bank and seed packets."],["SeedBankPlugin","Plugin for the seed bank."],["SeedPacketArea","Marker of the rectangular area for seed packets in a seed bank."],["SeedPacketIndex","Index of a seed packet."]]};

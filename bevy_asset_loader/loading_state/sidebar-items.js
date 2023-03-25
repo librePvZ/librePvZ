@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["LoadingState","A Bevy plugin to configure automatic asset loading"],["LoadingStateSchedules","Resource to store the schedules for loading states"]],"trait":[["LoadingStateAppExt","Extension trait for Bevy Apps to add loading states idiomatically"]]};

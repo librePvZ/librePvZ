@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["pcm","This module bypasses alsa-lib and directly read and write into memory mapped kernel memory. In case of the sample memory, this is in many cases the DMA buffers that is transferred to the sound card."]]};

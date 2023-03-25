@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["RawValue","Reference to a range of bytes encompassing a single valid JSON value in the input data."],["Void","Type representing no user-defined data."]],"type":[["Extras","Data type of the `extras` attribute on all glTF objects."]]};

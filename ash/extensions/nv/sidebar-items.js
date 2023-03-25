@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["CoverageReductionMode","https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VK_NV_coverage_reduction_mode.html"],["DeviceDiagnosticCheckpoints","https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VK_NV_device_diagnostic_checkpoints.html"],["MeshShader",""],["RayTracing",""]]};

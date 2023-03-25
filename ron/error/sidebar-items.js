@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["Error",""]],"struct":[["Position",""],["SpannedError","This type represents all possible errors that can occur when serializing or deserializing RON data."]],"type":[["Result",""],["SpannedResult",""]]};

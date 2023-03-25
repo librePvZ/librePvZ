@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Fill","Defines the fill options for the lyon tessellator and color of the generated vertices."],["Stroke","Defines the stroke options for the lyon tessellator and color of the generated vertices."]]};

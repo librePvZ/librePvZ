@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["Kind","Light subcategory."]],"struct":[["Light","A light in the scene."]]};

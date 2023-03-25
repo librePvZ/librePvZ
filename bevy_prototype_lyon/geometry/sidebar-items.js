@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["GeometryBuilder","Allows the creation of shapes using geometries added to a path builder."]],"trait":[["Geometry","Structs that implement this trait can be drawn as a shape. See the `shapes` module for some examples."]]};

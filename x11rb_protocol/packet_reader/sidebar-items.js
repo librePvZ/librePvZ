@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["PacketReader","A wrapper around a buffer used to read X11 packets."]]};

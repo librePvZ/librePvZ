@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["close","Close a raw file descriptor"],["pipe","Create an interprocess channel."],["read","Read from a raw file descriptor."],["sleep","Suspend execution for an interval of time"],["write","Write to a raw file descriptor."]]};

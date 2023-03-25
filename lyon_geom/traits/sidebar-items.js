@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["Segment","Common APIs to segment types."],["Transformation",""]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["AxisData","Information about axis stored in `State`."],["AxisDataIter","Iterator over `AxisData`."],["ButtonData","Information about button stored in `State`."],["ButtonDataIter","Iterator over `ButtonData`."],["GamepadState","Cached gamepad state."]]};

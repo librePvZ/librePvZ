@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Children","An `Iterator` that visits the children of a node."],["Nodes","An `Iterator` that visits the nodes in a scene."]]};

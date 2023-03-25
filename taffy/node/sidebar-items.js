@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["MeasureFunc","A function that can be used to compute the intrinsic size of a node"]],"struct":[["Taffy","A tree of UI `Nodes`, suitable for UI layout"]],"trait":[["Measurable","A function type that can be used in a [`MeasureFunc`]"]],"type":[["Node","A node in a layout."]]};

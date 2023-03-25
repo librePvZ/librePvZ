@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["TextAlignment","Describes horizontal alignment preference for positioning & bounds."],["TextError",""]],"struct":[["Font",""],["Text",""],["Text2dBundle","The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`. Example usage."],["TextSection",""],["TextStyle",""]]};

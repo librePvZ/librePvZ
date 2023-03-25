@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["hit_test_path","Returns whether the point is inside the path."],["path_winding_number_at_position","Compute the winding number of a given position with respect to the path."]]};

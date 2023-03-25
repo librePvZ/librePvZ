@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Point","An anchor point."],["Table","An Anchor Point Table."]]};

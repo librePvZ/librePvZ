@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Channels","An `Iterator` that visits the channels of an animation."],["Samplers","An `Iterator` that visits the samplers of an animation."]]};

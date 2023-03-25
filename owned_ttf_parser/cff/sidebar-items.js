@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Matrix","An affine transformation matrix."],["Table","A Compact Font Format Table."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["read_headers","Reads the three vorbis headers from an ogg stream as well as stream serial information"]],"struct":[["OggStreamReader","Reading ogg/vorbis files or streams"]]};

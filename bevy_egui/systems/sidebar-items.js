@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["begin_frame_system","Marks frame start for Egui."],["process_input_system","Processes Bevy input and feeds it to Egui."],["process_output_system","Reads Egui output."],["update_window_contexts_system","Initialises Egui contexts (for multiple windows)."]],"struct":[["ContextSystemParams",""],["InputEvents",""],["InputResources",""]]};

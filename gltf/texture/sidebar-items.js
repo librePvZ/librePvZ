@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["MagFilter","Magnification filter."],["MinFilter","Minification filter."],["WrappingMode","Texture co-ordinate wrapping mode."]],"struct":[["Info","A reference to a `Texture`."],["Sampler","Texture sampler properties for filtering and wrapping modes."],["Texture","A texture and its sampler."]]};

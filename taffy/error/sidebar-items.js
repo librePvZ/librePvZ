@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["TaffyError","An error that occurs while trying to access or modify a [`Node`]’s children by index."]],"type":[["TaffyResult","The error Taffy generates on invalid operations"]]};

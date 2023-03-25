@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["IdAllocator","An allocator for X11 IDs."],["IdsExhausted","The XID range has been exhausted."]]};

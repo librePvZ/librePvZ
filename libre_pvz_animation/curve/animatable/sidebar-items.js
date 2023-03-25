@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["Animatable","Animatable types can be interpolated with `f32`s."]]};

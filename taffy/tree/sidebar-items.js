@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["LayoutTree","Any item that implements the LayoutTree can be layed out using Taffy’s algorithms."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["add_rounded_polygon","Adds a sub-path from a polygon but rounds the corners."]],"type":[["Point",""]]};

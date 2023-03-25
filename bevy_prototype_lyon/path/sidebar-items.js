@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["PathBuilder","A SVG-like path builder."],["ShapePath","A builder for `Path`s based on shapes implementing [`Geometry`]."]]};

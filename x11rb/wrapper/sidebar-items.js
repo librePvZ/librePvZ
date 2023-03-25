@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["GrabServer","A RAII-like wrapper around [super::protocol::xproto::grab_server] and [super::protocol::xproto::ungrab_server]."]],"trait":[["ConnectionExt","Extension trait that simplifies API use"]]};

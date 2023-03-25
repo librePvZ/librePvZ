@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Image","Image data used to create a texture."]]};

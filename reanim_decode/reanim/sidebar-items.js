@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Animation","Animation in a `.reanim` file."],["Elements","An element in a [`Frame`]."],["Frame","A frame in a [`Track`], consist of (optional) image, text, and transformation."],["Track","A single track in an [`Animation`]."],["Transform","A transformation."]]};

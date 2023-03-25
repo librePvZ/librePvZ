@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["AbsoluteAxis","The simple absolute horizontal and vertical axis"],["AbstractAxis","The CSS abstract axis https://www.w3.org/TR/css-writing-modes-3/#abstract-axes"]]};

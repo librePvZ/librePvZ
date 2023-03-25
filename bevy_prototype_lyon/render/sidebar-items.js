@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["SHAPE_MATERIAL_SHADER_HANDLE","Handle to the custom shader with a unique random ID"]],"struct":[["ShapeMaterial","A simple `Material2d` that renders with vertex colors."],["ShapeMaterialPlugin","Plugin that provides a custom material for rendering [`Shape`]s"]]};

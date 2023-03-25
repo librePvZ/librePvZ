@@ -1,0 +1,45 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Library for subdividing shapes made of triangles."><meta name="keywords" content="rust, rustlang, rust-lang, hexasphere"><title>hexasphere - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../hexasphere/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../hexasphere/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate hexasphere</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 8.1.0</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">hexasphere</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../src/hexasphere/lib.rs.html#1-1827">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Library for subdividing shapes made of triangles.</p>
+<p>This library defines <code>Subdivided&lt;T, S&gt;</code>. This struct
+allows one to define a base shape using <code>S</code> and the
+<code>BaseShape</code> trait, and to subdivide it using the
+interpolation functions defined as part of <code>S</code>.</p>
+<p>This includes a few base shapes:</p>
+<ul>
+<li>Icosahedron</li>
+<li>Tetrahedron</li>
+<li>Square</li>
+<li>Triangle</li>
+<li>Cube</li>
+</ul>
+<h3 id="example-usage"><a href="#example-usage">Example usage</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>hexasphere::shapes::IcoSphere;
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Create a new sphere with 20 subdivisions
+    // an no data associated with the vertices.
+    </span><span class="kw">let </span>sphere = IcoSphere::new(<span class="number">20</span>, |<span class="kw">_</span>| ());
+
+    <span class="kw">let </span>points = sphere.raw_points();
+    <span class="kw">for </span>p <span class="kw">in </span>points {
+        <span class="macro">println!</span>(<span class="string">&quot;{:?} is a point on the sphere!&quot;</span>, p);
+    }
+    <span class="kw">let </span>indices = sphere.get_all_indices();
+    <span class="kw">for </span>triangle <span class="kw">in </span>indices.chunks(<span class="number">3</span>) {
+        <span class="macro">println!</span>(
+            <span class="string">&quot;[{}, {}, {}] is a triangle on the resulting shape&quot;</span>,
+            triangle[<span class="number">0</span>],
+            triangle[<span class="number">1</span>],
+            triangle[<span class="number">2</span>],
+        );
+    }
+}</code></pre></div>
+<h2 id="features"><a href="#features">Features</a></h2>
+<ul>
+<li><code>adjacency</code> allows the user to create neighbour maps from
+the indices provided by the <code>Subdivided</code> struct.</li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="interpolation/index.html" title="hexasphere::interpolation mod">interpolation</a></div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="shapes/index.html" title="hexasphere::shapes mod">shapes</a></div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Subdivided.html" title="hexasphere::Subdivided struct">Subdivided</a></div><div class="item-right docblock-short">A progressively subdivided shape which can record
+the indices of the points and list out the individual
+triangles of the resulting shape.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Triangle.html" title="hexasphere::Triangle struct">Triangle</a></div><div class="item-right docblock-short">A main triangle on the base shape of a subdivided shape.</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.BaseShape.html" title="hexasphere::BaseShape trait">BaseShape</a></div><div class="item-right docblock-short">Defines the setup for a base shape, and the functions
+used in interpolation.</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.EquilateralBaseShape.html" title="hexasphere::EquilateralBaseShape trait">EquilateralBaseShape</a></div><div class="item-right docblock-short">Implemented in the case where the triangles on the shape
+are both equilateral and identifiable from their normal.</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="hexasphere" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.1 (8460ca823 2023-03-20)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

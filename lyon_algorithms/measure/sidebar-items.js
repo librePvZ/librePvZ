@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["SampleType","Whether to measure real or normalized (between 0 and 1) distances."]],"struct":[["PathMeasurements","An acceleration structure for sampling distances along a specific path."],["PathSample","The result of sampling a path."],["PathSampler","Performs fast sample queries on a path with cached measurements."]]};

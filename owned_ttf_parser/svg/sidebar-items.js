@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["SvgDocumentsList","A list of SVG documents."],["SvgDocumentsListIter","An iterator over [`SvgDocumentsList`] values."],["Table","An SVG Table."]]};

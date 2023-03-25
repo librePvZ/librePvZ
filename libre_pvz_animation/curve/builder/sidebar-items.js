@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["CurveBuilder","Convenient builder for `Curve`s."]],"trait":[["AnyCurveBuilder","An alternative dynamic interface for [`CurveBuilder`]."],["CurveContentBuilder","Builder for track contents (keyframes). Only intended for internal use and as an extension point."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["approximate_signed_area","Compute the signed area of a path by summing the signed areas of its sub-paths."],["approximate_sub_path_signed_area","Compute the signed area of the next sub-path."]],"struct":[["SignedAreas","Iterator over the sub-path areas of a path."]]};

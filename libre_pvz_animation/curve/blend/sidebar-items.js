@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["BlendMethod","The blend function for use. All functions below transitions from (0, 0) to (1, 1)."]],"struct":[["BlendInfo","Information about blending."]]};

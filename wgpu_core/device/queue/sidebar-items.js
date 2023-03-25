@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["QueueSubmitError",""],["QueueWriteError",""],["TempResource","A texture or buffer to be freed soon."]],"struct":[["InvalidQueue",""],["SubmittedWorkDoneClosure",""],["SubmittedWorkDoneClosureC",""],["WrappedSubmissionIndex",""]]};

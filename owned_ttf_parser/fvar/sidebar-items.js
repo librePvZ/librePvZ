@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Table","A Font Variations Table."],["VariationAxis","A variation axis."]]};

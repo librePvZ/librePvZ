@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Names","An iterator over glyph names."],["Table","A PostScript Table."]]};

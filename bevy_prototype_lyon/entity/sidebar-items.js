@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Path",""],["ShapeBundle","A Bevy `Bundle` to represent a shape."]]};

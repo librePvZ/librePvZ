@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":[["InspectorOptions","Derive macro used to derive `InspectorOptions`"]]};

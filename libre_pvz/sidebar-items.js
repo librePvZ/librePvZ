@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["core","Core subsystems: contributes core functionalities to the game implementation."],["diagnostics","Diagnostics support for 2D graphics."],["plant","Plant-related things."],["scene","Different scenes of the game."],["seed_bank","Seed bank and seed packets."]]};

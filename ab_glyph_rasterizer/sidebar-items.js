@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["point","`Point` constructor."]],"struct":[["Point","An (x, y) coordinate."],["Rasterizer","Coverage rasterizer for lines, quadratic & cubic beziers."]]};

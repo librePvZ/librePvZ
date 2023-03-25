@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["bounding_box","Computes the smallest axis-aligned rectangle that contains the path."],["fast_bounding_box","Computes a conservative axis-aligned rectangle that contains the path."]]};

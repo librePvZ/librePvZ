@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Table","A Glyph Variations Table."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["StaticSamplesBuffer","A buffer of samples treated as a source."]]};

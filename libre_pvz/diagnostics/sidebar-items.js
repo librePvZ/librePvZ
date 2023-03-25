@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["BoundingBoxSystem","Labels for the bounding box systems."]],"struct":[["BoundingBox","Bounding box component."],["BoundingBoxPlugin","Plugin for displaying bounding boxes for 2D sprite graphics."],["BoundingBoxRoot","Component marking the root entity for bounding boxes."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["poll","Wrapper around the libc poll call."],["poll_all","Builds a pollfd array, polls it, and returns the poll descriptors which have non-zero revents."]],"struct":[["Flags",""],["pollfd",""]],"trait":[["Descriptors",""]]};

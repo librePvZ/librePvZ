@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Peashooter","Marker for the full plant of peashooter."],["PeashooterAssets","Assets for peashooters."],["PeashooterHead","Marker for the head of a peashooter."],["PeashooterPlugin","Peashooter plugin."]]};

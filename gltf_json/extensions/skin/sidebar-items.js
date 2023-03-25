@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Skin","Joints and matrices defining a skin."]]};

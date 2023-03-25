@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Connect","The connection handshake used to connect to the X11 server."]]};

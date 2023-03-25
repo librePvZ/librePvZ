@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["_0","Lens for field `0` in tuples."],["_1","Lens for field `1` in tuples."],["_2","Lens for field `2` in tuples."],["_3","Lens for field `3` in tuples."],["_Err","Prism for [`Result::Err`]."],["_Ok","Prism for [`Result::Ok`]."],["_Some","Prism for [`Option::Some`]."]]};

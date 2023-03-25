@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"libre_pvz":[["impl <a class=\"trait\" href=\"bevy_ecs/schedule/state/trait.States.html\" title=\"trait bevy_ecs::schedule::state::States\">States</a> for <a class=\"enum\" href=\"libre_pvz/scene/loading/enum.AssetState.html\" title=\"enum libre_pvz::scene::loading::AssetState\">AssetState</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["Error",""]],"struct":[["RestrictedWorldView","A view into the world which may only access certain resources and components. A restricted form of `&mut World`."]]};

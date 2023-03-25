@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["ConnectError","An error that occurred while connecting to an X11 server"],["ParseError","An error occurred while parsing some data"]]};

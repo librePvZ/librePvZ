@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["compute_winding","Compute the winding of the next sub-path."]],"struct":[["Windings","Iterator over the sub-path windings of a path."]]};
