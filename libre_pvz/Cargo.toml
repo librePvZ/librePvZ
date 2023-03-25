@@ -14,12 +14,12 @@ description = "librePvZ game logic"
 [dependencies]
 egui = "0.21.0"
 bevy = { version = "0.10.0", features = ["jpeg"] }
-bevy_egui = "0.20.0"
-bevy-inspector-egui = "0.18.0"
+bevy_egui = "0.20.1"
+bevy-inspector-egui = "0.18.1"
 bevy_prototype_lyon = "0.8.0"
 bevy_asset_loader = { version = "0.15.0", features = ["2d"] }
 derivative = "2.2.0"
 libre_pvz_resources = { path = "../libre_pvz_resources" }
 libre_pvz_animation = { path = "../libre_pvz_animation" }
 # below are dependencies already pulled in by bevy
-anyhow = "1.0.69"
+anyhow = "1.0.70"
