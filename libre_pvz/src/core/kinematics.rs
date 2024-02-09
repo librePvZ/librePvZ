@@ -40,15 +40,15 @@ pub struct KinematicsPlugin;
 impl Plugin for KinematicsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .configure_sets((
+            .configure_sets(PostUpdate, (
                 KineticsSystem::Acceleration,
                 KineticsSystem::Movement,
                 KineticsSystem::CoordinateTranslation
                     .before(TransformSystem::TransformPropagate),
-            ).in_base_set(CoreSet::PostUpdate).chain())
-            .add_system(coordinate_translation_system.in_set(KineticsSystem::CoordinateTranslation))
-            .add_system(movement_system.in_set(KineticsSystem::Movement))
-            .add_system(acceleration_system.in_set(KineticsSystem::Acceleration));
+            ).chain())
+            .add_systems(Update, coordinate_translation_system.in_set(KineticsSystem::CoordinateTranslation))
+            .add_systems(Update, movement_system.in_set(KineticsSystem::Movement))
+            .add_systems(Update, acceleration_system.in_set(KineticsSystem::Acceleration));
     }
 }
 

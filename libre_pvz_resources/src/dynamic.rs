@@ -29,7 +29,7 @@ use bevy::reflect::erased_serde::{
     serialize as erased_serde_serialize,
     Error,
 };
-use bevy::reflect::{GetTypeRegistration, TypeRegistry};
+use bevy::reflect::{GetTypeRegistration, TypeRegistryArc};
 use bevy::utils::HashMap;
 use bincode::{Decode, Encode};
 use bincode::config::Configuration;
@@ -49,7 +49,7 @@ use serde::ser::{SerializeMap, Error as _};
 pub struct DynamicRegistry {
     readable_name_to_id: RwLock<HashMap<Box<str>, TypeId>>,
     readable_name_from_id: RwLock<BTreeMap<TypeId, Box<str>>>,
-    type_registry: TypeRegistry,
+    type_registry: TypeRegistryArc,
 }
 
 static GLOBAL_REGISTRY: OnceCell<DynamicRegistry> = OnceCell::new();
@@ -57,7 +57,7 @@ static GLOBAL_REGISTRY: OnceCell<DynamicRegistry> = OnceCell::new();
 impl DynamicRegistry {
     /// Initialize the global dynamic registry. This saves the [`TypeRegistry`] provided by Bevy in
     /// the global [`DynamicRegistry`]. Panics if the global registry is already initialized.
-    pub fn initialize(type_registry: TypeRegistry) {
+    pub fn initialize(type_registry: TypeRegistryArc) {
         GLOBAL_REGISTRY.set(DynamicRegistry {
             readable_name_to_id: RwLock::new(HashMap::new()),
             readable_name_from_id: RwLock::new(BTreeMap::new()),
@@ -67,7 +67,7 @@ impl DynamicRegistry {
 
     /// Initialize the global dynamic registry, without a Bevy app.
     pub fn initialize_without_bevy() {
-        DynamicRegistry::initialize(TypeRegistry::default())
+        DynamicRegistry::initialize(TypeRegistryArc::default())
     }
 
     /// Get the global dynamic registry. Panics if called before initialization of the registry.
@@ -76,7 +76,7 @@ impl DynamicRegistry {
     }
 
     /// Get a shared reference to Bevy's type registry (already wrapped in `Arc`).
-    pub fn get_bevy_type_registry(&self) -> &TypeRegistry { &self.type_registry }
+    pub fn get_bevy_type_registry(&self) -> &TypeRegistryArc { &self.type_registry }
 
     /// Get the [`ReflectAnyResource`] for the type registered as the given name.
     pub fn resource_by_name(&self, name: &str) -> Option<ReflectAnyResource> {
@@ -92,7 +92,8 @@ impl DynamicRegistry {
         assert!(
             old.is_none(),
             "DynamicResource: name '{name}' is already taken by {}, cannot overwrite it with {}",
-            self.type_registry.read().get_type_info(old.unwrap()).unwrap().type_name(),
+            // TODO: consider what it means to use `type_path` in place of previous `type_name`
+            self.type_registry.read().get_type_info(old.unwrap()).unwrap().type_path(),
             std::any::type_name::<T>(),
         );
     }
@@ -196,7 +197,7 @@ fn serialize_any_resource<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Er
     let g = DynamicRegistry::global().readable_name_from_id.read();
     let name = g.get(&value.type_id()).map(Box::as_ref)
         .ok_or_else(|| S::Error::custom(format_args!(
-            "type '{}' does not support dynamic serialization", value.type_name())))?;
+            "type '{}' does not support dynamic serialization", value.reflect_type_path())))?;
     let mut map = serializer.serialize_map(Some(2))?;
     map.serialize_entry(name, &Wrapper(value))?;
     map.end()
@@ -245,7 +246,7 @@ fn encode_any_resource<T, E>(value: &T, encoder: &mut E) -> Result<(), EncodeErr
     let g = DynamicRegistry::global().readable_name_from_id.read();
     let name = g.get(&value.type_id()).map(Box::as_ref)
         .ok_or_else(|| EncodeError::OtherString(format!(
-            "type '{}' does not support dynamic serialization", value.type_name())))?;
+            "type '{}' does not support dynamic serialization", value.reflect_type_path())))?;
     name.encode(encoder)?;
     value.erased_encode(encoder.writer())
 }

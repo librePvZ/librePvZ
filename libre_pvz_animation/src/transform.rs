@@ -20,8 +20,6 @@
 
 use bevy::prelude::*;
 use bevy::math::Affine3A;
-use bevy::render::texture::DEFAULT_IMAGE_HANDLE;
-use derivative::Derivative;
 
 /// 2D transformation.
 #[derive(Component, Reflect, Debug, Copy, Clone, PartialEq)]
@@ -79,8 +77,7 @@ impl From<&Transform2D> for Affine3A {
 }
 
 /// Similar to [`SpriteBundle`], but with a full-fledged [`Transform2D`].
-#[derive(Derivative, Bundle, Debug, Clone)]
-#[derivative(Default)]
+#[derive(Default, Debug, Clone, Bundle)]
 pub struct SpriteBundle2D {
     /// Sprite information.
     pub sprite: Sprite,
@@ -89,12 +86,13 @@ pub struct SpriteBundle2D {
     /// Global transform (relative to the stage), for rendering.
     pub global_transform: GlobalTransform,
     /// Texture image for this entity.
-    #[derivative(Default(value = "DEFAULT_IMAGE_HANDLE.typed()"))]
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible.
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible.
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 /// Similar to [`TransformBundle`], but with a full-fledged [`Transform2D`].
@@ -106,8 +104,10 @@ pub struct SpatialBundle2D {
     pub global: GlobalTransform,
     /// User indication of whether an entity is visible.
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible.
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and

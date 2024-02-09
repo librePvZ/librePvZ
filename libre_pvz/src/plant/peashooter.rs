@@ -39,9 +39,13 @@ impl Plugin for PeashooterPlugin {
     fn build(&self, app: &mut App) {
         app.register_marker::<Peashooter>("Peashooter")
             .register_marker::<PeashooterHead>("PeashooterHead")
-            .add_system(initialize_state_index_system.in_schedule(OnEnter(AssetState::AssetReady)))
-            .add_system(peashooter_fire_system.in_set(OnUpdate(AssetState::AssetReady)))
-            .add_system(peashooter_force_shooting_system.in_set(OnUpdate(AssetState::AssetReady))
+            .add_loading_state(LoadingState::new(AssetState::AssetLoading)
+                .continue_to_state(AssetState::AssetReady)
+                .on_failure_continue_to_state(AssetState::LoadFailure)
+                .load_collection::<PeashooterAssets>())
+            .add_systems(OnEnter(AssetState::AssetReady), initialize_state_index_system)
+            .add_systems(Update, peashooter_fire_system.run_if(in_state(AssetState::AssetReady)))
+            .add_systems(Update, peashooter_force_shooting_system.run_if(in_state(AssetState::AssetReady))
                 .before(ModelSystem::TransitionTrigger)
                 .after(ModelSystem::CoolDownTicking));
     }
@@ -109,7 +113,7 @@ fn peashooter_fire_system(
     states: Res<StateIndex>,
     mut commands: Commands,
 ) {
-    for &StateTransitionEvent { target_entity, .. } in transitions.iter() {
+    for &StateTransitionEvent { target_entity, .. } in transitions.read() {
         let (state, trans) = head.get(target_entity).unwrap();
         // we want to keep that line aligned with other assignments
         #[allow(clippy::field_reassign_with_default)]

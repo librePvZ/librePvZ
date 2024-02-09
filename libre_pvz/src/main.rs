@@ -40,22 +40,24 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(LawnPlugin::window()),
-            // window: AlmanacPlugin::window(),
+            // primary_window: Some(AlmanacPlugin::window()),
             ..default()
         }))
         .add_state::<AssetState>()
-        .add_plugin(EguiPlugin)
-        .add_plugin(BoundingBoxPlugin)
-        .add_plugin(AnimationPlugin)
-        .add_plugins(ResourcesPlugins)
-        .add_plugin(ProjectilePlugin)
-        .add_plugin(KinematicsPlugin)
-        .add_plugin(PeashooterPlugin)
-        .add_plugin(LawnPlugin)
-        .add_plugin(SeedBankPlugin)
-        // .add_plugin(AlmanacPlugin::new(anim_name))
-        .add_plugin(WorldInspectorPlugin::new())
-        .add_startup_system(setup_camera)
+        .add_plugins((
+            EguiPlugin,
+            BoundingBoxPlugin,
+            AnimationPlugin,
+            ResourcesPlugins,
+            ProjectilePlugin,
+            KinematicsPlugin,
+            PeashooterPlugin,
+            LawnPlugin,
+            SeedBankPlugin,
+            // AlmanacPlugin::new(anim_name),
+            WorldInspectorPlugin::new(),
+        ))
+        .add_systems(Startup, setup_camera)
         .run();
 }
 

@@ -22,7 +22,6 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
 use bevy::utils::HashMap;
 use bevy::utils::label::DynHash;
 use optics::traits::{AffineFoldMut, AffineFoldRef, Optics, OpticsKnownSource};
@@ -46,8 +45,7 @@ impl EntityPath {
 
 /// Animation clip, core to the animation system.
 #[allow(missing_debug_implementations)]
-#[derive(TypeUuid)]
-#[uuid = "1b7309a7-7e0f-4b83-8232-55fab5056334"]
+#[derive(Asset, TypePath)]
 pub struct AnimationClip {
     path_mapping: Box<[(EntityPath, u16, u16)]>,
     curves: Box<[Box<dyn AnyCurve>]>,
@@ -82,7 +80,7 @@ impl AnimationClipBuilder {
 
     /// Add a new curve into the clip.
     pub fn add_dyn_curve(&mut self, path: EntityPath, curve: Box<dyn AnyCurve>) {
-        self.curves.entry(path).or_insert_with(Vec::new).push(curve);
+        self.curves.entry(path).or_default().push(curve);
     }
 
     /// Add a whole new track into the clip.
@@ -149,7 +147,7 @@ impl TrackBuilder {
               F::Source: Sized + 'static, F::Error: Display,
               F::View: PartialEq + Animatable + Send + Sync + 'static,
               F: OpticsKnownSource
-              + Optics<F::Source, View=<C::Target as CurveContentStatic>::Keyframe>
+              + Optics<F::Source, View = <C::Target as CurveContentStatic>::Keyframe>
               + for<'a> AffineFoldRef<'a, F::Source>
               + for<'a> AffineFoldMut<'a, F::Source>
               + Clone + Hash + Eq + Send + Sync + 'static {

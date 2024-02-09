@@ -59,10 +59,10 @@ impl Plugin for SeedBankPlugin {
         app.insert_resource(GridInfo::default())
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
                 .continue_to_state(AssetState::AssetReady)
-                .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_collection_to_loading_state::<_, SeedBankAssets>(AssetState::AssetLoading)
-            .add_system(spawn_seed_bank.in_schedule(OnEnter(AssetState::AssetReady)))
-            .add_system(update_seed_bank.in_set(OnUpdate(AssetState::AssetReady)));
+                .on_failure_continue_to_state(AssetState::LoadFailure)
+                .load_collection::<SeedBankAssets>())
+            .add_systems(OnEnter(AssetState::AssetReady), spawn_seed_bank)
+            .add_systems(Update, update_seed_bank.run_if(in_state(AssetState::AssetReady)));
     }
 }
 
@@ -163,11 +163,8 @@ fn spawn_seed_bank(
         SeedBank { packet_number: 10 },
         NodeBundle {
             style: Style {
-                position: UiRect {
-                    left: Val::Px(grid_info.position.x),
-                    top: Val::Px(grid_info.position.y),
-                    ..default()
-                },
+                left: Val::Px(grid_info.position.x),
+                top: Val::Px(grid_info.position.y),
                 ..default()
             },
             ..default()
@@ -180,11 +177,8 @@ fn spawn_seed_bank(
         style: Style {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            position: UiRect {
-                left: Val::Px(grid_info.seed_area_top_left.x),
-                top: Val::Px(grid_info.seed_area_top_left.y),
-                ..default()
-            },
+            left: Val::Px(grid_info.seed_area_top_left.x),
+            top: Val::Px(grid_info.seed_area_top_left.y),
             ..default()
         },
         ..default()
@@ -199,10 +193,8 @@ fn spawn_seed_bank(
                         right: Val::Px(grid_info.packet_separator),
                         ..default()
                     },
-                    size: Size {
-                        width: Val::Px(grid_info.packet_size.x),
-                        height: Val::Px(grid_info.packet_size.y),
-                    },
+                    width: Val::Px(grid_info.packet_size.x),
+                    height: Val::Px(grid_info.packet_size.y),
                     ..default()
                 },
                 ..default()
@@ -243,23 +235,21 @@ fn update_seed_bank(
             background_count += 1;
             *z_index = ZIndex::Local(index as i32);
             if index == 0 { continue; }
-            style.position.left = Val::Px(grid_info.background_at(index as usize));
+            style.left = Val::Px(grid_info.background_at(index as usize));
             let complete = index as usize <= complete_extensions;
             let packet_count = if complete {
                 grid_info.extension_packet_count
             } else {
                 remaining_packets
             };
-            style.size.width = Val::Px(grid_info.extension_width(packet_count));
+            style.width = Val::Px(grid_info.extension_width(packet_count));
             let &[clipped] = children.deref() else { unreachable!() };
             let mut clipped = extension.get_mut(clipped).unwrap();
-            clipped.position.left = Val::Px(-grid_info.extension_offset(packet_count));
+            clipped.left = Val::Px(-grid_info.extension_offset(packet_count));
         }
 
-        let bank_size = Size {
-            width: Val::Px(grid_info.bank_size.x),
-            height: Val::Px(grid_info.bank_size.y),
-        };
+        let bank_width = Val::Px(grid_info.bank_size.x);
+        let bank_height = Val::Px(grid_info.bank_size.y);
         if background_count == 0 {
             let background = commands.spawn((
                 BackgroundIndex(0),
@@ -268,14 +258,14 @@ fn update_seed_bank(
                     z_index: ZIndex::Local(0),
                     style: Style {
                         position_type: PositionType::Absolute,
-                        position: UiRect {
-                            left: Val::Px(0.0),
-                            top: Val::Px(0.0),
-                            ..default()
-                        },
-                        size: bank_size,
-                        min_size: bank_size,
-                        max_size: bank_size,
+                        left: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        width: bank_width,
+                        height: bank_height,
+                        min_width: bank_width,
+                        min_height: bank_height,
+                        max_width: bank_width,
+                        max_height: bank_height,
                         ..default()
                     },
                     ..default()
@@ -296,16 +286,11 @@ fn update_seed_bank(
                 NodeBundle {
                     z_index: ZIndex::Local(index as i32),
                     style: Style {
-                        overflow: Overflow::Hidden,
+                        overflow: Overflow::clip(),
                         position_type: PositionType::Absolute,
-                        position: UiRect {
-                            left: Val::Px(grid_info.background_at(index)),
-                            ..default()
-                        },
-                        size: Size {
-                            width: Val::Px(grid_info.extension_width(packet_count)),
-                            height: Val::Px(grid_info.bank_size.y),
-                        },
+                        left: Val::Px(grid_info.background_at(index)),
+                        width: Val::Px(grid_info.extension_width(packet_count)),
+                        height: Val::Px(grid_info.bank_size.y),
                         ..default()
                     },
                     ..default()
@@ -316,13 +301,13 @@ fn update_seed_bank(
                 ImageBundle {
                     image: UiImage::new(seed_bank_assets.seed_bank_background.clone()),
                     style: Style {
-                        position: UiRect {
-                            left: Val::Px(-grid_info.extension_offset(packet_count)),
-                            ..default()
-                        },
-                        size: bank_size,
-                        min_size: bank_size,
-                        max_size: bank_size,
+                        left: Val::Px(-grid_info.extension_offset(packet_count)),
+                        width: bank_width,
+                        height: bank_height,
+                        min_width: bank_width,
+                        min_height: bank_height,
+                        max_width: bank_width,
+                        max_height: bank_height,
                         ..default()
                     },
                     ..default()

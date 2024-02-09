@@ -25,7 +25,8 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use anyhow::{Error, Result};
 use bevy::prelude::*;
-use bevy::asset::{Asset, AssetLoader, AssetPath, BoxedFuture, LoadContext, LoadedAsset};
+use bevy::asset::{Asset, AssetLoader, AssetPath, AsyncReadExt, BoxedFuture, LoadContext};
+use bevy::asset::io::Reader;
 use bevy::log::warn;
 use bincode::Decode;
 use derivative::Derivative;
@@ -145,12 +146,24 @@ impl<T, Fmt: Debug> Debug for TwoStageAssetLoader<T, Fmt> {
 }
 
 impl<T: TwoStageAsset, Fmt: AssetFormat> AssetLoader for TwoStageAssetLoader<T, Fmt> {
-    fn load<'a>(&'a self, bytes: &'a [u8], load_context: &'a mut LoadContext) -> BoxedFuture<'a, Result<()>> {
+    type Asset = T;
+    type Settings = ();
+    // TODO: consider using `thiserror` to define a proper error type.
+    type Error = Error;
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset>> {
         Box::pin(async move {
-            let raw = self.0.load_raw::<T::Repr>(bytes)?;
-            let (res, deps) = T::post_process(raw, load_context)?;
-            load_context.set_default_asset(LoadedAsset::new(res).with_dependencies(deps));
-            Ok(())
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            // TODO: redesign `AssetFormat::load_raw` to use async?
+            let raw = self.0.load_raw::<T::Repr>(&bytes)?;
+            // TODO: check how dependencies are managed, redesign `TwoStageAsset::post_process`
+            let (res, _) = T::post_process(raw, load_context)?;
+            Ok(res)
         })
     }
     fn extensions(&self) -> &[&str] { self.0.get_extension(T::EXTENSIONS) }
@@ -164,9 +177,9 @@ pub trait AddTwoStageAsset {
 
 impl AddTwoStageAsset for App {
     fn add_two_stage_asset<T: TwoStageAsset>(&mut self) -> &mut App {
-        self.add_asset::<T>()
-            .add_asset_loader(TwoStageAssetLoader::<T, Json>::default())
-            .add_asset_loader(TwoStageAssetLoader::<T, Yaml>::default())
-            .add_asset_loader(TwoStageAssetLoader::<T, Bincode>::default())
+        self.init_asset::<T>()
+            .register_asset_loader(TwoStageAssetLoader::<T, Json>::default())
+            .register_asset_loader(TwoStageAssetLoader::<T, Yaml>::default())
+            .register_asset_loader(TwoStageAssetLoader::<T, Bincode>::default())
     }
 }

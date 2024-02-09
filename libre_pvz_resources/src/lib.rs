@@ -32,8 +32,8 @@ pub mod model;
 
 pub use once_cell;
 
-use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
+use bevy::app::PluginGroupBuilder;
 
 use animation::AnimationPlugin;
 use model::ModelPlugin;

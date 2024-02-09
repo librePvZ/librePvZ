@@ -17,7 +17,7 @@
  */
 
 //! librePvZ-animation: animation playing for librePvZ for [`bevy`].
-#![doc = include_str ! ("../README.md")]
+#![doc = include_str!("../README.md")]
 
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
@@ -50,7 +50,8 @@ pub trait AnimationExt {
 
 impl AnimationExt for App {
     fn register_for_animation<C: Component>(&mut self) -> &mut Self {
-        self.add_system(player::animate_entities_system::<C>.in_set(AnimationSystem::PlayerSampling))
+        self.add_systems(PostUpdate, player::animate_entities_system::<C>
+            .in_set(AnimationSystem::PlayerSampling))
     }
 }
 
@@ -61,15 +62,15 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform2D>()
-            .add_asset::<clip::AnimationClip>()
-            .add_system(transform::transform_propagate_system.in_set(TransformSystem::TransformPropagate))
-            .add_system(player::bind_curve_system.in_set(AnimationSystem::PlayerCurveBind))
-            .add_system(player::tick_animation_system.in_set(AnimationSystem::PlayerTicking))
-            .configure_sets((
+            .init_asset::<clip::AnimationClip>()
+            .add_systems(PostUpdate, transform::transform_propagate_system.in_set(TransformSystem::TransformPropagate))
+            .add_systems(PostUpdate, player::bind_curve_system.in_set(AnimationSystem::PlayerCurveBind))
+            .add_systems(PostUpdate, player::tick_animation_system.in_set(AnimationSystem::PlayerTicking))
+            .configure_sets(PostUpdate, (
                 AnimationSystem::PlayerTicking,
                 AnimationSystem::PlayerCurveBind,
                 AnimationSystem::PlayerSampling.before(TransformSystem::TransformPropagate),
-            ).in_base_set(CoreSet::PostUpdate))
+            ))
             .register_for_animation::<Transform2D>()
             .register_for_animation::<Sprite>()
             .register_for_animation::<Visibility>()

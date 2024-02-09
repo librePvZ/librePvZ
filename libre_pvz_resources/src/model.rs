@@ -22,9 +22,8 @@ use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
 use std::time::Duration;
 use anyhow::Context;
-use bevy::asset::{AssetPath, LoadContext};
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::asset::{AssetPath, LoadContext};
 use bevy::time::Stopwatch;
 use bevy::utils::HashMap;
 use bincode::{Encode, Decode};
@@ -76,21 +75,20 @@ impl Plugin for ModelPlugin {
             .add_event::<TransitionTrigger>()
             .add_two_stage_asset::<Model>()
             .register_marker::<AutoNullTrigger>("AutoNullTrigger")
-            .configure_sets((
+            .configure_sets(Update, (
                 ModelSystem::CoolDownTicking,
                 ModelSystem::TransitionTrigger,
                 ModelSystem::TransitionAnimation,
             ).chain())
-            .add_system(apply_null_trigger_system)
-            .add_system(cool_down_tick_system.in_set(ModelSystem::CoolDownTicking))
-            .add_system(transition_trigger_response_system.in_set(ModelSystem::TransitionTrigger))
-            .add_system(state_transition_animation_system.in_set(ModelSystem::TransitionAnimation));
+            .add_systems(Update, apply_null_trigger_system)
+            .add_systems(Update, cool_down_tick_system.in_set(ModelSystem::CoolDownTicking))
+            .add_systems(Update, transition_trigger_response_system.in_set(ModelSystem::TransitionTrigger))
+            .add_systems(Update, state_transition_animation_system.in_set(ModelSystem::TransitionAnimation));
     }
 }
 
 /// Model: animation together with its association.
-#[derive(Debug, Encode, Decode, Serialize, Deserialize, TypeUuid)]
-#[uuid = "42c6a0d1-7add-4ef2-abe7-ca4d38252617"]
+#[derive(Debug, Encode, Decode, Serialize, Deserialize, Asset, TypePath)]
 pub struct Model {
     /// Animation, the all-in-one source.
     pub animation: Cached<PathBuf, Handle<Animation>>,
@@ -112,11 +110,11 @@ pub struct Model {
 impl Model {
     fn track_deps(&self, load_context: &mut LoadContext, dep_paths: &mut Vec<AssetPath>) {
         self.animation.init_handle(load_context);
-        dep_paths.push(self.animation.asset_path().to_owned());
+        dep_paths.push(self.animation.asset_path().into_owned());
         self.attachments.iter().for_each(|attachment| {
             let child = &attachment.child_model;
             child.init_handle(load_context);
-            dep_paths.push(AssetPath::from(child.raw_key.as_path()).to_owned());
+            dep_paths.push(AssetPath::from_path(child.raw_key.as_path()).into_owned());
         });
     }
 }
@@ -160,7 +158,7 @@ macro_rules! cache_known_states {
     ($($state: ident),+ $(,)?) => {
         #[derive(Copy, Clone, Resource)]
         struct StateIndex {
-            $($state: usize),+
+            $($state: usize),+,
         }
         mod state_index_impl {
             use anyhow::Context;
@@ -173,7 +171,7 @@ macro_rules! cache_known_states {
                         let $state = {
                             let cache__state_name = stringify!($state);
                             states.get_by_key(cache__state_name).with_context(||
-                                format!("expected state '{cache__state_name}' in the model"))?
+                                concat!("expected state '", stringify!($state), "' in the model"))?
                         };
                     )+
                     Ok(StateIndex { $($state),+ })
@@ -400,7 +398,7 @@ impl ModelState {
 }
 
 /// Request to trigger a [`ModelState`] transition.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Event)]
 pub struct TransitionTrigger {
     /// The trigger will try to take effect on this [`Entity`].
     pub target_entity: Entity,
@@ -429,7 +427,7 @@ fn transition_trigger_response_system(
     mut transition_events: EventWriter<StateTransitionEvent>,
     models: Res<Assets<Model>>,
 ) {
-    for trigger in triggers.iter() {
+    for trigger in triggers.read() {
         let mut state = instances.get_mut(trigger.target_entity).unwrap();
         let model = models.get(&state.model).unwrap();
         let current_state = &model.states[state.current_state];
@@ -473,7 +471,7 @@ fn apply_null_trigger_system(
 }
 
 /// [`ModelState`] transition events.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Event)]
 pub struct StateTransitionEvent {
     /// The entity on which this state transition happened.
     pub target_entity: Entity,
@@ -490,7 +488,7 @@ fn state_transition_animation_system(
     models: Res<Assets<Model>>,
     animations: Res<Assets<Animation>>,
 ) {
-    for trans in events.iter() {
+    for trans in events.read() {
         let (state, mut player) = instances.get_mut(trans.target_entity).unwrap();
         let model = models.get(&state.model).unwrap();
         let previous_state = &model.states[trans.previous_state];

@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// https://github.com/mcarton/rust-derivative/issues/115
+#![allow(clippy::non_canonical_partial_ord_impl)]
+
 //! Variable curves in animation clips.
 
 pub mod animatable;
@@ -204,8 +207,8 @@ pub trait TypedCurve: Curve {
     type Value: PartialEq + 'static;
     /// Field accessor.
     type FieldAccessor
-    : for<'a> AffineFoldRef<'a, Self::Component, View=Self::Value, Error=String>
-    + for<'a> AffineFoldMut<'a, Self::Component, View=Self::Value, Error=String>;
+    : for<'a> AffineFoldRef<'a, Self::Component, View = Self::Value, Error = String>
+    + for<'a> AffineFoldMut<'a, Self::Component, View = Self::Value, Error = String>;
     /// Sample the curve at specific frame index.
     ///
     /// To support looping, we require `sample` be well-defined for any positive frame number. The

@@ -78,7 +78,7 @@ macro_rules! narrow {
             Ok(n) => n,
             Err(_) => {
                 $on_err($n);
-                return Err($or_else)
+                return Err($or_else);
             }
         }
     }
@@ -170,8 +170,7 @@ impl Decode<usize> for Track {
         s.check_magic(0x2C)?;
         let transforms = s.read_n::<Transform>(n)?;
         let elements = s.read_n::<Elements>(n)?;
-        let frames = transforms.into_iter()
-            .zip(elements.into_iter())
+        let frames = std::iter::zip(transforms, elements)
             .map(|(transform, elements)| Frame { transform, elements })
             .collect();
         Ok(Track { name, frames })

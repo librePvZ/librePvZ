@@ -68,7 +68,7 @@ impl<K, I> Cached<K, I> {
     /// if the handle is already cached. This should be useful when the handle itself is used for
     /// fast comparison, especially when the container itself is behind e.g. a [`Handle`].
     pub fn get_handle_or_lazy_init<'a, C>(&self, container: impl FnOnce() -> &'a C) -> Option<I>
-        where C: ContainerWithKey<Handle=I> + 'a, K: Borrow<C::Key>, I: Clone {
+        where C: ContainerWithKey<Handle = I> + 'a, K: Borrow<C::Key>, I: Clone {
         Some(self.cached.get_or_try_init(|| {
             container().get_by_key(self.raw_key.borrow()).ok_or(())
         }).ok()?.clone())
@@ -77,26 +77,26 @@ impl<K, I> Cached<K, I> {
     /// Get handle from a container, and cache the handle for shortcut.
     /// If the result is a [`Some`], the handle is properly cached.
     pub fn get_handle_or_init<C>(&self, container: &C) -> Option<I>
-        where C: ContainerWithKey<Handle=I>, K: Borrow<C::Key>, I: Clone {
+        where C: ContainerWithKey<Handle = I>, K: Borrow<C::Key>, I: Clone {
         self.get_handle_or_lazy_init(|| container)
     }
 
     /// Get from a container, and cache the handle for shortcut.
     /// If the result is a [`Some`], the handle is properly cached.
     pub fn get_or_init<'a, C>(&self, container: &'a C) -> Option<&'a C::Value>
-        where C: ContainerWithKey<Handle=I>, K: Borrow<C::Key>, I: Clone {
+        where C: ContainerWithKey<Handle = I>, K: Borrow<C::Key>, I: Clone {
         Some(container.get_by_handle(self.get_handle_or_init(container)?))
     }
 }
 
 impl<T: Asset> Cached<PathBuf, Handle<T>> {
     /// Get as an [`AssetPath`] for use in the asset manager.
-    pub fn asset_path(&self) -> AssetPath { AssetPath::from(self.raw_key.as_path()) }
+    pub fn asset_path(&self) -> AssetPath { AssetPath::from_path(&self.raw_key) }
 
     /// Initialise and cache the handle. Panics if called more than once.
+    // TODO: rename & reconsider the logic
     pub fn init_handle(&self, load_context: &mut LoadContext) {
-        let asset_path = self.asset_path();
-        let handle = load_context.get_handle(asset_path.get_id());
+        let handle = load_context.load(self.asset_path());
         self.cached.set(handle).unwrap();
     }
 

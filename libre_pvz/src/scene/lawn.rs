@@ -64,12 +64,11 @@ impl Plugin for LawnPlugin {
             })
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
                 .continue_to_state(AssetState::AssetReady)
-                .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_collection_to_loading_state::<_, LawnAssets>(AssetState::AssetLoading)
-            .add_collection_to_loading_state::<_, PeashooterAssets>(AssetState::AssetLoading)
-            .add_system(setup_lawn.in_schedule(OnEnter(AssetState::AssetReady)))
-            .add_system(spawn_peashooter_system.in_schedule(OnEnter(AssetState::AssetReady)))
-            .add_system(update_grid_system.in_set(OnUpdate(AssetState::AssetReady)));
+                .on_failure_continue_to_state(AssetState::LoadFailure)
+                .load_collection::<LawnAssets>())
+            .add_systems(OnEnter(AssetState::AssetReady), setup_lawn)
+            .add_systems(OnEnter(AssetState::AssetReady), spawn_peashooter_system)
+            .add_systems(Update, update_grid_system.run_if(in_state(AssetState::AssetReady)));
     }
 }
 

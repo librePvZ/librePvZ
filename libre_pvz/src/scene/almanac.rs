@@ -20,12 +20,12 @@
 
 use std::path::Path;
 use anyhow::Error;
-use bevy::asset::AssetPath;
 use bevy::prelude::*;
-use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
+use bevy::asset::AssetPath;
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::sprite::Anchor;
-use bevy_egui::EguiContexts;
 use bevy_asset_loader::prelude::*;
+use bevy_egui::{egui, EguiContexts};
 use egui::{Align2, ComboBox, Frame, Grid, Slider, Ui, Visuals};
 use crate::animation::curve::Segment;
 use crate::animation::player::{AnimationStatus, AnimationPlayer};
@@ -90,13 +90,13 @@ pub struct AlmanacPlugin(AnimName);
 struct AnimName(Box<Path>);
 
 impl DynamicAsset for AnimName {
-    fn load(&self, asset_server: &AssetServer) -> Vec<HandleUntyped> {
-        vec![asset_server.load_untyped(self.0.as_ref())]
+    fn load(&self, asset_server: &AssetServer) -> Vec<UntypedHandle> {
+        vec![asset_server.load::<Animation>(AssetPath::from_path(&self.0)).untyped()]
     }
     fn build(&self, world: &mut World) -> Result<DynamicAssetType, Error> {
         let asset_server = world.resource::<AssetServer>();
-        let path = AssetPath::from(self.0.as_ref());
-        let handle = asset_server.get_handle_untyped(path);
+        let path = AssetPath::from_path(self.0.as_ref());
+        let handle = asset_server.get_handle_untyped(path).unwrap();
         Ok(DynamicAssetType::Single(handle))
     }
 }
@@ -119,17 +119,17 @@ impl AlmanacPlugin {
 
 impl Plugin for AlmanacPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(FrameTimeDiagnosticsPlugin::default())
+        app.add_plugins(FrameTimeDiagnosticsPlugin)
             .insert_resource(self.0.clone())
             .insert_resource(Stage::default())
-            .add_startup_system(setup_main_anim)
+            .add_systems(Startup, setup_main_anim)
             .add_loading_state(LoadingState::new(AssetState::AssetLoading)
                 .continue_to_state(AssetState::AssetReady)
-                .on_failure_continue_to_state(AssetState::LoadFailure))
-            .add_collection_to_loading_state::<_, StageAssets>(AssetState::AssetLoading)
-            .add_system(init_anim.in_schedule(OnEnter(AssetState::AssetReady)))
-            .add_system(animation_ui.in_set(OnUpdate(AssetState::AssetReady)))
-            .add_system(respond_to_stage_change.in_set(OnUpdate(AssetState::AssetReady)));
+                .on_failure_continue_to_state(AssetState::LoadFailure)
+                .load_collection::<StageAssets>())
+            .add_systems(OnEnter(AssetState::AssetReady), init_anim)
+            .add_systems(Update, animation_ui.run_if(in_state(AssetState::AssetReady)))
+            .add_systems(Update, respond_to_stage_change.run_if(in_state(AssetState::AssetReady)));
     }
 }
 
@@ -237,7 +237,7 @@ fn init_anim(
 
 fn animation_ui(
     mut context: EguiContexts,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     animations: Res<Assets<Animation>>,
     mut player: Query<&mut AnimationPlayer>,
     stage_assets: Res<StageAssets>,
@@ -262,7 +262,7 @@ fn animation_ui(
 
 fn metrics_ui(
     ui: &mut Ui, stage: &mut Stage,
-    diagnostics: &Diagnostics,
+    diagnostics: &DiagnosticsStore,
     anim: &Animation,
     status: &mut AnimationStatus,
 ) {

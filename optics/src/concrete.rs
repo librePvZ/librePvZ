@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// https://github.com/mcarton/rust-derivative/issues/112
+#![allow(clippy::non_canonical_clone_impl)]
+
 //! Concrete implementations for optics.
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;

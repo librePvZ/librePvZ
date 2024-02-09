@@ -22,8 +22,7 @@ use bevy::prelude::*;
 use bevy::sprite::{Anchor, Mesh2dHandle};
 use bevy::transform::TransformSystem;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::render::ShapeMaterial;
-use libre_pvz_animation::transform::Transform2D;
+use libre_pvz_animation::transform::{SpatialBundle2D, Transform2D};
 
 /// Plugin for displaying bounding boxes for 2D sprite graphics.
 #[derive(Debug, Copy, Clone)]
@@ -40,13 +39,13 @@ pub enum BoundingBoxSystem {
 
 impl Plugin for BoundingBoxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ShapePlugin)
-            .configure_sets((
+        app.add_plugins(ShapePlugin)
+            .configure_sets(PostUpdate, (
                 BoundingBoxSystem::AddBoundingBox,
                 BoundingBoxSystem::UpdateBoundingBox,
-            ).in_base_set(CoreSet::PostUpdate).before(TransformSystem::TransformPropagate))
-            .add_system(add_bounding_box_system.in_set(BoundingBoxSystem::AddBoundingBox))
-            .add_system(update_bounding_box_system.in_set(BoundingBoxSystem::UpdateBoundingBox));
+            ).before(TransformSystem::TransformPropagate))
+            .add_systems(Update, add_bounding_box_system.in_set(BoundingBoxSystem::AddBoundingBox))
+            .add_systems(Update, update_bounding_box_system.in_set(BoundingBoxSystem::UpdateBoundingBox));
     }
 }
 
@@ -68,11 +67,8 @@ pub struct BoundingBox(Entity, Vec2);
 struct ShapeBundle2D {
     path: Path,
     mesh2d: Mesh2dHandle,
-    material: Handle<ShapeMaterial>,
-    transform: Transform2D,
-    global_transform: GlobalTransform,
-    visibility: Visibility,
-    computed_visibility: ComputedVisibility,
+    material: Handle<ColorMaterial>,
+    spatial: SpatialBundle2D,
 }
 
 impl ShapeBundle2D {
@@ -81,10 +77,10 @@ impl ShapeBundle2D {
             path: ShapePath::build_as(shape),
             mesh2d: Mesh2dHandle::default(),
             material: Handle::default(),
-            transform,
-            global_transform: GlobalTransform::default(),
-            visibility: Visibility::default(),
-            computed_visibility: ComputedVisibility::default(),
+            spatial: SpatialBundle2D {
+                local: transform,
+                ..SpatialBundle2D::default()
+            },
         }
     }
 }
@@ -107,10 +103,10 @@ fn add_bounding_box_system(
             if let Ok((sprite, texture)) = sprites.get(current) {
                 if let Some(size) = sprite.custom_size.or_else(|| texture
                     .and_then(|texture| images.get(texture))
-                    .map(|image| image.size())) {
+                    .map(|image| image.size().as_vec2())) {
                     let bb = rectangle(size, &sprite.anchor);
                     let mut bb = ShapeBundle2D::build(&bb, trans);
-                    bb.visibility = if is_visible { Visibility::Inherited } else { Visibility::Hidden };
+                    bb.spatial.visibility = if is_visible { Visibility::Inherited } else { Visibility::Hidden };
                     commands.entity(current).with_children(|builder| {
                         builder.spawn((bb, white_stroke, BoundingBox(root, size)));
                     });
@@ -120,6 +116,7 @@ fn add_bounding_box_system(
     }
 }
 
+// TODO: duplicated lines
 #[allow(clippy::type_complexity)]
 fn update_bounding_box_system(
     roots: Query<&BoundingBoxRoot>,
@@ -134,7 +131,7 @@ fn update_bounding_box_system(
                 vis.set_if_neq(if root.is_visible { Visibility::Inherited } else { Visibility::Hidden });
                 if let Some(size) = sprite.custom_size.or_else(|| texture
                     .and_then(|texture| images.get(texture))
-                    .map(|image| image.size())) {
+                    .map(|image| image.size().as_vec2())) {
                     if bb.1 != size {
                         bb.1 = size;
                         *path = ShapePath::build_as(&rectangle(size, &sprite.anchor));

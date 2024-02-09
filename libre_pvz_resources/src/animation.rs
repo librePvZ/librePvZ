@@ -25,7 +25,6 @@ use bevy::prelude::*;
 use bevy::asset::{Handle, AssetPath, LoadContext};
 use bevy::text::Font;
 use bevy::utils::HashMap;
-use bevy::reflect::TypeUuid;
 use bevy::sprite::Anchor;
 use bincode::{Encode, Decode};
 use serde::{Serialize, Deserialize};
@@ -205,8 +204,7 @@ optics::declare_lens_from_field! {
 }
 
 /// Animation and all its dependency images.
-#[derive(TypeUuid)]
-#[uuid = "b3eaf6b5-4c37-47a5-b2b7-b03666d7939b"]
+#[derive(Asset, TypePath)]
 #[allow(missing_debug_implementations)]
 pub struct Animation {
     /// the animation description.
@@ -307,7 +305,7 @@ impl TwoStageAsset for Animation {
         let mut dep_paths = Vec::with_capacity(deps.len());
         for name in deps {
             name.init_handle(load_context);
-            dep_paths.push(name.asset_path().to_owned());
+            dep_paths.push(name.asset_path().into_owned());
         }
         let anim = Animation { description: anim, clip: OnceCell::new() };
         Ok((anim, dep_paths))
