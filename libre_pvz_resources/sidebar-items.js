@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["asset_ext","cache_known_states","mark_trait_as_dynamic_resource"],"mod":["animation","cached","dynamic","loader","model"],"struct":["ResourcesPlugins"]};

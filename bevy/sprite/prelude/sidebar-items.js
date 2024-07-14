@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ImageScaleMode","SliceScaleMode"],"struct":["BorderRect","ColorMaterial","Sprite","SpriteBundle","SpriteSheetBundle","TextureAtlas","TextureAtlasBuilder","TextureAtlasLayout","TextureSlice","TextureSlicer"],"type":["ColorMesh2dBundle"]};

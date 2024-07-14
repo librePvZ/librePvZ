@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ModelSystem"],"struct":["Attachment","AutoNullTrigger","CoolDown","MarkerRegistry","Model","ModelPlugin","ModelState","PlantMeta","State","StateTransition","StateTransitionEvent","TransitionTrigger"],"trait":["MarkerRegistryExt"]};

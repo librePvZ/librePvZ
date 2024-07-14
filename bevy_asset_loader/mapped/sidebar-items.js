@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AssetFileName","AssetFileStem","AssetLabel"],"trait":["MapKey"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["KineticsSystem"],"fn":["acceleration_system","coordinate_translation_system","movement_system"],"struct":["Acceleration","KinematicsPlugin","Position","Velocity"]};

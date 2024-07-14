@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["shape_sampling","standard"],"struct":["BoundaryOf","InteriorOf"],"trait":["FromRng","ShapeSample"]};

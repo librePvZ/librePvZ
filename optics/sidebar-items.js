@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["declare_affine_traversal","declare_lens","declare_lens_from_field","declare_prism_from_variant","impl_affine_traversal","impl_lens","impl_up_from","mark_fallible","mark_infallible","mark_known_source","optics"],"mod":["concrete","prelude","traits"]};

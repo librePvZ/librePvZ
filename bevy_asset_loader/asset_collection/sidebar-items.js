@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["AssetCollection"],"trait":["AssetCollection","AssetCollectionApp","AssetCollectionWorld"]};

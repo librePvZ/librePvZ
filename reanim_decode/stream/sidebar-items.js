@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DecodeError"],"struct":["Magic","NoArgs"],"trait":["Decode","DecodeExt","NamedArgs","PlainData","Stream"],"type":["Result"]};

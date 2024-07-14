@@ -1,0 +1,1 @@
+searchState.loadedDescShard("profiling", 0, "Finishes the frame. This isn’t strictly necessary for …\nFinishes the frame. This isn’t strictly necessary for …\nRegisters a thread with the profiler API(s). This is …\nRegisters a thread with the profiler API(s). This is …\nOpens a scope. Two variants:\nOpens a scope. Two variants:")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["animatable","blend","builder","concrete"],"struct":["CurveBinding","CurveBindingInfo","CurveDescriptor","Segment","UnwrapAnyComponent"],"trait":["AnyComponent","AnyCurve","Curve","TypedCurve"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AnimationSystem"],"mod":["clip","curve","player","transform"],"struct":["AnimationPlugin"],"trait":["AnimationExt"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["DynamicPlugin"],"enum":["AppExit"],"struct":["App","First","FixedFirst","FixedLast","FixedPostUpdate","FixedPreUpdate","FixedUpdate","Last","Main","PostStartup","PostUpdate","PreStartup","PreUpdate","SpawnScene","Startup","SubApp","Update"],"trait":["Plugin","PluginGroup"]};

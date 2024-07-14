@@ -1,0 +1,6 @@
+(function() {var implementors = {
+"bevy":[],
+"bevy_app":[],
+"bevy_internal":[["impl <a class=\"trait\" href=\"bevy_app/plugin_group/trait.PluginGroup.html\" title=\"trait bevy_app::plugin_group::PluginGroup\">PluginGroup</a> for <a class=\"struct\" href=\"bevy_internal/struct.DefaultPlugins.html\" title=\"struct bevy_internal::DefaultPlugins\">DefaultPlugins</a>"],["impl <a class=\"trait\" href=\"bevy_app/plugin_group/trait.PluginGroup.html\" title=\"trait bevy_app::plugin_group::PluginGroup\">PluginGroup</a> for <a class=\"struct\" href=\"bevy_internal/struct.MinimalPlugins.html\" title=\"struct bevy_internal::MinimalPlugins\">MinimalPlugins</a>"]],
+"libre_pvz_resources":[["impl <a class=\"trait\" href=\"bevy_app/plugin_group/trait.PluginGroup.html\" title=\"trait bevy_app::plugin_group::PluginGroup\">PluginGroup</a> for <a class=\"struct\" href=\"libre_pvz_resources/struct.ResourcesPlugins.html\" title=\"struct libre_pvz_resources::ResourcesPlugins\">ResourcesPlugins</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

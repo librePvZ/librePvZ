@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DynamicRegistry","DynamicResource","ReflectAnyResource"],"trait":["AnyResource","ErasedResource"]};

@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"bevy":[],
+"bevy_gizmos":[],
+"libre_pvz":[["impl <a class=\"trait\" href=\"bevy_gizmos/config/trait.GizmoConfigGroup.html\" title=\"trait bevy_gizmos::config::GizmoConfigGroup\">GizmoConfigGroup</a> for <a class=\"struct\" href=\"libre_pvz/diagnostics/struct.BoundingBoxGizmos.html\" title=\"struct libre_pvz::diagnostics::BoundingBoxGizmos\">BoundingBoxGizmos</a><div class=\"where\">where\n    Self: <a class=\"trait\" href=\"bevy_reflect/reflect/trait.Reflect.html\" title=\"trait bevy_reflect::reflect::Reflect\">Reflect</a> + <a class=\"trait\" href=\"bevy_reflect/type_path/trait.TypePath.html\" title=\"trait bevy_reflect::type_path::TypePath\">TypePath</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.79.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a>,</div>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

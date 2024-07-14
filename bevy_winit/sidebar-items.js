@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpdateMode"],"fn":["create_windows","get_best_videomode","get_fitting_videomode","winit_window_position"],"mod":["accessibility","winit_event"],"struct":["WakeUp","WinitPlugin","WinitSettings","WinitWindows"],"type":["CreateWindowParams","EventLoopProxy"]};

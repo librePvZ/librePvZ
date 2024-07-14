@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["_Alpha","_LoadElement","_Rotation","_Scale","_Show","_Translation"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EguiTextureId"],"fn":["prepare_egui_transforms_system","queue_bind_groups_system","queue_pipelines_system","setup_new_windows_render_system"],"struct":["EguiPass","EguiPipelines","EguiTextureBindGroups","EguiTransform","EguiTransforms","ExtractedEguiManagedTextures","ExtractedEguiSettings","ExtractedEguiTextures"]};

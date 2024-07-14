@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Commands","Format","MaybePacked","Verbosity"],"fn":["encode_anim","encode_model"],"struct":["Cli"]};

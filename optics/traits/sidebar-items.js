@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":["AffineFold","AffineFoldMut","AffineFoldRef","AffineTraversal","Getter","GetterMut","GetterRef","Iso","Lens","Optics","OpticsFallible","OpticsKnownSource","Prism","Review","Setter","Traversal"]};

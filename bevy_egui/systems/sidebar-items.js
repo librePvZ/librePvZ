@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["begin_frame_system","bevy_to_egui_key","bevy_to_egui_physical_key","process_input_system","process_output_system","update_window_contexts_system"],"struct":["ContextSystemParams","InputEvents","InputResources","ModifierKeysState"]};

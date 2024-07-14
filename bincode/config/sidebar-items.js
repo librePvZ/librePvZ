@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["legacy","standard"],"struct":["BigEndian","Configuration","Fixint","Limit","LittleEndian","NoLimit","SkipFixedArrayLength","Varint","WriteFixedArrayLength"],"trait":["Config"]};

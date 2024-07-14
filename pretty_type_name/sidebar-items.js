@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["pretty_type_name","pretty_type_name_str"]};

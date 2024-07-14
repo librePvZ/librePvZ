@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["projectile_vanish_system"],"struct":["Projectile","ProjectilePlugin","VanishingBound"]};

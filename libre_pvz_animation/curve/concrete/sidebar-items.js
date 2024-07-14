@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["KeyframeCurve"],"trait":["CurveContent","CurveContentBorrow","CurveContentStatic"]};

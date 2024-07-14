@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BuiltInLineBreaker","GlyphChange","HorizontalAlign","Layout","LineBreak","VerticalAlign"],"mod":["ab_glyph"],"struct":["FontId","SectionGeometry","SectionGlyph","SectionText"],"trait":["GlyphPositioner","LineBreaker","ToSectionText"]};
