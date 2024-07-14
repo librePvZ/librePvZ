@@ -12,7 +12,7 @@ description = "decoder for PvZ reanim files"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = "0.12.1"
+itertools = "0.13"
 thiserror = "1.0.56"
 flate2 = "1.0.28"
 libre_pvz_resources = { path = "../libre_pvz_resources" }

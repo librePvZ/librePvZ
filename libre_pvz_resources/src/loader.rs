@@ -25,9 +25,10 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use anyhow::{Error, Result};
 use bevy::prelude::*;
-use bevy::asset::{Asset, AssetLoader, AssetPath, AsyncReadExt, BoxedFuture, LoadContext};
+use bevy::asset::{Asset, AssetLoader, AssetPath, AsyncReadExt, LoadContext};
 use bevy::asset::io::Reader;
 use bevy::log::warn;
+use bevy::utils::ConditionalSendFuture;
 use bincode::Decode;
 use derivative::Derivative;
 use serde::de::DeserializeOwned;
@@ -155,8 +156,8 @@ impl<T: TwoStageAsset, Fmt: AssetFormat> AssetLoader for TwoStageAssetLoader<T, 
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset>> {
-        Box::pin(async move {
+    ) -> impl ConditionalSendFuture<Output = Result<Self::Asset>> {
+        async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             // TODO: redesign `AssetFormat::load_raw` to use async?
@@ -164,7 +165,7 @@ impl<T: TwoStageAsset, Fmt: AssetFormat> AssetLoader for TwoStageAssetLoader<T, 
             // TODO: check how dependencies are managed, redesign `TwoStageAsset::post_process`
             let (res, _) = T::post_process(raw, load_context)?;
             Ok(res)
-        })
+        }
     }
     fn extensions(&self) -> &[&str] { self.0.get_extension(T::EXTENSIONS) }
 }
@@ -177,6 +178,8 @@ pub trait AddTwoStageAsset {
 
 impl AddTwoStageAsset for App {
     fn add_two_stage_asset<T: TwoStageAsset>(&mut self) -> &mut App {
+        // TODO: make type registry local to the loader
+        // let registry = self.world.resource_mut::<AppTypeRegistry>();
         self.init_asset::<T>()
             .register_asset_loader(TwoStageAssetLoader::<T, Json>::default())
             .register_asset_loader(TwoStageAssetLoader::<T, Yaml>::default())

@@ -21,7 +21,6 @@
 use std::ops::Deref;
 use bevy::prelude::*;
 use bevy::asset::Handle;
-use bevy::sprite::TextureAtlas;
 use bevy_asset_loader::prelude::*;
 use crate::scene::loading::AssetState;
 
@@ -29,9 +28,8 @@ use crate::scene::loading::AssetState;
 #[derive(Debug, AssetCollection, Resource)]
 pub struct SeedBankAssets {
     /// Background of various seed packets.
-    #[asset(texture_atlas(tile_size_x = 50., tile_size_y = 70., columns = 9, rows = 1))]
     #[asset(path = "seeds.png")]
-    pub seed_packet_background: Handle<TextureAtlas>,
+    pub seed_packet_background: Handle<TextureAtlasLayout>,
     /// Larger packet background, used in "card bonus" at the end of levels.
     ///
     /// Currently used in the seed bank, because we cannot yet use a [`TextureAtlas`] in
@@ -78,7 +76,7 @@ pub struct SeedPacketArea;
 
 /// Index of a seed packet.
 #[derive(Debug, Copy, Clone, Component)]
-pub struct SeedPacketIndex(usize);
+pub struct SeedPacketIndex(pub usize);
 
 #[derive(Copy, Clone, PartialEq, Resource)]
 struct GridInfo {

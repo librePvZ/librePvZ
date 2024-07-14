@@ -23,7 +23,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use bevy::utils::label::DynHash;
+use bevy::ecs::label::DynHash;
 use optics::traits::{AffineFoldMut, AffineFoldRef, Optics, OpticsKnownSource};
 use crate::curve::animatable::Animatable;
 use crate::curve::AnyCurve;
@@ -143,14 +143,17 @@ impl TrackBuilder {
     ///
     /// **Note:** panics if a curve already exists for the `field_path`.
     pub fn prepare_curve<C, F>(&mut self, field_path: F)
-        where C: CurveContentBuilder,
-              F::Source: Sized + 'static, F::Error: Display,
-              F::View: PartialEq + Animatable + Send + Sync + 'static,
-              F: OpticsKnownSource
-              + Optics<F::Source, View = <C::Target as CurveContentStatic>::Keyframe>
-              + for<'a> AffineFoldRef<'a, F::Source>
-              + for<'a> AffineFoldMut<'a, F::Source>
-              + Clone + Hash + Eq + Send + Sync + 'static {
+    where
+        C: CurveContentBuilder,
+        F::Source: Sized + 'static,
+        F::Error: Display,
+        F::View: PartialEq + Animatable + Send + Sync + 'static,
+        F: OpticsKnownSource
+        + Optics<F::Source, View = <C::Target as CurveContentStatic>::Keyframe>
+        + for<'a> AffineFoldRef<'a, F::Source>
+        + for<'a> AffineFoldMut<'a, F::Source>
+        + Clone + Hash + Eq + Send + Sync + 'static,
+    {
         let old = self.curves.insert(
             Box::new(field_path.clone()),
             CurveBuilder::<C>::new().into_dynamic(field_path),
@@ -161,14 +164,17 @@ impl TrackBuilder {
     /// Push a keyframe into this track.
     /// The frame will end up in a curve determined by `field_path`.
     pub fn push_keyframe<F>(&mut self, field_path: F, frame: usize, value: F::View)
-        where F::Source: Sized + 'static, F::Error: Display,
-              F::View: PartialEq + Animatable + Sized + Send + Sync + 'static,
-              F: OpticsKnownSource
-              + for<'a> AffineFoldRef<'a, F::Source>
-              + for<'a> AffineFoldMut<'a, F::Source>
-              + Clone + Hash + Eq + Send + Sync + 'static {
+    where
+        F::Source: Sized + 'static,
+        F::Error: Display,
+        F::View: PartialEq + Animatable + Sized + Send + Sync + 'static,
+        F: OpticsKnownSource
+        + for<'a> AffineFoldRef<'a, F::Source>
+        + for<'a> AffineFoldMut<'a, F::Source>
+        + Clone + Hash + Eq + Send + Sync + 'static,
+    {
         self.curves.entry(Box::new(field_path.clone())).or_insert_with(||
-            CurveBuilder::<Vec<F::View>>::new().into_dynamic(field_path)
+        CurveBuilder::<Vec<F::View>>::new().into_dynamic(field_path)
         ).push_keyframe(frame as u16, &mut Some(value));
     }
 

@@ -47,6 +47,7 @@ use serde::ser::{SerializeMap, Error as _};
 /// Type registry for dynamic content (de)serialization.
 #[allow(missing_debug_implementations)]
 pub struct DynamicRegistry {
+    // TODO: use type_path instead
     readable_name_to_id: RwLock<HashMap<Box<str>, TypeId>>,
     readable_name_from_id: RwLock<BTreeMap<TypeId, Box<str>>>,
     type_registry: TypeRegistryArc,
@@ -320,10 +321,10 @@ macro_rules! mark_trait_as_dynamic_resource {
                     format!("{real_type} is not an instance of {expected}")
                 };
                 let reflect = reg.get_type_data::<$reflect_trait>(erased.type_id())
-                    .ok_or_else(|| report_error(erased.type_name()))?;
+                    .ok_or_else(|| report_error(erased.reflect_type_path()))?;
                 reflect.get_boxed(erased.into_reflect())
                     .map($crate::dynamic::DynamicResource::from)
-                    .map_err(|e| report_error(e.type_name()))
+                    .map_err(|e| report_error(e.reflect_type_path()))
             }
         }
     }

@@ -178,10 +178,16 @@ optics::declare_lens_from_field! {
 optics::declare_lens! {
     _Alpha as Color => f32,
     (color) => match color {
-        Color::Rgba { alpha, .. } |
-        Color::RgbaLinear { alpha, .. } |
-        Color::Hsla { alpha, .. } |
-        Color::Lcha { alpha, .. } => alpha,
+        Color::Srgba(Srgba { alpha, .. }) |
+        Color::LinearRgba(LinearRgba { alpha, .. }) |
+        Color::Hsla(Hsla { alpha, .. }) |
+        Color::Hsva(Hsva { alpha, .. }) |
+        Color::Hwba(Hwba { alpha, .. }) |
+        Color::Laba(Laba { alpha, .. }) |
+        Color::Lcha(Lcha { alpha, .. }) |
+        Color::Oklaba(Oklaba { alpha, .. }) |
+        Color::Oklcha(Oklcha { alpha, .. }) |
+        Color::Xyza(Xyza { alpha, .. }) => alpha,
     }
 }
 
@@ -258,7 +264,9 @@ impl Animation {
     }
 
     fn push_frame<'a, I>(&self, builder: &mut TrackBuilder, k: usize, frame: I)
-        where I: IntoIterator<Item = &'a Action> {
+    where
+        I: IntoIterator<Item = &'a Action>,
+    {
         for act in frame.into_iter() {
             type _Image = _Identity<Handle<Image>>;
             type _IsVisible = _Identity<Visibility>;

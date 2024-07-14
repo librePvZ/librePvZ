@@ -141,7 +141,7 @@ impl BlendChain {
         let mut blending = None;
         if let Some(next) = &self.blending {
             next.next.apply(curve, target);
-            blending = Some((next.blending, next.progress.percent()));
+            blending = Some((next.blending, next.progress.fraction()));
         }
         self.status.apply(curve, blending, target);
     }
@@ -221,7 +221,7 @@ pub(crate) fn bind_curve_system(
             if let Some(entity) = locate(root, path, &children, &names) {
                 let curves = &player.clip.curves()[*start as usize..*end as usize];
                 for (descriptor, mut curves) in &curves.iter().zip(*start..*end)
-                    .group_by(|(c, _)| c.descriptor()) {
+                    .chunk_by(|(c, _)| c.descriptor()) {
                     let (_, start) = curves.next().unwrap();
                     let end = curves.last().map_or(start, |(_, end)| end);
                     descriptor.attach_binding(commands.entity(entity), CurveBindingInfo {

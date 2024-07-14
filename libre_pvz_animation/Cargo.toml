@@ -12,14 +12,14 @@ description = "librePvZ animation in Bevy"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.56"
+thiserror = "1.0.62"
 derivative = "2.2.0"
 delegate = "0.12.0"
-itertools = "0.12.1"
+itertools = "0.13.0"
 bitvec = "1.0.1"
 optics = { path = "../optics" }
 
 [dependencies.bevy]
-version = "0.12.1"
+version = "0.14.0"
 default-features = false
 features = ["bevy_sprite", "bevy_asset"]

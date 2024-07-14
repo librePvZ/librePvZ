@@ -117,20 +117,19 @@ pub fn transform_propagate_system(
     mut root_query: Query<
         (
             Option<&Children>,
-            &Transform2D,
-            Changed<Transform2D>,
+            Ref<Transform2D>,
             &mut GlobalTransform,
         ),
         Without<Parent>,
     >,
     mut transform_query: Query<
-        (&mut GlobalTransform, &Transform2D, Changed<Transform2D>),
+        (&mut GlobalTransform, Ref<Transform2D>),
         With<Parent>,
     >,
     children_query: Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, changed, mut global_transform) in root_query.iter_mut() {
-        if changed {
+    for (children, transform, mut global_transform) in root_query.iter_mut() {
+        if transform.is_changed() {
             *global_transform = GlobalTransform::from(transform.to_affine());
         }
 
@@ -141,7 +140,7 @@ pub fn transform_propagate_system(
                     &mut transform_query,
                     &children_query,
                     *child,
-                    changed,
+                    transform.is_changed(),
                 );
             }
         }
@@ -151,34 +150,29 @@ pub fn transform_propagate_system(
 fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &mut Query<
-        (&mut GlobalTransform, &Transform2D, Changed<Transform2D>),
+        (&mut GlobalTransform, Ref<Transform2D>),
         With<Parent>,
     >,
     children_query: &Query<Option<&Children>, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
 ) {
-    let global_matrix = match transform_query.get_mut(entity) {
-        Ok((mut global_transform, transform, transform_changed)) => {
-            changed |= transform_changed;
-            if changed {
-                let t = parent.affine() * transform.to_affine();
-                *global_transform = GlobalTransform::from(t);
-            }
-            *global_transform
-        }
-        _ => { return; }
-    };
+    let Ok((mut global_transform, transform)) = transform_query.get_mut(entity) else { return };
+    changed |= transform.is_changed();
+    if changed {
+        let t = parent.affine() * transform.to_affine();
+        *global_transform = GlobalTransform::from(t);
+    }
+    let global_matrix = *global_transform;
 
-    if let Ok(Some(children)) = children_query.get(entity) {
-        for child in children.iter() {
-            propagate_recursive(
-                &global_matrix,
-                transform_query,
-                children_query,
-                *child,
-                changed,
-            );
-        }
+    let Ok(Some(children)) = children_query.get(entity) else { return };
+    for child in children.iter() {
+        propagate_recursive(
+            &global_matrix,
+            transform_query,
+            children_query,
+            *child,
+            changed,
+        );
     }
 }

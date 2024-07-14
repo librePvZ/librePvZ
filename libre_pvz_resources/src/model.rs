@@ -45,7 +45,7 @@ pub trait MarkerRegistryExt {
 
 impl MarkerRegistryExt for App {
     fn register_marker<M: Component + Default>(&mut self, name: &str) -> &mut App {
-        self.world.resource_mut::<MarkerRegistry>().register_marker::<M>(name);
+        self.world_mut().resource_mut::<MarkerRegistry>().register_marker::<M>(name);
         self
     }
 }
@@ -71,19 +71,19 @@ pub enum ModelSystem {
 impl Plugin for ModelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MarkerRegistry>()
-            .add_event::<StateTransitionEvent>()
-            .add_event::<TransitionTrigger>()
-            .add_two_stage_asset::<Model>()
-            .register_marker::<AutoNullTrigger>("AutoNullTrigger")
-            .configure_sets(Update, (
-                ModelSystem::CoolDownTicking,
-                ModelSystem::TransitionTrigger,
-                ModelSystem::TransitionAnimation,
-            ).chain())
-            .add_systems(Update, apply_null_trigger_system)
-            .add_systems(Update, cool_down_tick_system.in_set(ModelSystem::CoolDownTicking))
-            .add_systems(Update, transition_trigger_response_system.in_set(ModelSystem::TransitionTrigger))
-            .add_systems(Update, state_transition_animation_system.in_set(ModelSystem::TransitionAnimation));
+           .add_event::<StateTransitionEvent>()
+           .add_event::<TransitionTrigger>()
+           .add_two_stage_asset::<Model>()
+           .register_marker::<AutoNullTrigger>("AutoNullTrigger")
+           .configure_sets(Update, (
+               ModelSystem::CoolDownTicking,
+               ModelSystem::TransitionTrigger,
+               ModelSystem::TransitionAnimation,
+           ).chain())
+           .add_systems(Update, apply_null_trigger_system)
+           .add_systems(Update, cool_down_tick_system.in_set(ModelSystem::CoolDownTicking))
+           .add_systems(Update, transition_trigger_response_system.in_set(ModelSystem::TransitionTrigger))
+           .add_systems(Update, state_transition_animation_system.in_set(ModelSystem::TransitionAnimation));
     }
 }
 
@@ -138,7 +138,11 @@ pub struct State {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame_rate: Option<f32>,
     /// Cool down time before any state transition can happen.
-    #[serde(default, skip_serializing_if = "defaults::is_zero_duration", with = "duration_from_secs")]
+    #[serde(
+        default,
+        skip_serializing_if = "defaults::is_zero_duration",
+        with = "duration_from_secs"
+    )]
     pub cool_down: Duration,
     /// This state correspond to this meta range in the animation.
     pub state_meta: Cached<String, usize>,
@@ -198,7 +202,11 @@ pub struct StateTransition {
     /// This value overrides the global value [`State::cool_down`].
     ///
     /// [`trigger`]: StateTransition::trigger
-    #[serde(default, skip_serializing_if = "defaults::is_zero_duration", with = "duration_from_secs")]
+    #[serde(
+        default,
+        skip_serializing_if = "defaults::is_zero_duration",
+        with = "duration_from_secs"
+    )]
     pub cool_down: Duration,
     /// Destination for this transition.
     pub dest: Cached<String, usize>,
@@ -284,15 +292,17 @@ impl Debug for MarkerRegistry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         struct List<I>(I);
         impl<I: Iterator + Clone> Debug for List<I>
-            where I::Item: Debug {
+        where
+            I::Item: Debug,
+        {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 f.debug_list().entries(self.0.clone()).finish()
             }
         }
 
         f.debug_struct("MarkerRegistry")
-            .field("entries", &List(self.entries.keys()))
-            .finish()
+         .field("entries", &List(self.entries.keys()))
+         .finish()
     }
 }
 
@@ -446,7 +456,7 @@ fn transition_trigger_response_system(
             // did not find the trigger, report the error
             let trigger = PrettyTrigger(trigger.trigger.as_deref());
             let expected = current_state.transitions.iter()
-                .map(|t| PrettyTrigger(t.trigger.as_deref()));
+                                        .map(|t| PrettyTrigger(t.trigger.as_deref()));
             error!("unknown trigger {trigger}, expecting any of [{}]", expected.format(","));
         }
     }
@@ -515,11 +525,11 @@ impl Model {
         let anim = this.animation.get(animations).unwrap();
         // init ModelState, locate the Meta
         let current_state = this.default_state.get_handle_or_init(&this.states)
-            .context(format!("non-existent state '{}' set as default state", this.default_state.raw_key))?;
+                                .context(format!("non-existent state '{}' set as default state", this.default_state.raw_key))?;
         let state = &this.states[current_state];
         let meta = state.state_meta.get_or_init(&anim.description.meta)
-            .context(format!("non-existent meta '{}' associated to state '{}'",
-                             state.state_meta.raw_key, state.name))?;
+                        .context(format!("non-existent meta '{}' associated to state '{}'",
+                                         state.state_meta.raw_key, state.name))?;
         // spawn the main model as an entity, locate target tracks for the attachments
         let mut targets = vec![None; this.attachments.len()];
         let main = anim.spawn_on(commands, translation, |n, name, entity| {
@@ -554,8 +564,8 @@ impl Model {
             let translation = anim
                 .description.tracks[k]
                 .frames[meta.start_frame as usize].0.iter()
-                .find_map(|act| _Translation.preview_ref(act).ok().copied())
-                .map_or(Vec2::ZERO, |[tx, ty]| Vec2::new(-tx, -ty));
+                                                  .find_map(|act| _Translation.preview_ref(act).ok().copied())
+                                                  .map_or(Vec2::ZERO, |[tx, ty]| Vec2::new(-tx, -ty));
             let child = Model::spawn(child, translation, animations, models, markers, commands);
             match child {
                 Ok(child) => { commands.entity(target).add_child(child); }

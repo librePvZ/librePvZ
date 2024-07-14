@@ -43,7 +43,7 @@ fn main() {
             // primary_window: Some(AlmanacPlugin::window()),
             ..default()
         }))
-        .add_state::<AssetState>()
+        .init_state::<AssetState>()
         .add_plugins((
             EguiPlugin,
             BoundingBoxPlugin,

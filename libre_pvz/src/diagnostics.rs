@@ -19,14 +19,18 @@
 //! Diagnostics support for 2D graphics.
 
 use bevy::prelude::*;
-use bevy::sprite::{Anchor, Mesh2dHandle};
-use bevy::transform::TransformSystem;
-use bevy_prototype_lyon::prelude::*;
-use libre_pvz_animation::transform::{SpatialBundle2D, Transform2D};
+use bevy::render::view::VisibilitySystems;
+use bevy::sprite::Anchor;
 
 /// Plugin for displaying bounding boxes for 2D sprite graphics.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
+#[allow(missing_debug_implementations)]
 pub struct BoundingBoxPlugin;
+
+/// Gizmo group for bounding boxes.
+#[derive(Default, Reflect, GizmoConfigGroup)]
+#[allow(missing_debug_implementations)]
+pub struct BoundingBoxGizmos;
 
 /// Labels for the bounding box systems.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, SystemSet)]
@@ -39,121 +43,94 @@ pub enum BoundingBoxSystem {
 
 impl Plugin for BoundingBoxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ShapePlugin)
+        use BoundingBoxSystem::*;
+        app.init_gizmo_group::<BoundingBoxGizmos>()
             .configure_sets(PostUpdate, (
-                BoundingBoxSystem::AddBoundingBox,
-                BoundingBoxSystem::UpdateBoundingBox,
-            ).before(TransformSystem::TransformPropagate))
-            .add_systems(Update, add_bounding_box_system.in_set(BoundingBoxSystem::AddBoundingBox))
-            .add_systems(Update, update_bounding_box_system.in_set(BoundingBoxSystem::UpdateBoundingBox));
+                AddBoundingBox,
+                UpdateBoundingBox,
+            ).after(VisibilitySystems::CheckVisibility))
+            .add_systems(PostUpdate, add_bounding_box_system.in_set(AddBoundingBox))
+            .add_systems(PostUpdate, update_bounding_box_system.in_set(UpdateBoundingBox));
     }
 }
 
 /// Component marking the root entity for bounding boxes.
 #[derive(Debug, Default, Component)]
 pub struct BoundingBoxRoot {
-    /// Z-order for the bounding boxes added later.
-    pub z_order: f32,
     /// Visibility of all these bounding boxes.
     pub is_visible: bool,
 }
 
 /// Bounding box component.
 #[derive(Debug, Component)]
-pub struct BoundingBox(Entity, Vec2);
-
-// home made ShapeBundle to use Transform2D.
-#[derive(Bundle)]
-struct ShapeBundle2D {
-    path: Path,
-    mesh2d: Mesh2dHandle,
-    material: Handle<ColorMaterial>,
-    spatial: SpatialBundle2D,
-}
-
-impl ShapeBundle2D {
-    fn build(shape: &impl Geometry, transform: Transform2D) -> Self {
-        Self {
-            path: ShapePath::build_as(shape),
-            mesh2d: Mesh2dHandle::default(),
-            material: Handle::default(),
-            spatial: SpatialBundle2D {
-                local: transform,
-                ..SpatialBundle2D::default()
-            },
-        }
-    }
+pub struct BoundingBox {
+    root: Entity,
+    size: Vec2,
+    anchor: Anchor,
 }
 
 fn add_bounding_box_system(
-    roots: Query<(Entity, &BoundingBoxRoot), Added<BoundingBoxRoot>>,
+    roots: Query<Entity, Added<BoundingBoxRoot>>,
     children: Query<&Children>,
     sprites: Query<(&Sprite, Option<&Handle<Image>>)>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
 ) {
-    for (root, &BoundingBoxRoot { z_order, is_visible }) in roots.iter() {
+    for root in roots.iter() {
         let mut pending = vec![root];
-        let white_stroke = Stroke::new(Color::ANTIQUE_WHITE, 0.5);
-        let trans = Transform2D { z_order, ..Transform2D::default() };
         while let Some(current) = pending.pop() {
             if let Ok(children) = children.get(current) {
                 pending.extend(children.iter());
             }
             if let Ok((sprite, texture)) = sprites.get(current) {
-                if let Some(size) = sprite.custom_size.or_else(|| texture
-                    .and_then(|texture| images.get(texture))
-                    .map(|image| image.size().as_vec2())) {
-                    let bb = rectangle(size, &sprite.anchor);
-                    let mut bb = ShapeBundle2D::build(&bb, trans);
-                    bb.spatial.visibility = if is_visible { Visibility::Inherited } else { Visibility::Hidden };
-                    commands.entity(current).with_children(|builder| {
-                        builder.spawn((bb, white_stroke, BoundingBox(root, size)));
-                    });
+                if let Some(size) = sprite_size(&images, sprite, texture) {
+                    commands.entity(current).insert(BoundingBox { root, size, anchor: sprite.anchor });
                 }
             }
         }
     }
 }
 
-// TODO: duplicated lines
 #[allow(clippy::type_complexity)]
 fn update_bounding_box_system(
+    mut gizmos: Gizmos<BoundingBoxGizmos>,
     roots: Query<&BoundingBoxRoot>,
-    mut boxes: Query<(Entity, &mut BoundingBox, &mut Path, &Parent, &mut Visibility)>,
-    sprites: Query<(&Sprite, Option<&Handle<Image>>), Without<BoundingBox>>,
+    mut boxes: Query<(
+        Entity, &mut BoundingBox,
+        &GlobalTransform, &ViewVisibility,
+        &Sprite, Option<&Handle<Image>>,
+    )>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
 ) {
-    for (this, mut bb, mut path, parent, mut vis) in boxes.iter_mut() {
-        if let Ok(root) = roots.get(bb.0) {
-            if let Ok((sprite, texture)) = sprites.get(parent.get()) {
-                vis.set_if_neq(if root.is_visible { Visibility::Inherited } else { Visibility::Hidden });
-                if let Some(size) = sprite.custom_size.or_else(|| texture
-                    .and_then(|texture| images.get(texture))
-                    .map(|image| image.size().as_vec2())) {
-                    if bb.1 != size {
-                        bb.1 = size;
-                        *path = ShapePath::build_as(&rectangle(size, &sprite.anchor));
-                    }
-                }
+    for (this, mut bb, global_transform, visible, sprite, texture) in boxes.iter_mut() {
+        if let Ok(root) = roots.get(bb.root) {
+            if let Some(size) = sprite_size(&images, sprite, texture) {
+                if bb.size != size { bb.size = size; }
+            }
+            bb.anchor = sprite.anchor;
+            if visible.get() && root.is_visible {
+                let base = bb.anchor.as_vec();
+                let make_vertex = |anchor: Anchor| {
+                    let inner_pos = (anchor.as_vec() - base) * bb.size;
+                    let pos = global_transform.transform_point(inner_pos.extend(0.0));
+                    Vec2::new(pos.x, pos.y)
+                };
+                let top_left = make_vertex(Anchor::TopLeft);
+                let top_right = make_vertex(Anchor::TopRight);
+                let bottom_right = make_vertex(Anchor::BottomRight);
+                let bottom_left = make_vertex(Anchor::BottomLeft);
+                let vertices = [top_left, top_right, bottom_right, bottom_left, top_left];
+                gizmos.linestrip_2d(vertices, Color::WHITE);
             }
         } else { // root is no longer BoundingBoxRoot
-            commands.entity(this).despawn();
+            commands.entity(this).remove::<BoundingBox>();
         }
     }
 }
 
-fn rectangle(size: Vec2, anchor: &Anchor) -> shapes::Rectangle {
-    shapes::Rectangle {
-        extents: size,
-        origin: match anchor {
-            Anchor::Center => RectangleOrigin::Center,
-            Anchor::BottomLeft => RectangleOrigin::BottomLeft,
-            Anchor::BottomRight => RectangleOrigin::BottomRight,
-            Anchor::TopLeft => RectangleOrigin::TopLeft,
-            Anchor::TopRight => RectangleOrigin::TopRight,
-            anchor => RectangleOrigin::CustomCenter(anchor.as_vec() * size),
-        },
-    }
+fn sprite_size(images: &Assets<Image>, sprite: &Sprite, texture: Option<&Handle<Image>>) -> Option<Vec2> {
+    sprite.custom_size.or_else(|| texture
+        .and_then(|texture| images.get(texture))
+        .map(|image| image.size_f32()))
 }

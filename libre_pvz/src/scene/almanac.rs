@@ -214,10 +214,7 @@ fn init_anim(
             ..SpatialBundle2D::default()
         },
         Scaling,
-        BoundingBoxRoot {
-            z_order: 100.0,
-            is_visible: stage.show_bounding_box,
-        },
+        BoundingBoxRoot { is_visible: stage.show_bounding_box },
     )).id();
     commands.entity(almanac).add_child(scaling);
     stage.selected_meta = anim.description
@@ -256,7 +253,7 @@ fn animation_ui(
                 .num_columns(2)
                 .spacing([15.0, 4.0])
                 .show(ui, |ui|
-                    metrics_ui(ui, &mut stage, &diagnostics, anim, player.single_status_mut().unwrap()));
+                metrics_ui(ui, &mut stage, &diagnostics, anim, player.single_status_mut().unwrap()));
         });
 }
 
@@ -268,7 +265,7 @@ fn metrics_ui(
 ) {
     ui.label("FPS:");
     ui.label(format!("{:.2}", diagnostics
-        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.average())
         .unwrap_or(f64::NAN)));
     ui.end_row();
